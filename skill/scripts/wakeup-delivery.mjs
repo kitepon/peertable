@@ -4,6 +4,11 @@ export const BROADCAST_RECIPIENT = 'all'
 export const ROOM_UPDATE_FALLBACK =
   'room全体の状況が更新された。room.read_logで部屋を読み、状況を把握して次の行動を判断する。'
 
+/** member素性の正本はharness。旧server応答（vendorだけ）も受ける。 */
+export function memberHarness(member) {
+  return member?.harness ?? member?.vendor
+}
+
 export function collapseWakeBody(body) {
   return String(body ?? '').replace(/\s*\n+\s*/gu, ' / ')
 }
@@ -36,7 +41,7 @@ export function isWakeupBridgeTarget(member, options = {}) {
     && observe.tmux_target,
   )
   if (hasPane) return true
-  const harness = member.harness ?? member.vendor // 旧server互換
+  const harness = memberHarness(member)
   return harness === 'codex' || harness === 'grok'
 }
 

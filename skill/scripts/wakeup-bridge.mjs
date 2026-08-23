@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { resolveSeatObservation, tmuxArgv } from './seat-usage.mjs'
 import { keysForCodexPane } from './codex-dialog.mjs'
-import { BROADCAST_RECIPIENT, formatWakeNotice, isIdleSelfWake, isWakeupBridgeTarget, shouldDeferGrokWake } from './wakeup-delivery.mjs'
+import { BROADCAST_RECIPIENT, formatWakeNotice, isIdleSelfWake, isWakeupBridgeTarget, memberHarness, shouldDeferGrokWake } from './wakeup-delivery.mjs'
 import { bridgeRecordLive } from './bridge-record-live.mjs'
 
 const run = promisify(execFile)
@@ -310,7 +310,7 @@ async function wake(seat, msgs) {
   }
   const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
   const screen = String(pane.stdout ?? '')
-  if ((member.harness ?? member.vendor) === 'codex') {
+  if (memberHarness(member) === 'codex') {
     const dialog = keysForCodexPane(screen)
     if (dialog) {
       for (const key of dialog.keys) {
@@ -320,9 +320,9 @@ async function wake(seat, msgs) {
       return 'deferred'
     }
   }
-  if ((member.harness ?? member.vendor) === 'grok') {
+  if (memberHarness(member) === 'grok') {
     const tail = screen.split('\n').slice(-14).join('\n')
-    if (shouldDeferGrokWake((member.harness ?? member.vendor), tail)) {
+    if (shouldDeferGrokWake(memberHarness(member), tail)) {
       if (!deferredBusy.has(seat)) {
         log(`Grok席が実行中なのでidleまで待つ: ${seat} ← ${msgs.length} 件`)
         deferredBusy.add(seat)
@@ -352,7 +352,7 @@ async function wake(seat, msgs) {
   // ターンを中断**していた（実被弾 2026-08-22: 監査席が2秒ごとに中断され、監査が進まなかった）。
   // Claude 席は「受理された兆候」を成功とみなし、回復キーに Escape を使わない。
   const CLAUDE_ACCEPTED = /paste again to expand|\[Pasted text|esc to interrupt|✻|✽|✳|·\s*\w+ing…/u
-  const isClaude = (member.harness ?? member.vendor) === 'claude'
+  const isClaude = memberHarness(member) === 'claude'
   for (let attempt = 0; attempt < 3; attempt++) {
     await sleep(1200)
     const after = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
