@@ -268,7 +268,7 @@ export function isPaneProcessStopped(panePid, exec = execFileSync) {
 
 /**
  * paneのstatus行が公開しているtoken値だけを読む。
- * vendor固有のログや課金単価は推測せず、表示が無い席はnullのままにする。
+ * harness固有のログや課金単価は推測せず、表示が無い席はnullのままにする。
  */
 export function parsePaneTokenHint(pane) {
   if (typeof pane !== 'string') return null

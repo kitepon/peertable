@@ -1,15 +1,15 @@
 #!/bin/bash
 # 親（ベル等）が room へ着卓する。
-# usage: parent-join.sh <project_dir> [name] [model] [effort] [vendor]
+# usage: parent-join.sh <project_dir> [name] [model] [effort] [harness]
 #   name 既定は bell。broadcast廃止に伴いkickoff投稿は行わない。
-#   model / effort / vendor は任意。親はオーナーの対話セッション（決定40）なので、席と違って
+#   model / effort / harness は任意。親はオーナーの対話セッション（決定40）なので、席と違って
 #   起動時に確定した値を script が知らない——**渡された時だけ**参加者一覧の素性として登録する。
 #   渡さなければ欄ごと出ない（「不明」ではなく「素性を名乗っていない」）。
-#   vendor は claude（既定）、codex、または grok。model だけ渡して vendor を渡さない場合は
+#   harness は claude（既定）、codex、または grok。model だけ渡して harness を渡さない場合は
 #   claude とみなす（後方互換）。
 # 親は MCP を後付けできないので room へは HTTP API 直で入る（決定40 の operating notes）。
 set -e
-proj="$1"; name="${2:-bell}"; model="$3"; effort="$4"; vendor="$5"
+proj="$1"; name="${2:-bell}"; model="$3"; effort="$4"; harness="$5"
 mission=""
 if [ "${6:-}" = "--mission" ]; then mission="${7:-}"; fi
 state="$proj/.team/setup-state.json"
@@ -23,21 +23,22 @@ fi
 
 # 親はAiterm席ではない。Claude/Codex/Grokとも、親自身が所有するparent-watchを配送先にする。
 # tmux observeやCodex thread IDを登録すると、通常席bridge／外部resumeへ誤配送される。
-parent_vendor="$vendor"
-if [ -z "$parent_vendor" ] && [ -n "$model" ]; then
+parent_harness="$harness"
+if [ -z "$parent_harness" ] && [ -n "$model" ]; then
   case "$model" in
-    gpt-*|o[0-9]*) parent_vendor=codex ;;
-    grok*) parent_vendor=grok ;;
-    claude*|opus*|sonnet*|haiku*|fable*) parent_vendor=claude ;;
+    gpt-*|o[0-9]*) parent_harness=codex ;;
+    grok*) parent_harness=grok ;;
+    claude*|opus*|sonnet*|haiku*|fable*) parent_harness=claude ;;
   esac
 fi
-member=$(python3 - "$name" "$model" "$effort" "$parent_vendor" "$mission" <<'PY'
+member=$(python3 - "$name" "$model" "$effort" "$parent_harness" "$mission" <<'PY'
 import json, sys
-name, model, effort, vendor, mission = sys.argv[1:6]
+name, model, effort, harness, mission = sys.argv[1:6]
 # 台帳には canonical 欄だけを登録する（settings / role 単数の重複欄は 2026-08-22 廃止）
 body = {'name': name, 'roles': ['統括']}
-if vendor:
-    body['vendor'] = vendor
+if harness:
+    body['harness'] = harness
+    body['vendor'] = harness  # 旧版 room server 互換
 if model:
     body['model'] = model
 if effort:
@@ -45,7 +46,7 @@ if effort:
 if mission:
     body['mission'] = mission
 body['observe'] = None
-body['delivery'] = {'kind': 'parent_watch', 'host': vendor or ''}
+body['delivery'] = {'kind': 'parent_watch', 'host': harness or ''}
 print(json.dumps(body, ensure_ascii=False))
 PY
 )
@@ -75,11 +76,11 @@ echo "親の権限境界: 各ToDoのクローズは監査担当が行い、親�
 
 # parent-watchが初回headを固定する。以後のDMはwatcher不在時間を含め
 # 永続cursorからcatch-upされる。host内のbackground task自体は親セッションだけが所有できる。
-if PEERTABLE_PARENT_HOST="$parent_vendor" node "$here/parent-watch.mjs" "$proj" "$name" --prime; then
-  echo "parent-watch cursor ready: ${name}（host=${parent_vendor}）"
-  if [ "$parent_vendor" = "codex" ]; then
+if PEERTABLE_PARENT_HOST="$parent_harness" node "$here/parent-watch.mjs" "$proj" "$name" --prime; then
+  echo "parent-watch cursor ready: ${name}（host=${parent_harness}）"
+  if [ "$parent_harness" = "codex" ]; then
     echo "PARENT_WATCH_START_REQUIRED: Codex親のbackground taskで1秒ごとに ${here}/codex-parent-watch.sh ${proj} ${name} を都度実行し、空でないstdoutだけを親turnへnotifyすること。background taskはloopを続けるが、Node processや端末sessionは常駐させない"
-  elif [ "$parent_vendor" = "grok" ]; then
+  elif [ "$parent_harness" = "grok" ]; then
     echo "PARENT_WATCH_START_REQUIRED: Grok Monitor（persistent）で ${here}/parent-watch.mjs ${proj} ${name} --follow を1回だけ起動し、通知後も同じMonitorで待機を続けること。通常席用wakeup-bridgeに親を載せない"
   else
     echo "PARENT_WATCH_START_REQUIRED: Claude Monitor（persistent）で ${here}/parent-watch.mjs ${proj} ${name} --follow を1回だけ起動し、通知後も同じMonitorで待機を続けること"

@@ -136,7 +136,7 @@ process.on('SIGTERM', cleanup)
 process.on('SIGINT', cleanup)
 
 // 席ごとに未配達を溜めて、2秒ごとにまとめて1回起こす（連投で席を何度も起こさない）。
-// pending は room message の宛先名から作る。起動引数や vendor は候補集合を決めない。
+// pending は room message の宛先名から作る。起動引数や harness は候補集合を決めない。
 const pending = new Map() // name -> Map<seq, message>
 const deliveryStates = new Map() // seq -> { message, targets, delivered }
 let seats = []
@@ -310,7 +310,7 @@ async function wake(seat, msgs) {
   }
   const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
   const screen = String(pane.stdout ?? '')
-  if (member.vendor === 'codex') {
+  if ((member.harness ?? member.vendor) === 'codex') {
     const dialog = keysForCodexPane(screen)
     if (dialog) {
       for (const key of dialog.keys) {
@@ -320,9 +320,9 @@ async function wake(seat, msgs) {
       return 'deferred'
     }
   }
-  if (member.vendor === 'grok') {
+  if ((member.harness ?? member.vendor) === 'grok') {
     const tail = screen.split('\n').slice(-14).join('\n')
-    if (shouldDeferGrokWake(member.vendor, tail)) {
+    if (shouldDeferGrokWake((member.harness ?? member.vendor), tail)) {
       if (!deferredBusy.has(seat)) {
         log(`Grok席が実行中なのでidleまで待つ: ${seat} ← ${msgs.length} 件`)
         deferredBusy.add(seat)
@@ -352,7 +352,7 @@ async function wake(seat, msgs) {
   // ターンを中断**していた（実被弾 2026-08-22: 監査席が2秒ごとに中断され、監査が進まなかった）。
   // Claude 席は「受理された兆候」を成功とみなし、回復キーに Escape を使わない。
   const CLAUDE_ACCEPTED = /paste again to expand|\[Pasted text|esc to interrupt|✻|✽|✳|·\s*\w+ing…/u
-  const isClaude = member.vendor === 'claude'
+  const isClaude = (member.harness ?? member.vendor) === 'claude'
   for (let attempt = 0; attempt < 3; attempt++) {
     await sleep(1200)
     const after = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))

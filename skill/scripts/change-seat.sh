@@ -1,6 +1,6 @@
 #!/bin/bash
-# 席の vendor / model / effort を変更する。
-# usage: change-seat.sh <project_dir> <member> [--vendor <vendor>] [--model <model>] [--effort <effort>] [--parent <name>] [--reason <text>]
+# 席の harness / model / effort を変更する。
+# usage: change-seat.sh <project_dir> <member> [--harness <harness>] [--model <model>] [--effort <effort>] [--parent <name>] [--reason <text>]
 #
 # **自然文の依頼を再解釈しない。** 依頼の意味・本人の意図・変更してよい局面を判断するのは親である AI で、
 # この script が受け取るのは親が確定した target だけである（旧 change-effort.sh の
@@ -22,10 +22,10 @@ credential_helper="${PEERTABLE_CREDENTIAL_HELPER:-$script_dir/seat-credential.mj
 
 proj="${1:-}"; name="${2:-}"
 shift 2 2>/dev/null || true
-opt_vendor=""; opt_model=""; opt_effort=""; parent="bell"; reason=""
+opt_harness=""; opt_model=""; opt_effort=""; parent="bell"; reason=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --vendor) opt_vendor="${2:-}"; shift 2 || true ;;
+    --harness|--vendor) opt_harness="${2:-}"; shift 2 || true ;;  # --vendor は旧名互換
     --model)  opt_model="${2:-}";  shift 2 || true ;;
     --effort) opt_effort="${2:-}"; shift 2 || true ;;
     --parent) parent="${2:-}";     shift 2 || true ;;
@@ -34,7 +34,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$proj" ] && [ -n "$name" ] || {
-  echo "SEAT_CHANGE_ARGS_INVALID: usage: change-seat.sh <project_dir> <member> [--vendor <vendor>] [--model <model>] [--effort <effort>] [--parent <name>] [--reason <text>]" >&2
+  echo "SEAT_CHANGE_ARGS_INVALID: usage: change-seat.sh <project_dir> <member> [--harness <harness>] [--model <model>] [--effort <effort>] [--parent <name>] [--reason <text>]" >&2
   exit 2
 }
 [ -n "$opt_model" ] || [ -n "$opt_effort" ] || {
@@ -57,22 +57,22 @@ meta=$(printf '%s' "$members" | python3 -c '
 import json,sys
 name=sys.argv[1]
 member=next((m for m in json.load(sys.stdin).get("members",[]) if m.get("name")==name),None)
-if not member or member.get("vendor") not in ("claude","codex","grok") or not member.get("model"):
+if not member or (member.get("harness") or member.get("vendor")) not in ("claude","codex","grok") or not member.get("model"):
     raise SystemExit(1)
 roles=member.get("roles") or []
-print("\t".join((member["vendor"],member["model"],member.get("effort") or "",member.get("aiterm_session_id") or "",",".join(roles))))
-' "$name") || { echo "SEAT_CHANGE_MEMBER_METADATA_MISSING: ${name} のvendor/modelが要る" >&2; exit 1; }
-IFS=$'\t' read -r old_vendor old_model old_effort aiterm_session_id old_role <<EOF
+print("\t".join(((member.get("harness") or member.get("vendor")),member["model"],member.get("effort") or "",member.get("aiterm_session_id") or "",",".join(roles))))
+' "$name") || { echo "SEAT_CHANGE_MEMBER_METADATA_MISSING: ${name} のharness/modelが要る" >&2; exit 1; }
+IFS=$'\t' read -r old_harness old_model old_effort aiterm_session_id old_role <<EOF
 $meta
 EOF
 
-vendor="${opt_vendor:-$old_vendor}"
-case "$vendor" in
+harness="${opt_harness:-$old_harness}"
+case "$harness" in
   claude|codex|grok) ;;
-  *) echo "SEAT_CHANGE_VENDOR_UNSUPPORTED: vendor=${vendor}（claude / codex / grok のみ）" >&2; exit 2 ;;
+  *) echo "SEAT_CHANGE_HARNESS_UNSUPPORTED: harness=${harness}（claude / codex / grok のみ）" >&2; exit 2 ;;
 esac
-if [ "$vendor" != "$old_vendor" ] && { [ -z "$opt_model" ] || [ -z "$opt_effort" ]; }; then
-  echo "SEAT_CHANGE_ARGS_INVALID: vendor変更には --model と --effort の明示指定が要る" >&2
+if [ "$harness" != "$old_harness" ] && { [ -z "$opt_model" ] || [ -z "$opt_effort" ]; }; then
+  echo "SEAT_CHANGE_ARGS_INVALID: harness変更には --model と --effort の明示指定が要る" >&2
   exit 2
 fi
 model="${opt_model:-$old_model}"
@@ -83,7 +83,7 @@ effort="${opt_effort:-$old_effort}"
   echo "SEAT_CHANGE_EFFORT_UNKNOWN: ${name} の現在effortがmetadataに無い。--effort を明示する" >&2; exit 1
 }
 
-if [ "$model" = "$old_model" ] && [ "$effort" = "$old_effort" ] && [ "$vendor" = "$old_vendor" ]; then
+if [ "$model" = "$old_model" ] && [ "$effort" = "$old_effort" ] && [ "$harness" = "$old_harness" ]; then
   echo "SEAT_CHANGE_NOOP: ${name} は既に model=${model} / effort=${effort}（再起動しない）"
   exit 0
 fi
@@ -102,7 +102,7 @@ case "$screen" in
 esac
 
 # target の検証は live 面だけを使い、古くなる hardcode を足さない。
-case "$vendor" in
+case "$harness" in
   claude)
     # Claude には非破壊で引ける model catalog が無い（`--help` の alias 例は catalog ではなく、
     # 実際 2026-08-11 に `fable` は例に載ったまま live では unavailable だった）。
@@ -166,7 +166,7 @@ raise SystemExit(0 if model in models else 1)
 esac
 
 changes=""
-[ "$vendor" = "$old_vendor" ] || changes="vendor ${old_vendor} → ${vendor}"
+[ "$harness" = "$old_harness" ] || changes="harness ${old_harness} → ${harness}"
 [ "$model" = "$old_model" ] || {
   [ -z "$changes" ] || changes="$changes / "
   changes="${changes}model ${old_model} → ${model}"
@@ -180,7 +180,7 @@ credential_file=$(env -u PEERTABLE_POST_TOKEN node "$credential_helper" path "$p
   echo "SEAT_CHANGE_CREDENTIAL_MISSING: ${name} のroom credentialを特定できない" >&2; exit 1
 }
 
-if [ "$vendor" = "$old_vendor" ]; then
+if [ "$harness" = "$old_harness" ]; then
   [ -n "$aiterm_session_id" ] || {
     echo "SEAT_CHANGE_AITERM_SESSION_MISSING: ${name} にAiterm managed session_idが無い" >&2; exit 1
   }
@@ -190,7 +190,7 @@ if [ "$vendor" = "$old_vendor" ]; then
   node "$script_dir/aiterm-configure.mjs" "${configure_args[@]}" >/dev/null || {
     echo "SEAT_CHANGE_AITERM_CONFIGURE_FAILED: ${name} の設定は変更していない" >&2; exit 1
   }
-  identity=$(python3 -c 'import json,sys;print(json.dumps({"name":sys.argv[1],"vendor":sys.argv[2],"model":sys.argv[3],"effort":sys.argv[4],"aiterm_session_id":sys.argv[5]}))' "$name" "$vendor" "$model" "$effort" "$aiterm_session_id")
+  identity=$(python3 -c 'import json,sys;print(json.dumps({"name":sys.argv[1],"harness":sys.argv[2],"vendor":sys.argv[2],"model":sys.argv[3],"effort":sys.argv[4],"aiterm_session_id":sys.argv[5]}))' "$name" "$harness" "$model" "$effort" "$aiterm_session_id")
   env -u PEERTABLE_POST_TOKEN node "$credential_helper" request "$credential_file" POST \
     "$url/api/$room/members" "$identity" >/dev/null || {
     echo "SEAT_CHANGE_CHANGED_BUT_METADATA_FAILED: ${name} は設定済み、room metadataを同期できない" >&2; exit 1
@@ -209,10 +209,10 @@ else
   }
   brief="席設定が変更され（${changes}）、席を再起動しました。.team/roles/member.mdと工程正本・roomログから再着任し、進行中taskを続けてください。"
   if ! "$launch" "$proj" "$name" --roles "$old_role" --model "$model" --effort "$effort" "$brief"; then
-    echo "SEAT_CHANGE_RESTART_FAILED: ${changes}。旧設定（vendor=${old_vendor} / model=${old_model} / effort=${old_effort:-default}）へrollbackする" >&2
+    echo "SEAT_CHANGE_RESTART_FAILED: ${changes}。旧設定（harness=${old_harness} / model=${old_model} / effort=${old_effort:-default}）へrollbackする" >&2
     rollback_brief="席設定の変更に失敗して旧設定へrollbackしました。.team/roles/member.mdと工程正本・roomログから再着任してください。"
     if "$launch" "$proj" "$name" --roles "$old_role" --model "$old_model" --effort "$old_effort" "$rollback_brief"; then
-      echo "SEAT_CHANGE_ROLLED_BACK: ${name} は vendor=${old_vendor} / model=${old_model} / effort=${old_effort:-default} で再着席" >&2
+      echo "SEAT_CHANGE_ROLLED_BACK: ${name} は harness=${old_harness} / model=${old_model} / effort=${old_effort:-default} で再着席" >&2
     else
       echo "SEAT_CHANGE_ROLLBACK_FAILED: ${name} の席を手動で復旧する必要がある" >&2
     fi
@@ -226,11 +226,11 @@ members_after=$(curl -sf "$url/api/$room/members") || {
 }
 if ! printf '%s' "$members_after" | python3 -c '
 import json,sys
-name,vendor,model,effort=sys.argv[1:5]
+name,harness,model,effort=sys.argv[1:5]
 m=next((m for m in json.load(sys.stdin).get("members",[]) if m.get("name")==name),{})
-raise SystemExit(0 if m.get("vendor")==vendor and m.get("model")==model and m.get("effort")==effort else 1)
-' "$name" "$vendor" "$model" "$effort"; then
-  echo "SEAT_CHANGE_CHANGED_BUT_UNVERIFIED: 席は再起動済み、member metadataが vendor=${vendor} / model=${model} / effort=${effort} でない" >&2
+raise SystemExit(0 if (m.get("harness") or m.get("vendor"))==harness and m.get("model")==model and m.get("effort")==effort else 1)
+' "$name" "$harness" "$model" "$effort"; then
+  echo "SEAT_CHANGE_CHANGED_BUT_UNVERIFIED: 席は再起動済み、member metadataが harness=${harness} / model=${model} / effort=${effort} でない" >&2
   exit 1
 fi
 

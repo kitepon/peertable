@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 02_models.md の役割→1位〜3位から、着席可能な vendor / model / effort を解決する。
+// 02_models.md の役割→1位〜3位から、着席可能な harness / model / effort を解決する。
 // 具体モデル名はここに持たない。台帳と順位表をその場で読む。
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const EFFORT = /×\s*(none|low|medium|high|xhigh|max|ultra)/iu
-const vendorOf = (modelName) => {
+const harnessOf = (modelName) => {
   const name = String(modelName).trim()
   if (/^claude\b/iu.test(name)) return 'claude'
   if (/^gpt\b|^gpt-/iu.test(name)) return 'codex'
@@ -62,9 +62,9 @@ export function parseLedger(markdown) {
   return rows.flatMap((row) => {
     const name = row['モデル']
     const slug = slugOf(row['slug'] ?? '')
-    const vendor = vendorOf(name)
-    if (!name || !slug || !vendor) return []
-    return [{ name, slug, vendor }]
+    const harness = harnessOf(name)
+    if (!name || !slug || !harness) return []
+    return [{ name, slug, harness }]
   })
 }
 
@@ -103,7 +103,7 @@ export function listOfficialRoles(markdown) {
     .filter(Boolean)
 }
 
-export function vendorFromSlug(slug) {
+export function harnessFromSlug(slug) {
   const text = String(slug ?? '').trim().toLowerCase()
   if (!text) return null
   if (/^(gpt-|gpt\b|o[0-9])/u.test(text)) return 'codex'
@@ -125,8 +125,8 @@ const parseRoleList = (roles) => {
   return list
 }
 
-export function resolveSeatPlacement(role, markdown, { source = '', vendor = '' } = {}) {
-  const wantVendor = String(vendor ?? '').trim()
+export function resolveSeatPlacement(role, markdown, { source = '', harness = '' } = {}) {
+  const wantHarness = String(harness ?? '').trim()
   const wanted = String(role ?? '').trim()
   if (!wanted) {
     return { error: 'SEAT_ROLE_REQUIRED', message: 'role が空（02_models の役割名が要る）' }
@@ -151,12 +151,12 @@ export function resolveSeatPlacement(role, markdown, { source = '', vendor = '' 
       dropped.push({ rank, reason: 'not-in-ledger', cell: parsed.cell })
       continue
     }
-    if (wantVendor && hit.vendor !== wantVendor) {
-      dropped.push({ rank, reason: `vendor-mismatch(want ${wantVendor})`, cell: parsed.cell })
+    if (wantHarness && hit.harness !== wantHarness) {
+      dropped.push({ rank, reason: `harness-mismatch(want ${wantHarness})`, cell: parsed.cell })
       continue
     }
     if (hit.slug === 'haiku') {
-      return { role: wanted, rank, vendor: hit.vendor, model: hit.slug, effort: '', source, dropped }
+      return { role: wanted, rank, harness: hit.harness, model: hit.slug, effort: '', source, dropped }
     }
     if (!parsed.effort) {
       dropped.push({ rank, reason: 'effort-missing', cell: parsed.cell })
@@ -165,7 +165,7 @@ export function resolveSeatPlacement(role, markdown, { source = '', vendor = '' 
     return {
       role: wanted,
       rank,
-      vendor: hit.vendor,
+      harness: hit.harness,
       model: hit.slug,
       effort: parsed.effort,
       source,
@@ -174,13 +174,13 @@ export function resolveSeatPlacement(role, markdown, { source = '', vendor = '' 
   }
   return {
     error: 'SEAT_PLACEMENT_UNRESOLVABLE',
-    message: `${wanted}${wantVendor ? `（vendor=${wantVendor}）` : ''} を着席可能な vendor/model/effort へ解決できない`,
+    message: `${wanted}${wantHarness ? `（harness=${wantHarness}）` : ''} を着席可能な harness/model/effort へ解決できない`,
     dropped,
   }
 }
 
 export function resolveSeatIdentity({
-  roles, model, effort, vendor, markdown, source = '', allowParentRole = false,
+  roles, model, effort, harness, markdown, source = '', allowParentRole = false,
 } = {}) {
   const roleList = parseRoleList(roles)
   if (roleList.length === 0) {
@@ -204,7 +204,7 @@ export function resolveSeatIdentity({
     return {
       roles: roleList,
       settings: {
-        vendor: String(vendor ?? '').trim(),
+        harness: String(harness ?? '').trim(),
         model: '',
         effort: String(effort ?? '').trim(),
       },
@@ -214,29 +214,29 @@ export function resolveSeatIdentity({
 
   const requestedModel = String(model ?? '').trim()
   const requestedEffort = String(effort ?? '').trim()
-  const requestedVendor = String(vendor ?? '').trim()
+  const requestedHarness = String(harness ?? '').trim()
   if (requestedModel) {
-    const resolvedVendor = requestedVendor || vendorFromSlug(requestedModel)
-      || parseLedger(markdown).find((row) => row.slug === requestedModel)?.vendor
-    if (!resolvedVendor) {
+    const resolvedHarness = requestedHarness || harnessFromSlug(requestedModel)
+      || parseLedger(markdown).find((row) => row.slug === requestedModel)?.harness
+    if (!resolvedHarness) {
       return {
-        error: 'SEAT_VENDOR_UNRESOLVED',
-        message: `model=${requestedModel} の vendor を推定できない（--vendor が要る）`,
+        error: 'SEAT_HARNESS_UNRESOLVED',
+        message: `model=${requestedModel} の harness を推定できない（--harness が要る）`,
       }
     }
     return {
       roles: roleList,
-      settings: { vendor: resolvedVendor, model: requestedModel, effort: requestedEffort },
+      settings: { harness: resolvedHarness, model: requestedModel, effort: requestedEffort },
       source,
     }
   }
 
-  const first = resolveSeatPlacement(roleList[0], markdown, { source, vendor: requestedVendor })
+  const first = resolveSeatPlacement(roleList[0], markdown, { source, harness: requestedHarness })
   if (first.error) return first
   return {
     roles: roleList,
     settings: {
-      vendor: first.vendor,
+      harness: first.harness,
       model: first.model,
       effort: requestedEffort || first.effort || '',
     },
@@ -251,14 +251,15 @@ if (isMain) {
   let roles = ''
   let model = ''
   let effort = ''
-  let vendor = ''
+  let harness = ''
   const positional = []
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i]
     if (arg === '--roles') { roles = args[++i] ?? ''; continue }
     if (arg === '--model') { model = args[++i] ?? ''; continue }
     if (arg === '--effort') { effort = args[++i] ?? ''; continue }
-    if (arg === '--vendor') { vendor = args[++i] ?? ''; continue }
+    // --vendor は旧名の互換 alias
+    if (arg === '--harness' || arg === '--vendor') { harness = args[++i] ?? ''; continue }
     positional.push(arg)
   }
   if (!roles) roles = positional[0] ?? ''
@@ -270,7 +271,7 @@ if (isMain) {
     fail('SEAT_MODELS_DOC_MISSING', `02_models.md が無い: ${doc}`)
   }
   const result = resolveSeatIdentity({
-    roles, model, effort, vendor, markdown: readFileSync(doc, 'utf8'), source: doc,
+    roles, model, effort, harness, markdown: readFileSync(doc, 'utf8'), source: doc,
   })
   if (result.error) fail(result.error, result.message)
   process.stdout.write(`${JSON.stringify(result)}\n`)

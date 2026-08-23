@@ -13,7 +13,7 @@ import { findModelsDoc, resolveSeatIdentity } from '../skill/scripts/resolve-sea
 
 // client.mjs 側のハードコード版数。package.json の version と一致していることを
 // diagnostics の version_consistency が見る（2 つの版数源の drift 検出。決定45）
-const MCP_VERSION = '0.5.1'
+const MCP_VERSION = '0.6.0'
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const USAGE = `usage:
@@ -159,7 +159,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
 await mcp.connect(new StdioServerTransport())
 
 // 参加登録し、現在のログ末尾から未読を数え始める。
-// 素性（vendor/model/effort/role）は launch-seat.sh が env へ入れる。**登録のたびに載せる**——
+// 素性（harness/model/effort/role）は launch-seat.sh が env へ入れる。**登録のたびに載せる**——
 // 登録は client の起動ごとに繰り返し起きるので、1回きりの経路に置くと
 // member の状態が失われた時に二度と戻らない（server 側は渡された欄だけ更新する upsert）
 function observeSelf() {
@@ -204,7 +204,10 @@ const roles = parseRoles(process.env.PEERTABLE_ROLES || process.env.PEERTABLE_RO
 // 台帳（room server の SQLite）へは canonical 欄だけを登録する。settings / role（単数）の
 // 重複欄は 2026-08-22 に廃止——同一情報の重複管理禁止（オーナー裁定）。
 const IDENTITY = Object.fromEntries(Object.entries({
-  vendor: process.env.PEERTABLE_VENDOR,
+  // 正本は harness。旧 launcher（PEERTABLE_VENDOR だけを置く版)からの起動も受ける。
+  harness: process.env.PEERTABLE_HARNESS ?? process.env.PEERTABLE_VENDOR,
+  // 旧版 room server（vendor 列世代）へ登録しても素性が落ちないための互換併記。
+  vendor: process.env.PEERTABLE_HARNESS ?? process.env.PEERTABLE_VENDOR,
   model: process.env.PEERTABLE_MODEL,
   effort: process.env.PEERTABLE_EFFORT,
   roles,
@@ -220,7 +223,7 @@ const IDENTITY = Object.fromEntries(Object.entries({
     roles,
     model: process.env.PEERTABLE_MODEL,
     effort: process.env.PEERTABLE_EFFORT,
-    vendor: process.env.PEERTABLE_VENDOR,
+    harness: process.env.PEERTABLE_HARNESS ?? process.env.PEERTABLE_VENDOR,
     markdown: readFileSync(modelsDoc, 'utf8'),
   })
   if (checked.error) throw new Error(`${checked.error}: ${checked.message}`)

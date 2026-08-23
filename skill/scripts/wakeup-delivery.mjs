@@ -36,8 +36,8 @@ export function isWakeupBridgeTarget(member, options = {}) {
     && observe.tmux_target,
   )
   if (hasPane) return true
-  const vendor = member.vendor
-  return vendor === 'codex' || vendor === 'grok'
+  const harness = member.harness ?? member.vendor // 旧server互換
+  return harness === 'codex' || harness === 'grok'
 }
 
 /**
@@ -62,8 +62,8 @@ export function isIdleSelfWake(msg) {
 }
 
 /** Grok 既定はキュー投入。busy 中に積むと今のターンへ混ざらない。 */
-export function shouldDeferGrokWake(vendor, tail) {
-  if (vendor !== 'grok') return false
+export function shouldDeferGrokWake(harness, tail) {
+  if (harness !== 'grok') return false
   if (typeof tail !== 'string') return false
   if (classifyPaneTail(tail) === 'busy') return true
   if (tail.includes('send a message to interrupt')) return true

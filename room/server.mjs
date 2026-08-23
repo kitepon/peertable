@@ -40,7 +40,7 @@ db.exec(`
     room TEXT NOT NULL,
     name TEXT NOT NULL,
     joined_at TEXT NOT NULL,
-    vendor TEXT, model TEXT, effort TEXT,
+    harness TEXT, model TEXT, effort TEXT,
     roles TEXT,
     mission TEXT,
     delivery TEXT,
@@ -53,8 +53,15 @@ db.exec(`
   )
 `)
 
+// 既存 DB（旧 vendor 列世代）は一度だけ harness 列を足して値を引き継ぐ。旧列は rollback 用に残す。
+{
+  const columns = db.prepare('PRAGMA table_info(members)').all().map((c) => c.name)
+  if (!columns.includes('harness')) db.exec('ALTER TABLE members ADD COLUMN harness TEXT')
+  if (columns.includes('vendor')) db.exec('UPDATE members SET harness = vendor WHERE harness IS NULL')
+}
+
 const MEMBER_COLUMNS = [
-  'joined_at', 'vendor', 'model', 'effort', 'roles', 'mission', 'delivery', 'observe',
+  'joined_at', 'harness', 'model', 'effort', 'roles', 'mission', 'delivery', 'observe',
   'aiterm_session_id', 'status', 'status_at', 'busy_since', 'pane_token_hint', 'usage_source',
   'pid', 'started_identity', 'argv_digest', 'identity_recorded_at',
 ]
@@ -67,6 +74,8 @@ function rowToMember(row) {
     if (value === null || value === undefined) continue
     member[column] = MEMBER_JSON_COLUMNS.has(column) ? JSON.parse(value) : value
   }
+  // 旧読者（member.vendor を読む旧版 bridge/skill）向けの互換 mirror。正本は harness。
+  if (member.harness !== undefined) member.vendor = member.harness
   return member
 }
 const listMembers = roomName => db.prepare('SELECT * FROM members WHERE room = ? ORDER BY joined_at').all(roomName).map(rowToMember)
@@ -85,15 +94,17 @@ function putMember(roomName, member) {
     VALUES (:room, :name, ${MEMBER_COLUMNS.map(c => `:${c}`).join(', ')})`).run(values)
 }
 
-// 旧形式（settings/role の重複欄）を canonical へ畳む。台帳には canonical だけを置く。
+// 旧形式（settings/role の重複欄・旧 vendor 欄）を canonical へ畳む。台帳には canonical だけを置く。
 function normalizeMemberMeta(meta) {
-  const { role, settings, ...rest } = meta
+  const { role, settings, vendor, ...rest } = meta
   const out = { ...rest }
   if (out.roles === undefined && role) out.roles = [role]
+  if (out.harness === undefined && vendor !== undefined) out.harness = vendor
   if (settings && typeof settings === 'object') {
-    for (const key of ['vendor', 'model', 'effort']) {
+    for (const key of ['harness', 'model', 'effort']) {
       if (out[key] === undefined && settings[key] !== undefined) out[key] = settings[key]
     }
+    if (out.harness === undefined && settings.vendor !== undefined) out.harness = settings.vendor
   }
   for (const key of Object.keys(out)) if (out[key] === undefined) delete out[key]
   return out
@@ -173,7 +184,7 @@ function normalizeAudience(to, toNames) {
 
 // SSE の member イベントで押し込む欄。閲覧者が気づく欄だけに絞る（POST /members 参照）。
 // roles は配列なので JSON 比較で差分を見る
-const MEMBER_EVENT_FIELDS = ['status', 'busy_since', 'vendor', 'model', 'effort', 'roles', 'mission']
+const MEMBER_EVENT_FIELDS = ['status', 'busy_since', 'harness', 'model', 'effort', 'roles', 'mission']
 const memberFieldChanged = (before, after) =>
   MEMBER_EVENT_FIELDS.some(f => JSON.stringify(before?.[f] ?? null) !== JSON.stringify(after?.[f] ?? null))
 
@@ -272,7 +283,7 @@ http.createServer(async (req, res) => {
     }
     if (req.method === 'POST' && rest === 'members') {
       const { name, ...meta } = JSON.parse(body)
-      // 素性（vendor/model/effort/role）や稼働状態は、名前以外の欄をそのまま任意欄として持つ。
+      // 素性（harness/model/effort/role）や稼働状態は、名前以外の欄をそのまま任意欄として持つ。
       // **渡された欄だけ更新し、渡されなかった欄は既存を保つ**——席の client は `{name}` だけで
       // 登録するので、これが無いと再接続のたびに素性が消える。`joined_at` は最初の登録を保つ。
       // observe:null は「取れなかった」であって「記述子を消せ」ではない。上書きすると

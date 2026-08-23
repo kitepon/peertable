@@ -1,25 +1,25 @@
 #!/bin/bash
 # 席を1つ立てる（tmux 作成 → env 注入 → エージェント起動 → 既知ダイアログ通過 → 着席確認）。
-# usage: launch-seat.sh <project_dir> <name> --roles <role>[,<role>...] [--mission <text>] [--model <slug>] [--effort <effort>] [--vendor <vendor>] [brief]
+# usage: launch-seat.sh <project_dir> <name> --roles <role>[,<role>...] [--mission <text>] [--model <slug>] [--effort <effort>] [--harness <harness>] [brief]
 #   --roles: 必須。02_models の公式役割。位置引数に公式役割を置いてもよい
 #   --model: 任意。省略時は先頭役割の着席可能な1位。指定時は表外でも通す
 #   brief: 着席が成立したら送る着任指示（省略時は送らない）
 set -e
 usage() {
-  echo "usage: launch-seat.sh <project_dir> <name> --roles <role>[,<role>...] [--mission <text>] [--model <slug>] [--effort <effort>] [--vendor <vendor>] [brief]" >&2
+  echo "usage: launch-seat.sh <project_dir> <name> --roles <role>[,<role>...] [--mission <text>] [--model <slug>] [--effort <effort>] [--harness <harness>] [brief]" >&2
 }
 proj="$1"; name="$2"
 [ -n "$proj" ] && [ -n "$name" ] || { usage; exit 1; }
 shift 2
 brief=""
 roles=""; mission=""
-opt_model=""; opt_vendor=""; opt_effort=""
+opt_model=""; opt_harness=""; opt_effort=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --roles) roles="${2:-}"; shift 2 ;;
     --mission) mission="${2:-}"; shift 2 ;;
     --model) opt_model="${2:-}"; shift 2 ;;
-    --vendor) opt_vendor="${2:-}"; shift 2 ;;
+    --harness|--vendor) opt_harness="${2:-}"; shift 2 ;;  # --vendor は旧名互換
     --effort) opt_effort="${2:-}"; shift 2 ;;
     --*) echo "SEAT_LAUNCH_ARGS_INVALID: 不明な引数 $1" >&2; usage; exit 1 ;;
     *)
@@ -65,26 +65,26 @@ aiterm_session_id=""
 placement_argv=(--roles "$roles")
 [ -n "$opt_model" ] && placement_argv+=(--model "$opt_model")
 [ -n "$opt_effort" ] && placement_argv+=(--effort "$opt_effort")
-[ -n "$opt_vendor" ] && placement_argv+=(--vendor "$opt_vendor")
+[ -n "$opt_harness" ] && placement_argv+=(--harness "$opt_harness")
 placement=$(node "$placement_helper" "${placement_argv[@]}") || exit "$?"
-IFS=$'\t' read -r model vendor effort role <<EOF
+IFS=$'\t' read -r model harness effort role <<EOF
 $(python3 -c 'import json,sys
 p=json.load(sys.stdin)
 s=p.get("settings") or {}
 roles=",".join(p.get("roles") or [])
-print("\t".join((s.get("model") or "", s.get("vendor") or "", s.get("effort") or "", roles)))' <<<"$placement")
+print("\t".join((s.get("model") or "", s.get("harness") or "", s.get("effort") or "", roles)))' <<<"$placement")
 EOF
-echo "SEAT_PLACEMENT: ${role} → ${vendor} / ${model}${effort:+ / $effort}"
+echo "SEAT_PLACEMENT: ${role} → ${harness} / ${model}${effort:+ / $effort}"
 python3 -c 'import json,sys
 p=json.load(sys.stdin)
 for item in p.get("dropped") or []:
     print("SEAT_PLACEMENT_DROPPED: rank %s %s %s" % (item.get("rank"), item.get("reason"), item.get("cell") or ""), file=sys.stderr)
 ' <<<"$placement" || true
-case "$vendor" in
+case "$harness" in
   claude|codex|grok) ;;
-  *) echo "SEAT_LAUNCH_VENDOR_UNSUPPORTED: vendor=${vendor}" >&2; exit 1 ;;
+  *) echo "SEAT_LAUNCH_HARNESS_UNSUPPORTED: harness=${harness}" >&2; exit 1 ;;
 esac
-if [ "$vendor" = "claude" ] && [ -n "$effort" ]; then
+if [ "$harness" = "claude" ] && [ -n "$effort" ]; then
   case "$effort" in
     low|medium|high|xhigh|max) ;;
     *) echo "unknown effort: ${effort}（claude は low|medium|high|xhigh|max）" >&2; exit 1 ;;
@@ -221,7 +221,7 @@ fi
 # 席を畳む前に測るのが要点である——ここで落ちれば、動いている席を殺さずに済む。
 export PATH="${HOME}/.grok/bin:${PATH}"
 preflight_dir="${TMPDIR:-/tmp}"
-case "$vendor" in
+case "$harness" in
   claude) preflight_cmd=(claude --model "$model" -p "ping") ;;
   codex)  preflight_cmd=(codex exec --model "$model" --skip-git-repo-check "ping") ;;
   grok)
@@ -245,7 +245,7 @@ case "$vendor" in
     echo "grok preflight: GROK_HOME=${grok_home} ${grok_bin} --model ${model} --reasoning-effort ${effort} -p ping"
     preflight_cmd=(env GROK_HOME="$grok_home" "$grok_bin" --model "$model" --reasoning-effort "$effort" -p "ping")
     ;;
-  *) echo "unknown vendor: ${vendor}（claude / codex / grok）" >&2; exit 1 ;;
+  *) echo "unknown harness: ${harness}（claude / codex / grok）" >&2; exit 1 ;;
 esac
 preflight_log=$(mktemp "${TMPDIR:-/tmp}/peertable-preflight.XXXXXX")
 ( cd "$preflight_dir" && "${preflight_cmd[@]}" >"$preflight_log" 2>&1 </dev/null ) &
@@ -264,14 +264,14 @@ while [ $SECONDS -lt $preflight_deadline ]; do
 done
 if [ -z "$preflight_rc" ]; then
   kill "$preflight_pid" 2>/dev/null || true
-  echo "model preflight が 120 秒で返らない: ${vendor} / ${model}（席は立てない）" >&2
+  echo "model preflight が 120 秒で返らない: ${harness} / ${model}（席は立てない）" >&2
   echo "preflight log: ${preflight_log}" >&2
   cat "$preflight_log" >&2 || true
   [ -n "${grok_home:-}" ] && rm -rf "$grok_home"
   exit 1
 fi
 if [ "$preflight_rc" != 0 ]; then
-  echo "model が live で使えない: ${vendor} / ${model}（preflight rc=${preflight_rc}・席は立てない）" >&2
+  echo "model が live で使えない: ${harness} / ${model}（preflight rc=${preflight_rc}・席は立てない）" >&2
   cat "$preflight_log" >&2 || true
   rm -f "$preflight_log"
   [ -n "${grok_home:-}" ] && rm -rf "$grok_home"
@@ -338,7 +338,7 @@ fi
 
 # leave-seat が席専用 GROK_HOME を消す。同名再着席では preflight 後に空になるので、
 # live 起動の直前に auth と ui だけを書き直す（user booth MCP は載せない）。
-if [ "$vendor" = grok ]; then
+if [ "$harness" = grok ]; then
   mkdir -p "$grok_home"
   if [ ! -f "${HOME}/.grok/auth.json" ]; then
     echo "SEAT_GROK_AUTH_MISSING: ${HOME}/.grok/auth.json が無い（席は立てない）" >&2
@@ -359,7 +359,8 @@ launch_env=(
   "PEERTABLE_ROOM=$room"
   "PEERTABLE_MEMBER=$name"
   "PEERTABLE_CREDENTIAL_FILE=$credential_file"
-  "PEERTABLE_VENDOR=$vendor"
+  "PEERTABLE_HARNESS=$harness"
+  "PEERTABLE_VENDOR=$harness"  # 旧版 room client 互換
   "PEERTABLE_MODEL=$model"
   "PEERTABLE_EFFORT=$effort"
   "PEERTABLE_ROLE=$role"
@@ -376,13 +377,13 @@ if [ "$mode" = "lattice" ]; then
   )
   [ -n "$lattice_cli" ] && launch_env+=("LATTICE_CLI=$lattice_cli")
 fi
-if [ "$vendor" = grok ]; then
+if [ "$harness" = grok ]; then
   # 実測 2026-08-21: auth の coding_data_retention_opt_out だけでは
   # `Help improve Grok [Opt out] [Opt in]` バナーが残る。席が死んだように見える。
   launch_env+=("GROK_HOME=$grok_home")
   launch_env+=("GROK_PRIVACY_NOTICE_ROLLOUT=0")
 fi
-if [ "$vendor" = codex ]; then
+if [ "$harness" = codex ]; then
   codex_home="${proj}/.team/seats/${name}.codex"
   mkdir -p "$codex_home"
   if [ -f "${HOME}/.codex/auth.json" ]; then
@@ -391,7 +392,7 @@ if [ "$vendor" = codex ]; then
   fi
   launch_env+=("CODEX_HOME=$codex_home")
 fi
-if [ "$vendor" = codex ] \
+if [ "$harness" = codex ] \
   && ! env -u PEERTABLE_POST_TOKEN "${launch_env[@]}" node "$codex_room_mcp_helper" ensure "$proj" "$peertable_repo"; then
   echo "SEAT_CODEX_ROOM_MCP_INVALID: Codexのproject設定へseat固有room clientを装備できない（席は立てない）" >&2
   exit 1
@@ -399,7 +400,7 @@ fi
 # Aiterm launcherはsession作成後にtyped failureを返すことがある。ここから先は同名memberが
 # 無いことを確認済みなので、launch試行が作ったtmux/memberをon_exitの対象として先に所有する。
 seat_created=true
-launch_receipt=$(env -u PEERTABLE_POST_TOKEN "${launch_env[@]}" node "$aiterm_launch_helper" "$sess" "$vendor" "$model" "$effort" "$proj" "$brief") || {
+launch_receipt=$(env -u PEERTABLE_POST_TOKEN "${launch_env[@]}" node "$aiterm_launch_helper" "$sess" "$harness" "$model" "$effort" "$proj" "$brief") || {
   echo "SEAT_AITERM_LAUNCH_FAILED: ${name} をAiterm公開launcherで起動できない（direct CLI fallbackなし）" >&2
   exit 1
 }
@@ -449,7 +450,7 @@ seat_tmux=$(tmux_at display-message -p -t "$sess" '#{socket_path}')
 # Aiterm管理席の process 起動は公開launch receiptで確定している。旧direct CLI launch向けの
 # ヘッダ/trust dialog待機をここへ重ねると、brief turnでヘッダが画面外へ流れた正常席をrollbackする。
 # 必須room MCPの成立は、次の member登録readbackだけで判定する。
-echo "launched: ${sess}（${vendor} / ${model}${effort:+ / $effort} / room=${room} / mode=${mode}）"
+echo "launched: ${sess}（${harness} / ${model}${effort:+ / $effort} / room=${room} / mode=${mode}）"
 
 # CodexのヘッダはCLIが起動した証拠であって、必須room MCPが初期化された証拠ではない。
 # 無関係MCPのwarningが画面へ出ても、room clientがmember登録まで到達した席だけを着席として扱う。
@@ -484,7 +485,7 @@ while [ $SECONDS -lt "$room_ready_deadline" ]; do
   # Grok Build は初めて開く作業treeで、room MCPを初期化する前にworkspace trustを尋ねる。
   # Peertableが正式に着席させるtreeなので、この既知文言だけを一度通す。未知の確認画面を
   # 汎用的に承認するfallbackにはしない。承認後のMCP初期化時間は改めて30秒確保する。
-  if [ "$vendor" = codex ]; then
+  if [ "$harness" = codex ]; then
     codex_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
     if pass_codex_pane "$codex_screen"; then
       room_ready_deadline=$((SECONDS + 90))
@@ -508,7 +509,7 @@ while [ $SECONDS -lt "$room_ready_deadline" ]; do
       esac
     fi
   fi
-  if [ "$vendor" = grok ] && [ "$grok_trust_accepted" != true ]; then
+  if [ "$harness" = grok ] && [ "$grok_trust_accepted" != true ]; then
     grok_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
     case "$grok_screen" in
       *"Do you trust the contents of this directory?"*)
@@ -524,7 +525,7 @@ while [ $SECONDS -lt "$room_ready_deadline" ]; do
   fi
   # 未信頼ディレクトリでは room MCP 同意より前に workspace trust が出る。既定選択肢
   # （1. Yes, I trust this folder）を Enter で通す。この既知文言だけを一度通す。
-  if [ "$vendor" = claude ] && [ "$claude_trust_accepted" != true ]; then
+  if [ "$harness" = claude ] && [ "$claude_trust_accepted" != true ]; then
     claude_trust_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
     case "$claude_trust_screen" in
       *"Is this a project you created or one you trust"*|*"trust this folder"*)
@@ -540,7 +541,7 @@ while [ $SECONDS -lt "$room_ready_deadline" ]; do
   fi
   # aiterm claude_agent は --dangerously-skip-permissions を付けない。project の room MCP
   # 同意が member 登録より前に出る。選択肢2（this and all future）だけを通す。
-  if [ "$vendor" = claude ] && [ "$mcp_consent_accepted" != true ]; then
+  if [ "$harness" = claude ] && [ "$mcp_consent_accepted" != true ]; then
     claude_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
     case "$claude_screen" in
       *"New MCP server found in this project: room"*)
@@ -556,7 +557,7 @@ while [ $SECONDS -lt "$room_ready_deadline" ]; do
   fi
   room_members=$(curl -sf "$url/api/$room/members" 2>/dev/null || true)
   if printf '%s' "$room_members" | python3 -c 'import json,sys; name=sys.argv[1]; members=json.load(sys.stdin).get("members",[]); raise SystemExit(0 if any(m.get("name") == name for m in members) else 1)' "$name"; then
-    if [ "$vendor" = codex ]; then
+    if [ "$harness" = codex ]; then
       codex_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
       if ! codex_pane_blocks_ready "$codex_screen"; then
         sleep 1
@@ -575,7 +576,7 @@ if [ "$room_ready" != true ]; then
   exit 1
 fi
 echo "room ready: ${room}/${name}"
-if [ "$vendor" = codex ]; then
+if [ "$harness" = codex ]; then
   # member 登録後の最初の tool 呼び出しで MCP Allow が出る。出ている間だけ通し、沈黙5秒で抜ける。
   codex_post_ready_deadline=$((SECONDS + 90))
   codex_post_ready_idle=0
@@ -607,7 +608,7 @@ if [ -n "$brief" ] && [ "$brief_dispatched" != true ]; then
   brief_ready=false
   while [ $SECONDS -lt "$brief_ready_deadline" ]; do
     brief_ready_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
-    if [ "$vendor" != codex ] || printf '%s\n' "$brief_ready_screen" | python3 -c 'import sys; lines=sys.stdin.read().splitlines()[-24:]; has_prompt=any(line.strip() == "›" or line.lstrip().startswith("› ") for line in lines); has_footer=any("gpt-" in line and "·" in line for line in lines); raise SystemExit(0 if has_prompt and has_footer else 1)'; then
+    if [ "$harness" != codex ] || printf '%s\n' "$brief_ready_screen" | python3 -c 'import sys; lines=sys.stdin.read().splitlines()[-24:]; has_prompt=any(line.strip() == "›" or line.lstrip().startswith("› ") for line in lines); has_footer=any("gpt-" in line and "·" in line for line in lines); raise SystemExit(0 if has_prompt and has_footer else 1)'; then
       brief_ready_streak=$((brief_ready_streak + 1))
       if [ "$brief_ready_streak" -ge 3 ]; then
         brief_ready=true
@@ -716,7 +717,7 @@ PY
   fi
 fi
 
-# 素性（vendor/model/roles/mission/observe/aiterm ID）の書き手は**席の room client だけ**。
+# 素性（harness/model/roles/mission/observe/aiterm ID）の書き手は**席の room client だけ**。
 # ランチャーはここで台帳を読み返し、実際に載ったかを確認するだけにする（重複書込の禁止）。
 member_row=$(curl -sf "$url/api/$room/members/$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$name")" || true)
 stored=$(python3 - "$member_row" <<'PY'
@@ -730,7 +731,7 @@ print('yes' if m.get('model') and m.get('roles') and m.get('aiterm_session_id')
 PY
 )
 if [ "$stored" = yes ]; then
-  echo "台帳確認: ${vendor} / ${model}${effort:+ / $effort}${role:+ / $role}（素性・本人性とも登録済み）"
+  echo "台帳確認: ${harness} / ${model}${effort:+ / $effort}${role:+ / $role}（素性・本人性とも登録済み）"
 else
   echo "SEAT_LEDGER_INCOMPLETE: 台帳の member 行に素性または本人性が欠けている（席は着席済み。doctor で確認）" >&2
 fi
@@ -744,7 +745,7 @@ fi
 
 # Claude 席の新着は room client の notifications/claude/channel。TUI 配達は channels を持たない
 # Codex / Grok 席だけ。Claude に立てると channel と二重配達になる。
-if [ "$vendor" = codex ] || [ "$vendor" = grok ]; then
+if [ "$harness" = codex ] || [ "$harness" = grok ]; then
   if PEERTABLE_CREDENTIAL_FILE="$credential_file" "$(dirname "$0")/ensure-bridge.sh" "$proj" wakeup; then
     echo "wakeup-bridge: TUI配達 起動確認済み"
   else
