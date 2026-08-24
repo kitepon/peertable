@@ -5,8 +5,8 @@
 親（オーケストレーター）に最終判断が集中しない、メンバー並列型のマルチエージェント作業システム。
 
 作成日: 2026-08-08
-状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows 着席の残穴は決定90。着席の役割必須と 02_models 機械解決は決定91（`0.4.12`）。ターン終了の自己DMを MCP 毎回面へ載せるのは決定92（`0.4.13`）。親番犬の件数比較と切れた follow は決定93（`0.4.14`）。待機自己DMの無限起こし禁止は決定94（`0.4.15`）。Claude channel の同じ穴は決定95（`0.4.16`）。役割・settings・mission の機械強制とチップ掲載は決定96（`0.4.17`）。member 台帳の SQLite 一本化・run-bridge 退役・hold 退席廃止は決定97〜99（`0.5.0`）。実効稼働状態の一元生成・保存/配送receipt分離・bridge台帳・kickoff-gate・resume は決定101〜105（`0.7.0`・2026-08-24 稼働状況不可視インシデントの根治）
-リポジトリ: github.com/kitepon/peertable（**公開済み 2026-08-08・MIT・public**）/ npm: **peertable@0.4.37**（2026-08-21）。Claude 席は `notifications/claude/channel`。Codex / Grok は同じ経路で席 TUI へ新着を入れる。親の再着卓投稿も `post-message.mjs` の UTF-8（Windows python stdout の cp932 で本文を壊さない）。工程クローズは監査担当の `done.sh`（feat SHA が origin/main の祖先でなければ script が着地する。親は着地しない）。mission の更新は席の `set-mission.sh`（chip と `[mission]` 1行。再起動しない）。Fable ツール実行中の稼働チップは経過時間行と `/btw` 固定句で判定する。Grok 作業中は `Waiting for response` / `[stop]`。privacy バナーは `GROK_PRIVACY_NOTICE_ROLLOUT=0`
+状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows 着席の残穴は決定90。着席の役割必須と 02_models 機械解決は決定91（`0.4.12`）。ターン終了の自己DMを MCP 毎回面へ載せるのは決定92（`0.4.13`）。親番犬の件数比較と切れた follow は決定93（`0.4.14`）。待機自己DMの無限起こし禁止は決定94（`0.4.15`）。Claude channel の同じ穴は決定95（`0.4.16`）。役割・settings・mission の機械強制とチップ掲載は決定96（`0.4.17`）。member 台帳の SQLite 一本化・run-bridge 退役・hold 退席廃止は決定97〜99（`0.5.0`）。実効稼働状態の一元生成・保存/配送receipt分離・bridge台帳・kickoff-gate・resume は決定101〜105（`0.7.0`・2026-08-24 稼働状況不可視インシデントの根治）。既存卓MCP upgradeは決定106（`0.7.1`）。
+リポジトリ: github.com/kitepon/peertable（**公開済み 2026-08-08・MIT・public**）/ npm: **peertable@0.7.1**（2026-08-25）。Claude 席は `notifications/claude/channel`。Codex / Grok は同じ経路で席 TUI へ新着を入れる。親の再着卓投稿も `post-message.mjs` の UTF-8（Windows python stdout の cp932 で本文を壊さない）。工程クローズは監査担当の `done.sh`（feat SHA が origin/main の祖先でなければ script が着地する。親は着地しない）。mission の更新は席の `set-mission.sh`（chip と `[mission]` 1行。再起動しない）。Fable ツール実行中の稼働チップは経過時間行と `/btw` 固定句で判定する。Grok 作業中は `Waiting for response` / `[stop]`。privacy バナーは `GROK_PRIVACY_NOTICE_ROLLOUT=0`
 工場: dotagents 開発工場の管理対象（**自作コア11製品の1つ**・wire v7 の固定15製品目）。統合契約は dotagents 側が所有し、本 repo の source・state・skill 配布・release は Peertable が所有し続ける
 
 ---
@@ -1658,3 +1658,11 @@ minor `0.5.0`（member 台帳の canonical 化・席file廃止・run-bridge 退�
 
 再現ハーネス: `experiments/effective-status-repro.mjs`（実効状態・bridge 台帳・403 実効表示・UI/MCP 判定一致）・`experiments/delivery-receipt-repro.mjs`（保存/配送の分離・receipt upsert・broadcast 導出）・`experiments/kickoff-gate-repro.mjs`（3条件ゲート）。
 minor `0.7.0`（members / post 応答の追加欄・新 endpoint は追加のみで既存欄は不変。旧 client は新 server の追加欄を無視し、新 client / bridge は旧 server の 404 を検知して機能を静かに落とさず明示する）。
+
+## 55. 既存卓のPeertable所有MCPをresume前に現行treeへ更新する（2026-08-25・決定106）
+
+**決定106: `resume.sh`は席の再起動有無にかかわらず、Peertable所有generated assetとroot room MCPを最初に現行treeへ同期する。** `setup-state.json`の`added_root_mcp=true`（旧`root_mcp_json_fallback`互換）だけをPeertable所有とし、`.mcp.json`の`mcpServers.room`を現行packageの`room/client.mjs`へ更新する。他MCP serverは保持する。利用者が先に持っていた`.mcp.json`は書き換えず、room blockが現行treeと完全一致する時だけ`unchanged-preexisting`、それ以外は書込み前にtyped停止して明示mergeを要求する。管理fileの不正JSON・symlinkも全generated asset書込み前に拒否する。teardownはPeertable形のroom blockだけを除去し、他key／他serverが残るfileは原子的に保持する。
+
+Windowsでは一時file名に`node:path.basename()`を使い、POSIX mode差は判定しない。PowerShell 7はWindows工場hostのshell前提。psmuxはAitermのWindows backendでありshellではない。Peertableに残るmux直接観測はAiterm公開APIへ移行するまで現行互換として明示し、一般の製品前提には昇格させない。
+
+patch `0.7.1`。focused reproはmanaged MCP更新・他server保持・preexisting不変・二回目変更0・symlink拒否をWindows／POSIX同じ入力で検証する。

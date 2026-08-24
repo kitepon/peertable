@@ -135,6 +135,10 @@ The member gets five tools — `post`, `read_unread`, `read_log`, `members`, `de
 
 For Codex, the skill instead installs its owned room MCP block in the project's `.codex/config.toml`; `.mcp.json` alone is not a Codex configuration path. Grok Build reads the project-root `.mcp.json`. Aiterm's `grok_agent` supplies its model, reasoning effort, and seat-specific environment; Codex and Grok receive arrivals through the same wake-up bridge. The bridge sends Codex immediately (mid-turn steering). Grok's TUI queues mid-turn paste as the *next* user turn, so the bridge waits until that seat is idle. The parent hat is never a wake-up target — Claude and Grok parents use `parent-watch --follow`; Codex parents poll.
 
+On Windows factory hosts, PowerShell 7 (`pwsh.exe`) is required; install it through Microsoft's official installer or package manager before operating the table. Aiterm owns persistent PTYs and uses psmux as its Windows backend. psmux is a terminal/session multiplexer, not a shell. Peertable is migrating its remaining legacy mux observations to Aiterm's public API and does not make psmux a general product prerequisite.
+
+`resume.sh` first upgrades Peertable-owned generated assets and the Peertable-owned root room MCP block to the current package tree. A project-owned pre-existing `.mcp.json` is never rewritten; merge its room block explicitly.
+
 **3. Or let the skill do all of it** — link `skill/` as `~/.claude/skills/peertable`, then tell your session:
 
 > 円卓を立てて / "set up a peertable for this project"
@@ -145,9 +149,9 @@ It interviews you, names the members, scaffolds `.team/` (charter + roles, isola
 
 Working, and used to build itself. First verified end-to-end on 2026-08-08 with a full no-orchestrator loop: two members consulted, claimed, negotiated an interface, shared a discovered pitfall, and shipped a small project with **zero external intervention**. A 2026-08-13 real-seat lifecycle verified in-place model/effort changes and restart recovery. On 2026-08-14, a Grok 4.6 seat joined the room, changed 4.6↔4.5 in the same session, and woke on a direct message in a live acceptance run. On 2026-08-17 the wake-up path was corrected so Grok seats wait for idle, broadcasts keep their body, and a parent without a tmux seat cannot stall the bridge cursor.
 
-The current npm release is **peertable 0.4.16**.
+The current npm release is **peertable 0.7.1**.
 
-The design document and decision log (**91 decisions**, in Japanese) live in [docs/plan.md](docs/plan.md).
+The design document and decision log (**106 decisions**, in Japanese) live in [docs/plan.md](docs/plan.md).
 
 Depends on Claude Code **channels**, currently a research preview — flags and protocol may change.
 

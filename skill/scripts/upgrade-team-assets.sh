@@ -1,5 +1,5 @@
 #!/bin/bash
-# 既存卓へ、Peertable が所有する generated asset だけを現行 template へ同期する。
+# 既存卓へ、Peertable が所有する generated assetとroot room MCPだけを現行treeへ同期する。
 # usage: upgrade-team-assets.sh <project_dir>
 set -euo pipefail
 
@@ -14,14 +14,17 @@ repo_dir=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 node --input-type=module - "$1" "$repo_dir" <<'NODE'
 import { chmodSync, lstatSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createHash, randomBytes } from 'node:crypto'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const projectArg = process.argv[2]
 const repoDir = process.argv[3]
+const { expectedRoomMcp, isExpectedRoomMcp } = await import(pathToFileURL(
+  join(repoDir, 'skill', 'scripts', 'room-mcp-config.mjs')))
 
 function fail(code, detail) {
   console.error(JSON.stringify({
-    schema: 'peertable.generated_assets_upgrade_result.v1',
+    schema: 'peertable.generated_assets_upgrade_result.v2',
     result: 'rejected',
     code,
     detail,
@@ -126,11 +129,53 @@ function loadState(project) {
   if (state.phases !== undefined && (!Array.isArray(state.phases) || state.phases.some(phase => typeof phase !== 'string' || !phase))) {
     fail('PEERTABLE_SETUP_STATE_INVALID', 'phases がstring配列でない')
   }
-  return { ...state, phases: state.phases ?? [] }
+  for (const key of ['added_root_mcp', 'root_mcp_json_fallback']) {
+    if (state[key] !== undefined && typeof state[key] !== 'boolean') {
+      fail('PEERTABLE_SETUP_STATE_INVALID', `${key} がbooleanでない`)
+    }
+  }
+  return { ...state, phases: state.phases ?? [],
+    root_mcp_managed: state.added_root_mcp ?? state.root_mcp_json_fallback ?? false }
+}
+
+function prepareRoomMcp(project, repo, state) {
+  const relativePath = '.mcp.json'
+  const { target, stat } = validateTargetPath(project, relativePath)
+  if (!state.root_mcp_managed && !stat) {
+    fail('PEERTABLE_PREEXISTING_MCP_STALE', `${target}: 既存room MCPが無い。手動mergeが必要`)
+  }
+  let config = { mcpServers: {} }
+  if (stat) {
+    try {
+      config = JSON.parse(readFileSync(target, 'utf8'))
+    } catch (error) {
+      fail(state.root_mcp_managed ? 'PEERTABLE_MANAGED_MCP_INVALID' : 'PEERTABLE_PREEXISTING_MCP_STALE',
+        `${target}: JSONを読めない: ${error.message}`)
+    }
+  }
+  if (!config || typeof config !== 'object' || Array.isArray(config)
+    || (config.mcpServers !== undefined
+      && (!config.mcpServers || typeof config.mcpServers !== 'object' || Array.isArray(config.mcpServers)))) {
+    fail(state.root_mcp_managed ? 'PEERTABLE_MANAGED_MCP_INVALID' : 'PEERTABLE_PREEXISTING_MCP_STALE',
+      `${target}: root/mcpServersがobjectでない`)
+  }
+  const expected = expectedRoomMcp(repo)
+  if (!state.root_mcp_managed) {
+    if (!isExpectedRoomMcp(config.mcpServers?.room, expected)) {
+      fail('PEERTABLE_PREEXISTING_MCP_STALE', `${target}: room blockを現行treeへ手動mergeする必要がある`)
+    }
+    return { item: null,
+      report: { path: relativePath, ownership: 'preexisting', action: 'unchanged-preexisting' } }
+  }
+  config.mcpServers ??= {}
+  config.mcpServers.room = expected
+  const item = { relativePath, sourcePath: 'room/client.mjs', target, stat,
+    content: Buffer.from(`${JSON.stringify(config, null, 2)}\n`, 'utf8'), mode: stat ? stat.mode & 0o777 : 0o644 }
+  return { item, report: { path: relativePath, ownership: 'managed', action: null } }
 }
 
 function writeAtomically(target, content, mode) {
-  const temporary = join(dirname(target), `.${target.split('/').at(-1)}.upgrade-${process.pid}-${randomBytes(6).toString('hex')}.tmp`)
+  const temporary = join(dirname(target), `.${basename(target)}.upgrade-${process.pid}-${randomBytes(6).toString('hex')}.tmp`)
   try {
     writeFileSync(temporary, content, { mode })
     chmodSync(temporary, mode)
@@ -174,12 +219,15 @@ function main() {
       : source
     return { relativePath, sourcePath, target, stat, content, mode }
   })
+  const roomMcp = prepareRoomMcp(project, repo, state)
+  if (roomMcp.item) prepared.push(roomMcp.item)
 
   const changes = prepared.map(item => {
     if (!item.stat) return { path: item.relativePath, action: 'created', sha256: sha256(item.content) }
     const current = readFileSync(item.target)
     const mode = item.stat.mode & 0o777
-    if (current.equals(item.content) && mode === item.mode) {
+    const modeMatches = process.platform === 'win32' || mode === item.mode
+    if (current.equals(item.content) && modeMatches) {
       return { path: item.relativePath, action: 'unchanged', sha256: sha256(item.content) }
     }
     return { path: item.relativePath, action: current.equals(item.content) ? 'mode-updated' : 'updated', sha256: sha256(item.content) }
@@ -205,12 +253,16 @@ function main() {
   }
 
   console.log(JSON.stringify({
-    schema: 'peertable.generated_assets_upgrade_result.v1',
+    schema: 'peertable.generated_assets_upgrade_result.v2',
     result: 'ok',
     project,
     mode: state.mode,
     managed: prepared.map(item => ({ path: item.relativePath, source: item.sourcePath, sha256: sha256(item.content) })),
     changes,
+    room_mcp: roomMcp.item
+      ? { ...roomMcp.report,
+          action: changes.find(change => change.path === roomMcp.item.relativePath).action }
+      : roomMcp.report,
     removed,
     changed_count: changes.filter(change => change.action !== 'unchanged').length + removed.length,
   }))

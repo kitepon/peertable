@@ -4,6 +4,7 @@ import {
   closeSync, fsyncSync, openSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync,
 } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { expectedRoomMcp, isExpectedRoomMcp } from './room-mcp-config.mjs'
 
 const fail = (code, message) => {
   process.stderr.write(`${code}: ${message}\n`)
@@ -21,14 +22,9 @@ try { config = JSON.parse(readFileSync(file, 'utf8')) } catch {
 }
 if (!config || typeof config !== 'object' || Array.isArray(config))
   fail('SEAT_ROOM_MCP_INVALID', `${file} のrootがobjectでない`)
-const expected = { command: 'node', args: [resolve(peertableRepo, 'room', 'client.mjs')] }
+const expected = expectedRoomMcp(peertableRepo)
 const current = config?.mcpServers?.room
-if (current && typeof current === 'object' && !Array.isArray(current)
-    && Object.keys(current).sort().join(',') === 'args,command'
-    && current.command === expected.command
-    && Array.isArray(current.args)
-    && current.args.length === 1
-    && current.args[0] === expected.args[0]) process.exit(0)
+if (isExpectedRoomMcp(current, expected)) process.exit(0)
 
 if (ownership !== 'managed')
   fail('SEAT_ROOM_MCP_STALE', '既存.mcp.jsonのroom serverをcurrent-tree clientへmergeする必要がある')

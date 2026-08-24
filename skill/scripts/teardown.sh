@@ -44,6 +44,12 @@ skip() { echo "teardown: [スキップ] $*"; }
 miss() { echo "teardown: [未実施] $*" >&2; fail=1; }
 yes_() { [ "$1" = "True" ] || [ "$1" = "true" ]; }
 
+mcp_remove_action=not-managed
+if yes_ "$added_mcp"; then
+  mcp_remove_result=$(node "$script_dir/remove-managed-room-mcp.mjs" "$proj") || exit "$?"
+  mcp_remove_action=$(python3 -c 'import json,sys; print(json.loads(sys.argv[1])["action"])' "$mcp_remove_result")
+fi
+
 echo "teardown: mode=${mode}（archive=ログとstoreを残す／purge=痕跡ゼロ）"
 
 # ---- ログの控え（archive だけ）。room 自体は残るので、これは repo 側の写し ----
@@ -316,8 +322,7 @@ rm -rf "$proj/.team"
 did ".team/ 削除"
 
 if yes_ "$added_mcp"; then
-  rm -f "$proj/.mcp.json"
-  did ".mcp.json 削除"
+  did ".mcp.json のPeertable room MCP撤去（${mcp_remove_action}）"
 else
   skip ".mcp.json（setup が作っていない）"
 fi

@@ -97,6 +97,10 @@ claude --dangerously-load-development-channels server:room
 
 Codex では、スキルが所有する room MCP block をプロジェクトの `.codex/config.toml` へ置く。`.mcp.json` だけは Codex の設定入口にならず、席固有のroom環境も同じスキル起動経路が渡す。Grok Buildはproject rootの`.mcp.json`を読み、Aitermの`grok_agent`からmodel・effort・席固有envを受け取る。CodexとGrokの新着は同じ経路で席の TUI へ入る。Codexは即送信（ターン中のsteering）。Grok TUIはターン中の素送信を次のuserターンへ積むので、配達はidleを待ってから送る。親は通常席の TUI 配達に載せない——ClaudeとGrok親は`parent-watch --follow`、Codex親はpoll。
 
+Windows工場hostはPowerShell 7（`pwsh.exe`）を前提とし、5.1しかなければMicrosoft公式installer／package managerで7を導入してから使う。永続PTYはAitermが所有し、psmuxはそのWindows backendであってshellではない。Peertableに残るmux直接観測はAiterm公開APIへ移行中であり、psmuxを一般の製品前提にはしない。
+
+既存roomの`resume.sh`は、最初にPeertable所有generated assetとroot room MCP blockを現行package treeへ更新する。利用者が先に持っていた`.mcp.json`は書き換えず、room blockの明示mergeを要求する。
+
 **3. あるいはスキルに全部やらせる** — `skill/` を `~/.claude/skills/peertable` にリンクして、セッションに一言:
 
 > 円卓を立てて
@@ -109,9 +113,9 @@ Codex では、スキルが所有する room MCP block をプロジェクトの 
 
 動いており、**自分自身の開発に使っている**。2026-08-08 に end-to-end 検証済み——オーケストレーターなしの完全な一周（2 メンバーが相談し、claim し、インターフェースを交渉し、見つけた罠を共有して小さなプロジェクトを出荷）を**外部介入ゼロ**で完走。2026-08-13の実席ライフサイクルでは、作業席が親を通じてsession contextを保ったままmodel / effortを変更し、再起動後はroomと工程正本から再着任した。2026-08-14にはGrok 4.6席の着席、room参加、同一sessionの4.6↔4.5変更、DM起床を実機で確認した。2026-08-17にGrok席はidle待ち、broadcastは本文を残し、tmuxの無い親でbridge cursorが止まらないよう直した。
 
-現在のnpm releaseは **peertable 0.4.16**。
+現在のnpm releaseは **peertable 0.7.1**。
 
-設計文書と決定履歴（**91 決定**）は [docs/plan.md](docs/plan.md)。
+設計文書と決定履歴（**106 決定**）は [docs/plan.md](docs/plan.md)。
 
 Claude Code channels はリサーチプレビューのため、フラグ・プロトコルは変わりうる。
 

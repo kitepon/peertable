@@ -13,7 +13,7 @@ import { findModelsDoc, resolveSeatIdentity } from '../skill/scripts/resolve-sea
 
 // client.mjs 側のハードコード版数。package.json の version と一致していることを
 // diagnostics の version_consistency が見る（2 つの版数源の drift 検出。決定45）
-const MCP_VERSION = '0.7.0'
+const MCP_VERSION = '0.7.1'
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const USAGE = `usage:
@@ -383,6 +383,10 @@ async function runDiagnostics(asJson) {
       'scripts/parent-watch-logic.mjs',
       'scripts/seat-credential.mjs',
       'scripts/ensure-room-mcp.mjs',
+      // 既存卓の現行tree同期とteardownのblock単位所有。resume／teardownから呼ぶため一体で必須
+      'scripts/room-mcp-config.mjs',
+      'scripts/upgrade-team-assets.sh',
+      'scripts/remove-managed-room-mcp.mjs',
       'scripts/bridge-record-live.mjs',
       'scripts/leave-seat.sh',
       'scripts/change-seat.sh',

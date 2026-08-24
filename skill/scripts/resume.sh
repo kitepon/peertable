@@ -40,6 +40,10 @@ if [ ! -f "$setup" ]; then
   exit 1
 fi
 
+# resumeは同じroomを現行Peertable treeへ再接続する入口である。席が全て生存していて再起動0件でも、
+# Peertable所有のgenerated assetとroot room MCPを先に現行版へ更新する。
+"$script_dir/upgrade-team-assets.sh" "$proj"
+
 seats_file="$proj/.team/resume-seats.json"
 
 # Phase A: 到達確認・plan 再束縛・死記録掃除・再起動対象の抽出（node が JSON を書き出す）

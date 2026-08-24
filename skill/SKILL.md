@@ -82,7 +82,7 @@ script は内部で Aiterm の公開 `claude_agent` / `codex_agent` / `grok_agen
 
 ## resume（既存 room の再稼働・決定105）
 
-過去ログを残した同じ room を現行工程へ接続し直す時は、setup.sh でなく `scripts/resume.sh <project> [--plan <plan_key>] [--phase <id>]... [--no-probe]` を打つ。既存 `.team/` と room を前提に、①room 確認 ②plan 再束縛（setup-state.json・roles/member.md・外部ペイン）③死んだ bridge 記録の除去 ④台帳の現行メンバー構成から死んでいる席だけ launch-seat.sh で再起動（roles の無い member は typed error で止まる）⑤3 bridge の再起動 ⑥全席の fresh heartbeat 読み戻し ⑦probe DM の delivered receipt 確認、までを一回で行う。手書きのメンバー一覧・個別再起動 script に依存しない。親の再着卓（parent-join / 番犬）は「親の再着卓」の手順で別途行う。軽い健全性確認だけなら従来どおり `doctor.sh` を使う。
+過去ログを残した同じ room を現行工程へ接続し直す時は、setup.sh でなく `scripts/resume.sh <project> [--plan <plan_key>] [--phase <id>]... [--no-probe]` を打つ。既存 `.team/` と room を前提に、①Peertable所有generated asset／root room MCPを現行treeへ更新 ②room 確認 ③plan 再束縛（setup-state.json・roles/member.md・外部ペイン）④死んだ bridge 記録の除去 ⑤台帳の現行メンバー構成から死んでいる席だけ launch-seat.sh で再起動（roles の無い member は typed error で止まる）⑥3 bridge の再起動 ⑦全席の fresh heartbeat 読み戻し ⑧probe DM の delivered receipt 確認、までを一回で行う。利用者が先に持っていた`.mcp.json`は更新せず、room blockの手動mergeを要求する。手書きのメンバー一覧・個別再起動 script に依存しない。親の再着卓（parent-join / 番犬）は「親の再着卓」の手順で別途行う。軽い健全性確認だけなら従来どおり `doctor.sh` を使う。
 
 ## teardown
 
