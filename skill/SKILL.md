@@ -78,6 +78,11 @@ script は内部で Aiterm の公開 `claude_agent` / `codex_agent` / `grok_agen
 
 7. **親の着卓**（このセッション）: `scripts/parent-join.sh <project> [name] [model] [effort] [harness]` で member 登録とparent-watch cursorのprimeを行う。**`effort` は任意のまま据え置く**——席は `launch-seat.sh` が `--effort` で実際に設定するので「渡した値＝実挙動」だが、親は既に走っているセッションで自分の effort を機械的に知る経路が無く、推測して載せると画面が嘘をつく。続けて、ClaudeとGrokはMonitor、Codexはyieldしたbackground tool taskとして**親宛DM番犬**を1世代だけ張る（形は下記「親の operating notes」の番犬仕様）。**着卓完了の条件は、parent-join が投稿する耳疎通probe（`EAR_PROBE_SENT` の nonce）を自分の監視イベントとして受信すること**——番犬プロセスの生存は耳の証拠にならない（前セッションの耳へ吠え続け親宛DMが全損した実被弾 2026-08-22）。受信できないなら監視を張り直す。通常席用wakeup-bridgeに親を載せない。broadcastのkickoffは廃止済み。以後の post も API 直（同 notes）
 8. **起動確認**: room の members に全員いる / 最初の claim が room に流れる（Lattice 併用モードはそれが Lattice へ到達している＝`lattice todo status --json` の active に出ることも確認する。単独モードは room の claim 宣言だけが到達の証拠）/ Web UI で観測できる、をチェックして報告する
+9. **円卓開始ゲート（決定104）**: kickoff の依頼は、`node scripts/kickoff-gate.mjs <project> --seq <kickoff_seq> --seats <a,b,c>` が `active` を返すまで「依頼済み」と扱わない。3条件——①対象席の実効稼働状態が fresh ②kickoff message の delivered receipt ③対象席の引受発言（kickoff 本文に「引受を [引受] で返すこと」を含める）——を server の実効状態・配送 receipt から機械判定する。親の推測・待ち時間・room 保存成功による稼働判定は禁止
+
+## resume（既存 room の再稼働・決定105）
+
+過去ログを残した同じ room を現行工程へ接続し直す時は、setup.sh でなく `scripts/resume.sh <project> [--plan <plan_key>] [--phase <id>]... [--no-probe]` を打つ。既存 `.team/` と room を前提に、①room 確認 ②plan 再束縛（setup-state.json・roles/member.md・外部ペイン）③死んだ bridge 記録の除去 ④台帳の現行メンバー構成から死んでいる席だけ launch-seat.sh で再起動（roles の無い member は typed error で止まる）⑤3 bridge の再起動 ⑥全席の fresh heartbeat 読み戻し ⑦probe DM の delivered receipt 確認、までを一回で行う。手書きのメンバー一覧・個別再起動 script に依存しない。親の再着卓（parent-join / 番犬）は「親の再着卓」の手順で別途行う。軽い健全性確認だけなら従来どおり `doctor.sh` を使う。
 
 ## teardown
 
@@ -237,7 +242,7 @@ witness をどう生成するかは**対象 project 側の作法に従う**（La
 - `--parallel-frontier` が要るのは、**ready が複数あって誰も着手していない frontier の最初の start だけ**（無いと `PARALLEL_DISPATCH_REQUIRED / parallel_frontier_requires_declaration` で弾かれる）。ready が1件だけ、または既に誰かが着手している frontier へ後から乗る場合は素の `start` でよい。フラグが効くのは**取る task が `next_ready` に居る時だけ**で、他人が着手済みの task へ付けると `PARALLEL_DISPATCH_INVALID / parallel_frontier_not_applicable` になる——「フラグが使えない」ではなく「**その task はもう空いていない**」の意味である。記録があるのに対象工程が未宣言・失効なら `todo start` は `INDEPENDENCE_UNVERIFIED` で拒否する（Lattice ADR 0182）。記録が無い plan の start は従来どおり助言だけ
 - **`done.sh` は feat SHA が `origin/main` の祖先でなければ canonical main へ merge して push する。** 親は着地しない。続けて remaining の independence を compile してから戻る。lattice run receipt の未着地は別軸で、警告のまま
 - **independence compile は remaining A を含める。** 現在の ready だけを compile すると、次の frontier の start が拒否される。`next_ready` が witness に無い compile 自体も `INDEPENDENCE_READY_UNDECLARED` で拒否する。stale なら席が `.team/scripts/independence-refresh.sh` を打つ。campaign を起こす最初の compile は kickoff より前。H を最初の next_ready に並べると `MAX_TODOS=8` で compile できず、席は intake 待ちで止まる（2026-08-21 8B）。H は最初の frontier の外に置く。途中の stale 再 compile は席が打つ。
-- **部屋へ書いたことを配達成功としない。** `.team/wakeup-bridge-delivery.json` の `last_seq` がキックオフ seq 以上になるまで、席は起きていない。
+- **部屋へ書いたことを配達成功としない。** `post` 応答の `room_saved` は保存だけの事実で、配達は宛先別 `delivery` が `delivered`（wakeup-bridge の TUI 投入成立 receipt）になった時だけ成立する（決定102）。照会は `GET /api/<room>/deliveries?seq=` か MCP `delivery_status`。席の稼働は server 生成の実効状態（`status_effective` / `status_reason`）だけで判定し、静的な member 一覧・経過時間で判定しない（決定101）。bridge の停止・403 は members 応答の `bridges`（`status_bridge_down` / `wakeup_bridge_down` / `bridge_auth_failed`）に出る（決定103）。
 - **mission が古くても親は書き換えない。** 工程が変わったら席が `set-mission.sh` を自分で打つ。チップと `[mission]` の1行が正本で、席の再起動はしない
 - 同時書込は `STORE_WRITE_CONFLICT` 等で明示的に負ける。1〜2 秒待って再実行すれば通る（正常系）
 - evidence は記述子 JSON。記述子ファイル自体も repo 内相対パスに置く（repo 外絶対パスは INVALID_ARGUMENTS）。`.team/scripts/done.sh` が正規経路。証跡の置き場は **`evidence/<plan_key>/<task_id>.md`**——task_id は campaign を跨いで再利用されるので、平置きにすると前の campaign の監査証跡を上書きで消す（2026-08-08 実測）

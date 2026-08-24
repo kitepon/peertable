@@ -22,7 +22,8 @@
 - 作業者から監査担当への最終試験結果提出と、監査担当による工程クローズが正本へ記録されたことの観測
 - 着地と、途中の independence 再 compile は席の仕事である。親は代行しない
 - campaign を起こす最初の remaining A compile は kickoff より前。H を最初の next_ready に並べない（`MAX_TODOS=8`。並べると compile できず席の intake が止まる）
-- 部屋へ書いたことを配達成功としない。`.team/wakeup-bridge-delivery.json` の `last_seq` が対象 seq 以上になるまで、席は起きていない。ensure-bridge の live 判定は `last_progress_at`。pid 生存だけでは本人ではない
+- 部屋へ書いたことを配達成功としない。`post` 応答の `room_saved` は保存だけの事実で、配達は宛先別 `delivery` が `delivered` になった時だけ成立する（決定102。照会は `GET /api/<room>/deliveries?seq=` か MCP の `delivery_status`）。ensure-bridge の live 判定は `last_progress_at`。pid 生存だけでは本人ではない
+- **kickoff は kickoff-gate が active を返すまで「依頼済み」と扱わない**（決定104）。kickoff DM には「引受を [引受] で返すこと」を含め、`node skill/scripts/kickoff-gate.mjs <project> --seq <kickoff_seq> --seats <a,b,c>` で3条件（fresh 状態・delivered receipt・引受発言）の成立を機械確認する。pending のまま進めた依頼は未実施として扱う
 - mission の更新は席の仕事である。親は代行しない
 - 承認 gate・オーナーとの接点、裁定依頼の運搬（自分で判断せずオーナー宛の議題として運ぶ）
 - model / effort 変更依頼への対応（本人の自然文を親が判断し、確定したtargetだけを

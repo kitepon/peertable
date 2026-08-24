@@ -179,6 +179,32 @@ async function nudgeIfDropped(name, busySince) {
   }
 }
 
+// bridge 心拍（決定103）。server の bridge 台帳へ 30 秒ごとに送る。途絶＝status_bridge_down、
+// 403＝server 側が bridge_auth_failed として観測する。旧 server（404）へは送り続けない
+let lastBridgeBeatAt = 0
+let bridgeBeatSupported = null
+async function beatBridge() {
+  const now = Date.now()
+  if (bridgeBeatSupported === false || now - lastBridgeBeatAt < HEARTBEAT_MS) return
+  try {
+    const res = await fetch(`${url}/api/${encodeURIComponent(room)}/bridges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Peertable-Token': token } : {}) },
+      body: JSON.stringify({ kind: 'seat_status', pid: process.pid, state: 'running' }),
+    })
+    if (res.status === 404) {
+      bridgeBeatSupported = false
+      console.error('seat-status-bridge: server が bridge 台帳を持たない版（404）。心拍送信を止める')
+      return
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    bridgeBeatSupported = true
+    lastBridgeBeatAt = now
+  } catch (e) {
+    console.error(`seat-status-bridge: bridge心拍の送信に失敗: ${e.message}`)
+  }
+}
+
 const last = new Map()   // name -> { status, at }
 let supported = null     // server が status を保持する版か（未判定は null）
 const tokenBucket = value => value === null ? null : Math.floor(value / 1_000)
@@ -282,6 +308,7 @@ let failedTicks = 0
 let provenWritable = false
 
 async function guardedTick() {
+  await beatBridge()
   const { attempted, failed } = await tick() ?? NOTHING_ATTEMPTED
   const decided = decideBridgeContinuation({ attempted, failed, provenWritable, failedTicks, limit: FAILED_TICK_LIMIT })
   provenWritable = decided.provenWritable

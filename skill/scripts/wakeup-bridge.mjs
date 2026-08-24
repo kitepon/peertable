@@ -16,7 +16,7 @@ import { execFile } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { resolveSeatObservation, tmuxArgv } from './seat-usage.mjs'
+import { resolvePostToken, resolveSeatObservation, tmuxArgv } from './seat-usage.mjs'
 import { keysForCodexPane } from './codex-dialog.mjs'
 import { BROADCAST_RECIPIENT, formatWakeNotice, isIdleSelfWake, isWakeupBridgeTarget, memberHarness, shouldDeferGrokWake } from './wakeup-delivery.mjs'
 import { bridgeRecordLive } from './bridge-record-live.mjs'
@@ -134,6 +134,61 @@ releaseStartupLock()
 const cleanup = () => { if (existsSync(record)) unlinkSync(record); process.exit(0) }
 process.on('SIGTERM', cleanup)
 process.on('SIGINT', cleanup)
+
+// ---- 心拍と配送 receipt（決定102・103）--------------------------------------------
+// 心拍が 90 秒途絶えると server が wakeup_bridge_down、書込 403 は server が bridge_auth_failed
+// として実効表示する。receipt は TUI 投入の成立確認後にだけ delivered を書き、席不在系は
+// seat_unavailable を書く——room 保存を配達成功と見せる面を server 側から潰すための唯一の書き手。
+const postToken = resolvePostToken(process.env)
+const writeHeaders = { 'Content-Type': 'application/json', ...(postToken ? { 'X-Peertable-Token': postToken } : {}) }
+const BEAT_MS = 30_000
+let lastBeatAt = 0
+let beatSupported = null
+async function beatBridge() {
+  const now = Date.now()
+  if (beatSupported === false || now - lastBeatAt < BEAT_MS) return
+  try {
+    const res = await fetch(`${url}/api/${encodeURIComponent(room)}/bridges`, {
+      method: 'POST', headers: writeHeaders,
+      body: JSON.stringify({ kind: 'wakeup', pid: process.pid, state: 'running' }),
+    })
+    if (res.status === 404) {
+      beatSupported = false
+      log('server が bridge 台帳を持たない版（404）。心拍送信を止める')
+      return
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    beatSupported = true
+    lastBeatAt = now
+  } catch (error) {
+    log(`WAKEUP_BRIDGE_BEAT_FAILED: ${error.message}`)
+  }
+}
+let receiptSupported = null
+const postedReceipts = new Map() // `${seq}:${recipient}` -> `${result}:${reason}`（同内容の再送を抑える）
+async function postReceipt(seq, recipient, result, reason = null) {
+  if (receiptSupported === false) return
+  const key = `${seq}:${recipient}`
+  const value = `${result}:${reason ?? ''}`
+  if (postedReceipts.get(key) === value) return
+  try {
+    const res = await fetch(`${url}/api/${encodeURIComponent(room)}/deliveries`, {
+      method: 'POST', headers: writeHeaders,
+      body: JSON.stringify({ seq, recipient, result, ...(reason ? { reason } : {}) }),
+    })
+    if (res.status === 404) {
+      receiptSupported = false
+      log('server が配送 receipt 台帳を持たない版（404）。receipt 送信を止める')
+      return
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    postedReceipts.set(key, value)
+  } catch (error) {
+    log(`DELIVERY_RECEIPT_WRITE_FAILED ${JSON.stringify({ seq, recipient, result, detail: error.message.split('\n')[0] })}`)
+  }
+}
+beatBridge()
+setInterval(beatBridge, 5_000) // 送信自体は BEAT_MS で間引く。失敗した心拍を次の周期で取り返すための駆動
 
 // 席ごとに未配達を溜めて、2秒ごとにまとめて1回起こす（連投で席を何度も起こさない）。
 // pending は room message の宛先名から作る。起動引数や harness は候補集合を決めない。
@@ -305,7 +360,9 @@ async function wake(seat, msgs) {
     if (descendants === 0) {
       log(`SEAT_TUI_GONE: ${seat} の pane は子孫プロセスの無い素の shell（${fgCommand}）＝agent CLI が終了済み。`
         + 'shell へのコマンド実行を防ぐため配達しない。席を立て直すか leave-seat で畳むこと')
-      return 'deferred'
+      const error = new Error(`SEAT_TUI_GONE: ${seat}`)
+      error.code = 'SEAT_TUI_GONE'
+      throw error
     }
   }
   const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
@@ -367,7 +424,9 @@ async function wake(seat, msgs) {
     if (!stuck) break
     if (attempt === 2) {
       log(`DELIVERY_STUCK: ${seat} の入力欄に本文が残ったまま送信できない（popup／入力詰まり）。受領を確定せず次周期に再試行する`)
-      return 'deferred'
+      const error = new Error(`DELIVERY_STUCK: ${seat}`)
+      error.code = 'DELIVERY_STUCK'
+      throw error
     }
     if (isClaude) {
       // Escape は撃たない（実行中ターンを殺す）。Enter だけ打ち直す
@@ -415,6 +474,7 @@ async function flushSeat(seat) {
     const outcome = await wake(seat, msgs)
     if (outcome === 'deferred') return
     if (outcome === 'skipped') {
+      for (const msg of msgs) await postReceipt(msg.seq, seat, 'seat_unavailable', 'not_a_delivery_target')
       forgetSeat(seat)
       return
     }
@@ -440,17 +500,24 @@ async function flushSeat(seat) {
         throw error
       }
       for (const { msg } of receipts) queue.delete(msg.seq)
+      // TUI 投入が成立した時にだけ server の配送 receipt を delivered にする（決定102）
+      for (const { msg } of receipts) await postReceipt(msg.seq, seat, 'delivered')
     }
     advanceLastSeq()
   } catch (error) {
     // 失敗時はpendingもreceiptもcursorも動かさない。次のmember refreshで
     // descriptor/PTYが復旧した時、同じseqを同じ宛先へ一度だけ再試行する。
+    const code = typeof error.code === 'string' ? error.code : 'INJECTION_FAILED'
     log(`WAKEUP_BRIDGE_DELIVERY_FAILURE ${JSON.stringify({
       recipient: seat,
-      code: typeof error.code === 'string' ? error.code : 'INJECTION_FAILED',
+      code,
       seqs: msgs.map(msg => msg.seq),
       detail: error.message.split('\n')[0],
     })}`)
+    // 席不在系は seat_unavailable、それ以外は failed として server へ現況を残す。
+    // 再試行が成立すれば同じ (seq, recipient) を delivered で上書きする
+    const result = ['SEAT_TUI_GONE', 'MEMBER_MISSING', 'DESCRIPTOR_MISSING'].includes(code) ? 'seat_unavailable' : 'failed'
+    for (const msg of msgs) await postReceipt(msg.seq, seat, result, code)
   } finally {
     flushing.delete(seat)
   }

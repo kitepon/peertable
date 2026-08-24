@@ -13,7 +13,7 @@ import { findModelsDoc, resolveSeatIdentity } from '../skill/scripts/resolve-sea
 
 // client.mjs 側のハードコード版数。package.json の version と一致していることを
 // diagnostics の version_consistency が見る（2 つの版数源の drift 検出。決定45）
-const MCP_VERSION = '0.6.1'
+const MCP_VERSION = '0.7.0'
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const USAGE = `usage:
@@ -73,6 +73,7 @@ const mcp = new Server(
       'メンバー一覧の名前・役割・設定・使命を見て連携せよ。members と read_unread 先頭に同じ欄がある。' +
       '<channel source="room"> の通知は「新着あり」の合図であり、本文は read_unread ツールで読む。' +
       '発言は post ツールを使う。to: "all" はroom全体、メンバー名はDM、配列は複数人宛である。' +
+      'post 応答の room_saved は room 保存だけの事実で、配達成功ではない。相手に届いた前提で進む前に delivery が delivered であることを確認せよ。' +
       `次にやる仕事があるターンを終える直前に post(to: "${ME}", message: "[次の行動] ...") を1回送れ。` +
       'この自己DMは席の TUI へ次ターンの入力として入る。仕事があるのに出さないと席は止まる。' +
       '手番が無く待機に入るときは自己DMを出すな。親へ [待機] を一度だけ送り沈黙せよ。空の終了通知は使うな。',
@@ -105,11 +106,24 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     },
     { name: 'read_unread', description: 'room全体宛と自分宛の未読メッセージを読む。読んだ位置は記憶される', inputSchema: { type: 'object', properties: {} } },
     { name: 'read_log', description: 'room ログの直近 count 件を読む（既定 50。全宛先を含む）', inputSchema: { type: 'object', properties: { count: { type: 'number' } } } },
-    { name: 'members', description: 'room に居るメンバーの一覧（名前・役割・設定・使命）', inputSchema: { type: 'object', properties: {} } },
+    { name: 'members', description: 'room に居るメンバーの一覧（名前・役割・設定・使命・実効稼働状態）と bridge 健全性。状態が unknown の席と bridge 障害はここで分かる', inputSchema: { type: 'object', properties: {} } },
+    { name: 'delivery_status', description: '発言 seq の宛先別配達状態を照会する。delivered / pending / seat_unavailable / bridge_unavailable / failed。room_saved は配達成功ではない', inputSchema: { type: 'object', properties: { seq: { type: 'number' } }, required: ['seq'] } },
   ],
 }))
 
 const fmt = m => `[${m.seq}] ${m.from} → ${Array.isArray(m.to_names) ? m.to_names.join(', ') : m.to} (${m.ts}): ${m.body}`
+const elapsedText = ms => {
+  if (!Number.isFinite(ms)) return null
+  const min = Math.floor(ms / 60000)
+  return min < 1 ? `${Math.floor(ms / 1000)}s前` : min >= 60 ? `${Math.floor(min / 60)}h${min % 60}m前` : `${min}m前`
+}
+// 実効稼働状態は server 生成の欄だけを読む（決定101）。MCP 側で鮮度判定を持たない
+const statusText = (m) => {
+  if (m.status_effective === undefined) return '状態=不明(旧server・実効状態なし)'
+  const age = elapsedText(m.status_age_ms)
+  if (m.status_reason === 'fresh') return `状態=${m.status_effective}（最終報告 ${age}）`
+  return `状態=${m.status_effective}（理由=${m.status_reason}${age ? `・最終報告 ${age}` : '・報告なし'}）`
+}
 const memberLine = (m) => {
   const rolesText = Array.isArray(m.roles) && m.roles.length ? m.roles.join('・') : ''
   const settingsText = [m.model, m.effort].filter(Boolean).join('×')
@@ -117,12 +131,28 @@ const memberLine = (m) => {
   if (rolesText) parts.push(`役割=${rolesText}`)
   if (settingsText) parts.push(`設定=${settingsText}`)
   if (m.mission) parts.push(`使命=${m.mission}`)
+  parts.push(statusText(m))
   return parts.join(' ')
 }
+const bridgeText = (bridges) => {
+  if (!bridges) return '⚠ bridge健全性: 不明（旧serverはbridge台帳を持たない）'
+  const label = { seat_status: '稼働状態bridge', wakeup: '配達bridge' }
+  const lines = ['seat_status', 'wakeup'].map((kind) => {
+    const state = bridges[kind]?.state ?? 'unknown'
+    return `${label[kind]}=${state}`
+  })
+  const broken = ['seat_status', 'wakeup'].some(k => bridges[k]?.state !== 'up')
+  return `${broken ? '⚠ ' : ''}bridge: ${lines.join(' / ')}`
+}
 const rosterText = async () => {
-  const { members } = await (await fetch(api('members'))).json()
-  if (!members?.length) return '席: （まだ誰も居ない）'
-  return `席: ${members.map(memberLine).join(' / ')}`
+  const { members, bridges } = await (await fetch(api('members'))).json()
+  if (!members?.length) return `席: （まだ誰も居ない）\n${bridgeText(bridges)}`
+  return `席: ${members.map(memberLine).join(' / ')}\n${bridgeText(bridges)}`
+}
+const deliveryText = (delivery) => {
+  const entries = Object.entries(delivery ?? {})
+  if (!entries.length) return 'delivery: （TUI配達対象の宛先なし）'
+  return `delivery: ${entries.map(([name, d]) => `${name}=${d.state}${d.reason ? `(${d.reason})` : ''}`).join(' / ')}`
 }
 
 mcp.setRequestHandler(CallToolRequestSchema, async req => {
@@ -134,7 +164,15 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
       if (!r.ok) return { isError: true, ...text(`送信失敗: ${JSON.stringify(msg)}`) }
       // cursor は触らない。自分の発言は relevant で除外されるので進める必要が無く、
       // ここで進めると post より前に届いた未読を読まないまま既読にしてしまう（0.2.1 で修正）
-      return text(`sent [${msg.seq}]`)
+      // 保存と配達は別の事実（決定102）。sent の一語で両者を混ぜず、宛先別の配達状態を返す
+      if (msg.room_saved !== true) return text(`sent [${msg.seq}]（旧server: 配達状態は取得できない。room保存を配達成功と扱うな）`)
+      return text(`room_saved [${msg.seq}]（room保存のみ。配達成功ではない）\n${deliveryText(msg.delivery)}\n配達の確定は delivery_status ツール（seq=${msg.seq}）で delivered を確認すること`)
+    }
+    case 'delivery_status': {
+      const r = await fetch(api(`deliveries?seq=${Number(args.seq)}`))
+      const body = await r.json()
+      if (!r.ok) return { isError: true, ...text(`照会失敗: ${JSON.stringify(body)}`) }
+      return text(`seq ${body.seq}: room_saved=${body.room_saved}\n${deliveryText(body.delivery)}`)
     }
     case 'read_unread': {
       const { messages } = await (await fetch(api(`messages?since=${cursor}`))).json()
@@ -148,8 +186,8 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
       return text(messages.slice(-(args.count ?? 50)).map(fmt).join('\n') || '（ログなし）')
     }
     case 'members': {
-      const { members } = await (await fetch(api('members'))).json()
-      return text(members.map(memberLine).join('\n') || '（誰も居ない）')
+      const { members, bridges } = await (await fetch(api('members'))).json()
+      return text(`${members.map(memberLine).join('\n') || '（誰も居ない）'}\n${bridgeText(bridges)}`)
     }
     default:
       throw new Error(`unknown tool: ${req.params.name}`)
@@ -357,6 +395,9 @@ async function runDiagnostics(asJson) {
       'scripts/wakeup-bridge.mjs',
       'scripts/wakeup-delivery.mjs',
       'scripts/seat-status-bridge.mjs',
+      // 円卓開始ゲートと既存 room の正規 resume 入口（決定104・105）。欠けると親の依頼確定と再稼働が手作業へ戻る
+      'scripts/kickoff-gate.mjs',
+      'scripts/resume.sh',
       // teardown の archive（＝解散・既定）が呼ぶ。欠けるとログの写しが取れない
       'scripts/archive-room-log.py',
       'templates/gen-plan.mjs',

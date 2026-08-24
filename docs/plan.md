@@ -5,7 +5,7 @@
 親（オーケストレーター）に最終判断が集中しない、メンバー並列型のマルチエージェント作業システム。
 
 作成日: 2026-08-08
-状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows 着席の残穴は決定90。着席の役割必須と 02_models 機械解決は決定91（`0.4.12`）。ターン終了の自己DMを MCP 毎回面へ載せるのは決定92（`0.4.13`）。親番犬の件数比較と切れた follow は決定93（`0.4.14`）。待機自己DMの無限起こし禁止は決定94（`0.4.15`）。Claude channel の同じ穴は決定95（`0.4.16`）。役割・settings・mission の機械強制とチップ掲載は決定96（`0.4.17`）。member 台帳の SQLite 一本化・run-bridge 退役・hold 退席廃止は決定97〜99（`0.5.0`）
+状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows 着席の残穴は決定90。着席の役割必須と 02_models 機械解決は決定91（`0.4.12`）。ターン終了の自己DMを MCP 毎回面へ載せるのは決定92（`0.4.13`）。親番犬の件数比較と切れた follow は決定93（`0.4.14`）。待機自己DMの無限起こし禁止は決定94（`0.4.15`）。Claude channel の同じ穴は決定95（`0.4.16`）。役割・settings・mission の機械強制とチップ掲載は決定96（`0.4.17`）。member 台帳の SQLite 一本化・run-bridge 退役・hold 退席廃止は決定97〜99（`0.5.0`）。実効稼働状態の一元生成・保存/配送receipt分離・bridge台帳・kickoff-gate・resume は決定101〜105（`0.7.0`・2026-08-24 稼働状況不可視インシデントの根治）
 リポジトリ: github.com/kitepon/peertable（**公開済み 2026-08-08・MIT・public**）/ npm: **peertable@0.4.37**（2026-08-21）。Claude 席は `notifications/claude/channel`。Codex / Grok は同じ経路で席 TUI へ新着を入れる。親の再着卓投稿も `post-message.mjs` の UTF-8（Windows python stdout の cp932 で本文を壊さない）。工程クローズは監査担当の `done.sh`（feat SHA が origin/main の祖先でなければ script が着地する。親は着地しない）。mission の更新は席の `set-mission.sh`（chip と `[mission]` 1行。再起動しない）。Fable ツール実行中の稼働チップは経過時間行と `/btw` 固定句で判定する。Grok 作業中は `Waiting for response` / `[stop]`。privacy バナーは `GROK_PRIVACY_NOTICE_ROLLOUT=0`
 工場: dotagents 開発工場の管理対象（**自作コア11製品の1つ**・wire v7 の固定15製品目）。統合契約は dotagents 側が所有し、本 repo の source・state・skill 配布・release は Peertable が所有し続ける
 
@@ -1641,3 +1641,20 @@ patch `0.4.37`。
 
 **決定99: 配達と着席の思い込み根絶。** ①launch-seat は aiterm receipt の `event_cursor`/`submit_residue` を読み、brief が実際に送られた時だけ配達済みとする（未送信は着席確認後に貼り直し・turn 開始の実観測だけを完了とする）。②wakeup-bridge は pane の前面プロセスが shell に戻った席へは1バイトも打たない（room 本文が shell コマンドとして実行される穴の遮断・`SEAT_TUI_GONE`）。③parent-watch に停滞警報（工程があるのに busy 席ゼロが3分継続→`parent_table_stalled` を1回）。④親の着卓は parent-join の耳疎通 probe を監視イベントとして受信するまで完了としない。⑤同名再着席の初回必敗（credential 準備を stale member 掃除より先に行うと leave-seat が消す）は順序修正で根治。
 minor `0.5.0`（member 台帳の canonical 化・席file廃止・run-bridge 退役を含む互換変更）。
+
+## 54. 稼働状況不可視インシデントの根治——実効状態・配送receipt・開始ゲート・resume（2026-08-24・決定101〜105）
+
+出典と campaign 正本は `docs/plan_delivery-visibility-20260824.md`。OpenLogicool 円卓への依頼 #937 が、席・bridge 全停止の room へ `sent [937]` とだけ返り、親（Codex）が room 保存を配達成功と誤認した。
+
+**決定101: 実効稼働状態の生成点は room server ただ一つ。** `GET /members` が各 member へ `status_effective` / `status_reason` / `status_age_ms` を付け、Web UI・MCP・script はこの欄を読むだけとする（閲覧面ごとの独自鮮度判定を禁止。Web UI の client 側 staleness 計算は廃止）。鮮度閾値は server 定数 90 秒（`PEERTABLE_STATUS_STALE_MS` は repro 用の縮小入口）。
+
+**決定102: room 保存と TUI 配達は別の事実。** `POST /messages` 応答は `room_saved` と宛先別 `delivery`（delivered / pending / seat_unavailable / bridge_unavailable / failed）の二段。`delivered` を書けるのは wakeup-bridge の TUI 投入成立 receipt（`POST /deliveries`・upsert）だけ。照会は `GET /deliveries?seq=` と MCP `delivery_status`。MCP `post` の `sent [n]` は廃止し `room_saved [n]`＋delivery 表示へ。
+
+**決定103: bridge の生死・認証失敗は server の bridge 台帳が実効表示する。** seat-status / wakeup が 30 秒心拍を `POST /bridges` へ送り、90 秒途絶で `status_bridge_down` / `wakeup_bridge_down`。書込 403 は server 自身が request の形（usage_source=pane_status / bridges / deliveries）から分類して観測し、`bridge_auth_failed` として親と UI の両方へ出す（bridge は書けないので自己申告できない——403 を返した server が唯一の確実な観測点）。正常心拍で観測は消える。
+
+**決定104: 円卓 kickoff は kickoff-gate の3条件が揃うまで pending。** `kickoff-gate.mjs` が①対象席の実効状態 fresh ②kickoff の delivered receipt ③対象席の引受発言（`[引受]`）を機械判定する。親の推測・経過時間・room 保存成功による稼働判定を禁止。member 正典に「名指し依頼へはまず `[引受]` を返す」を追加。
+
+**決定105: 既存 room の再開は `resume.sh` が正規入口。** room 確認→plan 再束縛→死んだ bridge 記録の除去→台帳の現行構成から死んだ席だけ再起動→3 bridge 再起動→fresh heartbeat 読み戻し→probe DM の delivered receipt 確認、を一回で行う。手書き member 一覧・個別再起動 script に依存しない。
+
+再現ハーネス: `experiments/effective-status-repro.mjs`（実効状態・bridge 台帳・403 実効表示・UI/MCP 判定一致）・`experiments/delivery-receipt-repro.mjs`（保存/配送の分離・receipt upsert・broadcast 導出）・`experiments/kickoff-gate-repro.mjs`（3条件ゲート）。
+minor `0.7.0`（members / post 応答の追加欄・新 endpoint は追加のみで既存欄は不変。旧 client は新 server の追加欄を無視し、新 client / bridge は旧 server の 404 を検知して機能を静かに落とさず明示する）。

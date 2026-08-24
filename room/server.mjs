@@ -53,6 +53,20 @@ db.exec(`
   )
 `)
 
+// bridge 台帳と配送 receipt 台帳（決定102・103）。bridge の心拍と wakeup-bridge の TUI 投入成立だけが書く。
+db.exec(`
+  CREATE TABLE IF NOT EXISTS bridges (
+    room TEXT NOT NULL, kind TEXT NOT NULL,
+    pid INTEGER, state TEXT, detail TEXT, beat_at TEXT NOT NULL,
+    PRIMARY KEY (room, kind)
+  );
+  CREATE TABLE IF NOT EXISTS deliveries (
+    room TEXT NOT NULL, seq INTEGER NOT NULL, recipient TEXT NOT NULL,
+    result TEXT NOT NULL, reason TEXT, at TEXT NOT NULL,
+    PRIMARY KEY (room, seq, recipient)
+  )
+`)
+
 // 既存 DB（旧 vendor 列世代）は一度だけ harness 列を足して値を引き継ぐ。旧列は rollback 用に残す。
 {
   const columns = db.prepare('PRAGMA table_info(members)').all().map((c) => c.name)
@@ -156,6 +170,104 @@ const recipientError = (code, message) => ({
   schema: 'peertable.error.v1', code, message,
 })
 
+// ---- 実効状態の生成（決定101〜103）------------------------------------------------
+// 実効稼働状態・bridge 健全性の判定は server がここで一度だけ行い、Web UI / MCP / script は
+// 生成された欄を読むだけにする。閲覧面ごとの独自判定は同じ誤認（保存＝配達、静的一覧＝稼働）を再生産する。
+// 既定 90 秒（bridge 心拍 30 秒の3倍）。env は repro が時間を縮めて実測するための入口（experiments/ 参照）
+const STATUS_STALE_MS = Number(process.env.PEERTABLE_STATUS_STALE_MS ?? 90_000)
+const AUTH_FAIL_FRESH_MS = 600_000   // 403 観測の表示保持。以後の正常心拍で即座に消える
+
+// 書込 403 の観測記録。403 を返した server だけが「bridge が認証で書けていない」を確実に知る
+// （bridge 側は書けないので自己申告できない）。`${room}/${kind}` -> 最終観測 epoch ms。
+const authFailures = new Map()
+
+// 403 になった書込がどの bridge のものかを request の形から分類する。分類できない 403 は記録しない
+// （member 以外の一般書込の 403 を bridge 障害として表示しない）。
+function classifyDeniedWrite(rest, body) {
+  if (rest === 'bridges') { try { return JSON.parse(body).kind ?? null } catch { return null } }
+  if (rest === 'deliveries') return 'wakeup'
+  if (rest === 'members') {
+    try { return JSON.parse(body).usage_source === 'pane_status' ? 'seat_status' : null } catch { return null }
+  }
+  return null
+}
+
+const BRIDGE_KINDS = ['seat_status', 'wakeup']
+// 表示語彙はオーナー報告の障害名（status_bridge_down / wakeup_bridge_down / bridge_auth_failed）
+const BRIDGE_LABEL = { seat_status: 'status', wakeup: 'wakeup' }
+function bridgeHealth(roomName, now = Date.now()) {
+  const out = {}
+  for (const kind of BRIDGE_KINDS) {
+    const row = db.prepare('SELECT * FROM bridges WHERE room = ? AND kind = ?').get(roomName, kind)
+    const beat = row ? Date.parse(row.beat_at) : null
+    const authAt = authFailures.get(`${roomName}/${kind}`)
+    if (authAt !== undefined && now - authAt < AUTH_FAIL_FRESH_MS && (beat === null || authAt > beat)) {
+      out[kind] = { state: 'bridge_auth_failed', beat_at: row?.beat_at ?? null }
+      continue
+    }
+    if (!row) { out[kind] = { state: `${BRIDGE_LABEL[kind]}_bridge_unreported`, beat_at: null }; continue }
+    out[kind] = now - beat < STATUS_STALE_MS
+      ? { state: 'up', beat_at: row.beat_at, pid: row.pid }
+      : { state: `${BRIDGE_LABEL[kind]}_bridge_down`, beat_at: row.beat_at }
+  }
+  return out
+}
+
+// member 1件の実効稼働状態。報告が新しい時だけ status を採り、途絶・未報告は unknown へ落として
+// 理由（bridge 停止 / 認証失敗 / 心拍途絶）を必ず併記する——状態点が黙って消えるだけの面を作らない。
+function effectiveStatus(member, bridges, now = Date.now()) {
+  const statusBridge = bridges.seat_status.state
+  if (!member.status_at) {
+    return {
+      status_effective: 'unknown',
+      status_reason: statusBridge === 'up' ? 'status_unreported' : statusBridge,
+      status_age_ms: null,
+    }
+  }
+  const age = now - Date.parse(member.status_at)
+  if (age < STATUS_STALE_MS) return { status_effective: member.status, status_reason: 'fresh', status_age_ms: age }
+  return {
+    status_effective: 'unknown',
+    status_reason: statusBridge === 'up' ? 'status_heartbeat_stale' : statusBridge,
+    status_age_ms: age,
+  }
+}
+
+// ---- 配送状態の導出（決定102）-----------------------------------------------------
+// receipt（wakeup-bridge の実投入記録）が正。無い宛先は member 台帳と bridge 台帳から
+// pending / seat_unavailable / bridge_unavailable を導出する。room_saved だけでは配達と言わない。
+const isParentMember = member => member?.delivery?.kind === 'parent_watch'
+// wakeup-bridge の配送対象判定（skill/scripts/wakeup-delivery.mjs の isWakeupBridgeTarget と同じ規則）
+function isTuiDeliveryTarget(member) {
+  if (!member || isParentMember(member)) return false
+  const hasPane = typeof member.observe?.tmux_target === 'string' && member.observe.tmux_target.length > 0
+  const harness = member.harness ?? member.vendor
+  return hasPane || harness === 'codex' || harness === 'grok'
+}
+
+function deliveryPlanFor(roomName, msg, bridges) {
+  const members = new Map(listMembers(roomName).map(m => [m.name, m]))
+  const recipients = Array.isArray(msg.to_names) ? msg.to_names
+    : msg.to === 'all' ? [...members.keys()].filter(n => n !== msg.from)
+      : typeof msg.to === 'string' && msg.to.length > 0 ? [msg.to] : []
+  const out = {}
+  for (const name of recipients) {
+    const receipt = db.prepare('SELECT * FROM deliveries WHERE room = ? AND seq = ? AND recipient = ?')
+      .get(roomName, msg.seq, name)
+    if (receipt) {
+      out[name] = { state: receipt.result, ...(receipt.reason ? { reason: receipt.reason } : {}), at: receipt.at }
+      continue
+    }
+    const member = members.get(name)
+    if (!member) { out[name] = { state: 'seat_unavailable', reason: 'member_not_found' }; continue }
+    if (isParentMember(member)) { out[name] = { state: 'pending', reason: 'parent_watch経由' }; continue }
+    if (!isTuiDeliveryTarget(member)) { out[name] = { state: 'seat_unavailable', reason: 'no_delivery_route' }; continue }
+    if (bridges.wakeup.state !== 'up') { out[name] = { state: 'bridge_unavailable', reason: bridges.wakeup.state }; continue }
+    out[name] = { state: 'pending' }
+  }
+  return out
+}
+
 const WAITING_WORDS = ['待機する', '待機します', '待機。']
 
 function parentName(room) {
@@ -236,11 +348,30 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && rest === 'messages')
       return json(res, 200, { messages: readMessages(room, Number(url.searchParams.get('since') ?? 0)) }, CORS)
 
-    if (req.method === 'GET' && rest === 'members')
+    if (req.method === 'GET' && rest === 'members') {
+      const now = Date.now()
+      const bridges = bridgeHealth(room.name, now)
       return json(res, 200, {
-        members: listMembers(room.name),
-        capabilities: { member_observation_v1: true, member_ledger_v1: true },
+        members: listMembers(room.name).map(m => ({ ...m, ...effectiveStatus(m, bridges, now) })),
+        bridges,
+        capabilities: {
+          member_observation_v1: true, member_ledger_v1: true,
+          effective_status_v1: true, delivery_receipt_v1: true,
+        },
       }, CORS)
+    }
+
+    // 配送状態の照会（決定102）。receipt が正・無い宛先は台帳から導出
+    if (req.method === 'GET' && rest === 'deliveries') {
+      const seqParam = Number(url.searchParams.get('seq'))
+      if (!Number.isSafeInteger(seqParam) || seqParam <= 0) return json(res, 400, { error: 'seq_required' }, CORS)
+      const msg = readMessages(room, seqParam - 1).find(m => m.seq === seqParam)
+      if (!msg) return json(res, 404, { error: 'message_not_found' }, CORS)
+      return json(res, 200, {
+        schema: 'peertable.delivery.v1', seq: seqParam, room_saved: true,
+        delivery: deliveryPlanFor(room.name, msg, bridgeHealth(room.name)),
+      }, CORS)
+    }
 
     // 単独 member の読み出し。席の attach 入力・診断はここから取る（席fileは廃止・台帳が唯一の正）
     if (req.method === 'GET' && seg[2] === 'members' && seg[3]) {
@@ -267,8 +398,13 @@ http.createServer(async (req, res) => {
 
     // 書込系。TOKEN 設定時は一致を要求する（外部公開設置のための最小ゲート）
     const body = await readBody(req)
-    if (TOKEN !== null && (req.headers['x-peertable-token'] ?? url.searchParams.get('token')) !== TOKEN)
+    if (TOKEN !== null && (req.headers['x-peertable-token'] ?? url.searchParams.get('token')) !== TOKEN) {
+      // bridge 由来と分類できる 403 は観測として残し、実効表示 bridge_auth_failed の根拠にする（決定103）。
+      // 403 を返す server だけが「bridge が認証で書けていない」を確実に知る——状態点が黙って消える形にしない
+      const deniedKind = classifyDeniedWrite(rest, body)
+      if (deniedKind !== null && BRIDGE_KINDS.includes(deniedKind)) authFailures.set(`${room.name}/${deniedKind}`, Date.now())
       return json(res, 403, { error: 'token_required' })
+    }
 
     if (req.method === 'POST' && rest === 'messages') {
       const { from, to, to_names: toNames, body: text } = JSON.parse(body)
@@ -279,7 +415,31 @@ http.createServer(async (req, res) => {
       const waiting = WAITING_WORDS.some(word => text.includes(word))
       const audience = normalizeAudience(waiting ? parentName(room) : to, waiting ? null : toNames)
       if (audience.error) return json(res, 400, audience.error)
-      return json(res, 200, post(room, from, audience.to, text, audience.to_names))
+      const saved = post(room, from, audience.to, text, audience.to_names)
+      // 保存と配達は別の事実（決定102）。応答は room_saved と宛先別 delivery の二段で返し、
+      // delivered は wakeup-bridge の投入成立 receipt だけが作る。sent の一語で両者を混ぜない
+      return json(res, 200, { ...saved, room_saved: true, delivery: deliveryPlanFor(room.name, saved, bridgeHealth(room.name)) })
+    }
+    // bridge 心拍（決定103）。seat-status / wakeup が 30 秒ごとに送る。正常心拍は 403 観測を消す
+    if (req.method === 'POST' && rest === 'bridges') {
+      const { kind, pid, state, detail } = JSON.parse(body)
+      if (typeof kind !== 'string' || kind.length === 0) return json(res, 400, { error: 'kind_required' })
+      db.prepare(`INSERT OR REPLACE INTO bridges (room, kind, pid, state, detail, beat_at)
+        VALUES (?, ?, ?, ?, ?, ?)`).run(room.name, kind, pid ?? null, state ?? 'running', detail ?? null, new Date().toISOString())
+      authFailures.delete(`${room.name}/${kind}`)
+      return json(res, 200, { ok: true })
+    }
+    // 配送 receipt（決定102）。書き手は wakeup-bridge だけ。同じ (seq, recipient) は最新で上書き
+    // （seat_unavailable → 再試行成功 delivered の遷移を残すため）
+    if (req.method === 'POST' && rest === 'deliveries') {
+      const { seq: recSeq, recipient, result, reason } = JSON.parse(body)
+      if (!Number.isSafeInteger(recSeq) || recSeq <= 0) return json(res, 400, { error: 'seq_required' })
+      if (typeof recipient !== 'string' || recipient.length === 0) return json(res, 400, { error: 'recipient_required' })
+      if (!['delivered', 'pending', 'seat_unavailable', 'bridge_unavailable', 'failed'].includes(result))
+        return json(res, 400, { error: 'result_invalid' })
+      db.prepare(`INSERT OR REPLACE INTO deliveries (room, seq, recipient, result, reason, at)
+        VALUES (?, ?, ?, ?, ?, ?)`).run(room.name, recSeq, recipient, result, reason ?? null, new Date().toISOString())
+      return json(res, 200, { ok: true })
     }
     if (req.method === 'POST' && rest === 'members') {
       const { name, ...meta } = JSON.parse(body)
@@ -310,6 +470,8 @@ http.createServer(async (req, res) => {
       for (const s of room.streams) s.end()
       rooms.delete(room.name); rmSync(room.dir, { recursive: true, force: true })
       db.prepare('DELETE FROM members WHERE room = ?').run(room.name)
+      db.prepare('DELETE FROM bridges WHERE room = ?').run(room.name)
+      db.prepare('DELETE FROM deliveries WHERE room = ?').run(room.name)
       return json(res, 200, { ok: true })
     }
     return json(res, 404, { error: 'not_found' })
@@ -353,6 +515,8 @@ const UI = room => `<!doctype html><html lang="ja"><head><meta charset="utf-8"><
 .top{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px 0}
 .top>div{max-width:760px;margin:0 auto}
 .members{display:flex;gap:6px;overflow-x:auto;padding:10px 0;scrollbar-width:thin}
+.bridgewarn{color:var(--busy);font-size:12px;font-weight:650;padding:0 0 8px}
+.bridgewarn:empty{display:none}
 .chip.has-meta{cursor:pointer}
 /* 稼働状態の点。報告が途絶えたら unknown（中空）へ落として、古い状態を出し続けない */
 .chip .nm{display:inline-flex;align-items:center;gap:5px}
@@ -419,7 +583,7 @@ const UI = room => `<!doctype html><html lang="ja"><head><meta charset="utf-8"><
 .to-bottom[hidden]{display:none}
 .sys .body{padding:2px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
 </style></head><body>
-<header class="top"><div class="brand">${MARK}${esc(room)} <small>· Peertable</small></div><div class="members" id="members"></div></header>
+<header class="top"><div class="brand">${MARK}${esc(room)} <small>· Peertable</small></div><div class="members" id="members"></div><div class="bridgewarn" id="bridges"></div></header>
 <main class="log" id="log"></main>
 <button class="to-bottom" id="to-bottom" type="button" hidden aria-label="最新の発言へ" title="最新の発言へ">↓</button>
 <script>
@@ -552,8 +716,21 @@ function render(m){
   body.appendChild(meta);body.appendChild(bub);body.appendChild(seq())
   d.appendChild(body);logEl.appendChild(d);last=m;return d
 }
+// bridge 障害の帯。unreported（bridge を立てない部屋・archive 部屋）は常時警告で汚さないため出さない
+const bridgesEl=document.getElementById('bridges')
+function renderBridges(bridges){
+  const label={seat_status:'稼働状態bridge',wakeup:'配達bridge'}
+  const warn=[]
+  for(const k of ['seat_status','wakeup']){
+    const s=bridges&&bridges[k]&&bridges[k].state
+    if(!s||s==='up'||s.endsWith('_unreported'))continue
+    warn.push(label[k]+'：'+(s==='bridge_auth_failed'?'認証失敗(403・bridge_auth_failed)':'心拍途絶(停止)'))
+  }
+  bridgesEl.textContent=warn.length?'⚠ '+warn.join(' / '):''
+}
 async function refreshMembers(){
   const r=await(await fetch(api('members'))).json()
+  renderBridges(r.bridges)
   syncAvatarAssignments(r.members.map(m=>m.name))
   membersEl.textContent=''
   if(!r.members.length){membersEl.appendChild(el('span','empty','（まだ誰も居ない）'));return}
@@ -564,12 +741,12 @@ async function refreshMembers(){
     const rolesText=Array.isArray(m.roles)&&m.roles.length?m.roles.join('・'):''
     const settingsText=[m.model,m.effort].filter(Boolean).join('×')
     const meta=[rolesText,settingsText,m.mission].filter(Boolean)
-    // 稼働状態は**報告が新しい時だけ**採る。途絶えたら unknown へ落とす——古い状態を出し続けるのが
-    // いちばん悪い（動いていない席を「動いている」と見せる）。閾値は bridge の心拍30秒の3倍
-    const age=m.status_at?Date.now()-Date.parse(m.status_at):Infinity
-    const st=(m.status&&age<STATUS_STALE_MS)?m.status:(m.status?'unknown':null)
+    // 稼働状態は server 生成の実効状態（status_effective / status_reason）だけを読む（決定101）。
+    // 閲覧面ごとに独自の鮮度判定を持つと、MCP と Web UI で違う判定になり誤認が再発する
+    const st=m.status_effective??null
     if(st)c.classList.add('is-'+st)
-    meta.push(st?'状態 '+({busy:'作業中',idle:'待機',dead:'停止',blocked:'承認待ち',unknown:'不明(報告が途絶えている)'}[st]??st):'状態 未報告(seat-status bridge が動いていない)')
+    const reason={status_unreported:'未報告(seat-status bridge が動いていない)',status_heartbeat_stale:'状態heartbeatが途絶えている',status_bridge_down:'状態bridgeが停止(status_bridge_down)',status_bridge_unreported:'状態bridgeが未登録',bridge_auth_failed:'bridge認証失敗(403)'}[m.status_reason]
+    meta.push(st?'状態 '+({busy:'作業中',idle:'待機',dead:'停止',blocked:'承認待ち',unknown:'不明'}[st]??st)+(reason?'（'+reason+'）':''):'状態 未取得（旧serverは実効状態を返さない）')
     const usage=[]
     const busyAge=m.busy_since?Date.now()-Date.parse(m.busy_since):NaN
     if((st==='busy'||st==='blocked')&&Number.isFinite(busyAge)&&busyAge>=0)usage.push('継続 '+elapsed(busyAge))
@@ -633,7 +810,6 @@ function celebrate(name){
   document.body.appendChild(v);setTimeout(()=>v.remove(),1600)
 }
 const BEAT=${HEARTBEAT_MS}
-const STATUS_STALE_MS=90000 // 稼働状態の鮮度。これを過ぎた報告は unknown（bridge 心拍30秒の3倍）
 let lastSeq=0,lastBeat=Date.now(),es=null,emptyEl=null,firstLoad=true,catching=false,memberDebounce=null
 // seq で二重描画を弾く。張り直し後の追いつきと SSE の新着が重なっても同じ発言は1回しか出ない
 function apply(m,live=false){
