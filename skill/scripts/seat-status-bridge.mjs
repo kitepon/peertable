@@ -188,6 +188,7 @@ async function nudgeIfDropped(name, busySince) {
 const PATROL_INTERVAL_MS = 30_000
 const PATROL_NAG_INTERVAL_MS = 300_000 // 条件が続く席へは5分間隔で再吠えする（1回きりにしない）
 const patrolLastNag = new Map() // seat -> epoch_ms
+const busyEndedAt = new Map() // seat -> epoch_ms（このbridgeプロセスが観測した最後のターン終了）
 let lastPatrolAt = 0
 async function patrolClaims() {
   if (setup.mode !== 'lattice' || !setup.plan_key) return
@@ -209,6 +210,7 @@ async function patrolClaims() {
   } catch { return }
   const targets = patrolTargets({
     activeTasks, messages, statusOf: seat => last.get(seat)?.status ?? null,
+    lastBusyEndAt: seat => busyEndedAt.get(seat) ?? null,
     now, lastNag: patrolLastNag, nagIntervalMs: PATROL_NAG_INTERVAL_MS,
   })
   for (const { seat, task } of targets) {
@@ -218,7 +220,7 @@ async function patrolClaims() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Peertable-Token': token } : {}) },
         body: JSON.stringify({ from: 'alarm', to: seat,
-          body: `[継続] あなたがclaim中の工程 ${task} が着手中のまま、有効な待機宣言なしに席がidleになっている。作業を続行するか、外部待ちなら目覚まし条件を登録して [待機] を宣言し直すこと。` }),
+          body: `[継続] あなたがclaim中の工程 ${task} が着手中のまま、ターン終了後の待機宣言なしに席が停止している。作業を続行するか、外部待ちなら目覚まし条件を登録して [待機] を宣言してから終えること。` }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       console.error(`seat-status-bridge: claim巡回が ${seat} を起こした（${task} を保有したまま無宣言idle）`)
@@ -330,6 +332,7 @@ async function tick() {
       await send(name, observation, observedAt)
       last.set(name, { ...observation, at: now })
       sent++
+      if ((prev?.status === 'busy' || prev?.status === 'blocked') && observation.status === 'idle') busyEndedAt.set(name, now)
       if (prev?.status === 'busy' && observation.status === 'idle') await nudgeIfDropped(name, prev.busySince)
       if (changed) console.error(`seat-status-bridge: ${name} → ${observation.status}${prev ? `（${prev.status} から）` : ''}`)
     } catch (e) {

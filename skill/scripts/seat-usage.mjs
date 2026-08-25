@@ -284,7 +284,7 @@ export function parsePaneTokenHint(pane) {
 // ---- claim巡回番犬の純関数（seat-status-bridge.mjsが使う。testはここからimportする）----
 export const STOP_DECLARATION = /\[待機\]|\[監査提出\]|待機します|散会/u
 
-export function patrolTargets({ activeTasks, messages, statusOf, now, lastNag, nagIntervalMs }) {
+export function patrolTargets({ activeTasks, messages, statusOf, lastBusyEndAt, now, lastNag, nagIntervalMs }) {
   const owner = new Map() // task_id -> 最新のclaim発言者
   for (const m of messages) {
     const match = /^\[claim\]\s+(\S+)/u.exec(m.body ?? '')
@@ -294,14 +294,18 @@ export function patrolTargets({ activeTasks, messages, statusOf, now, lastNag, n
   for (const task of activeTasks) {
     const seat = owner.get(task)
     if (!seat || statusOf(seat) !== 'idle') continue
-    let declSeq = 0
-    let directSeq = 0
+    // 待機の判定は観測ベース（2026-08-25 オーナー裁定）: 「最後のターン終了より後に待機宣言があるか」
+    // だけを見る。宛先による失効・TTLのようなメッセージ解釈の条件は持たない。
+    // ターンを終えたのに宣言せず黙った席（実被弾: 起こされて→落として→古い宣言の裏で就寝）は
+    // 宣言がターン終了より古いので確実に引っかかる。
+    let declTs = 0
     for (const m of messages) {
-      if (m.from === seat && STOP_DECLARATION.test(m.body ?? '')) declSeq = m.seq
-      const recipients = Array.isArray(m.to_names) ? m.to_names : [m.to]
-      if (m.from !== seat && recipients.includes(seat)) directSeq = Math.max(directSeq, m.seq)
+      if (m.from === seat && STOP_DECLARATION.test(m.body ?? '')) declTs = Date.parse(m.ts ?? '') || declTs
     }
-    if (declSeq > 0 && declSeq > directSeq) continue // 宣言が生きている＝正当な待機
+    const busyEnd = lastBusyEndAt(seat)
+    // bridge再起動等でターン履歴が無い席は、宣言の存在だけで正当とみなす（誤爆しない安全側）
+    const declared = busyEnd == null ? declTs > 0 : declTs >= busyEnd - 10_000
+    if (declared) continue
     if (now - (lastNag.get(seat) ?? 0) < nagIntervalMs) continue
     if (!targets.some(t => t.seat === seat)) targets.push({ seat, task })
   }

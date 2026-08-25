@@ -1,82 +1,76 @@
 #!/usr/bin/env node
-// claim巡回番犬（2026-08-25）の focused repro。実被弾（poly卓 #105-#106）の再演を含む。
+// claim巡回番犬（観測ベース判定・2026-08-25 オーナー裁定）の focused repro。
+// 判定: claim保有 ∧ idle ∧ 「最後のターン終了より後に待機宣言が無い」→ 起こす。
 // 実行: node experiments/patrol-nudge-repro.mjs
 import assert from 'node:assert/strict'
 import { patrolTargets } from '../skill/scripts/seat-usage.mjs'
 
+const T0 = Date.parse('2026-08-25T06:00:00.000Z')
+const min = n => T0 + n * 60_000
+const msg = (seq, from, to, body, atMin) => ({ seq, from, to, body, ts: new Date(min(atMin)).toISOString() })
+const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
 
-const msg = (seq, from, to, body) => ({ seq, from, to, body })
-const base = {
-  now: 1_000_000,
-  lastNag: new Map(),
-  nagIntervalMs: 300_000,
-}
-
-// 1) 実被弾の再演: 待機宣言(#105)→目覚まし名指しDM(#106)→起床ターンが落としてidle
-//    宣言は#106で失効しているので、巡回は起こす
+// 1) 実被弾の再演: 待機宣言(12分)→目覚ましで起床→ターン終了(20分)→宣言なしで就寝
+//    宣言がターン終了より古い → 起こす
 {
   const messages = [
-    msg(103, 'mio', 'all', '[claim] p2-ev'),
-    msg(105, 'mio', 'bell', '[待機] Gamma収集の完了待ち'),
-    msg(106, 'alarm', 'mio', '[待機解放条件成立] Gamma本番収集プロセス終了'),
+    msg(103, 'mio', 'all', '[claim] p2-ev', 10),
+    msg(105, 'mio', 'bell', '[待機] 収集完了待ち', 12),
   ]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle' })
-  assert.deepEqual(t, [{ seat: 'mio', task: 'p2-ev' }], '失効した宣言の裏で寝る席を起こす')
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => min(20) })
+  assert.deepEqual(t, [{ seat: 'mio', task: 'p2-ev' }], 'ターン終了後に宣言なし → 起こす')
 }
 
-// 2) 正当な待機: 宣言後に名指しメッセージが無い → 起こさない
+// 2) 正当な待機: ターン終了(20分)の後に宣言(21分) → 起こさない
 {
   const messages = [
-    msg(103, 'mio', 'all', '[claim] p2-ev'),
-    msg(105, 'mio', 'bell', '[待機] 収集完了待ち'),
+    msg(103, 'mio', 'all', '[claim] p2-ev', 10),
+    msg(110, 'mio', 'bell', '[待機] 収集完了待ち', 21),
   ]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle' })
-  assert.deepEqual(t, [], '生きている宣言は起こさない')
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => min(20) })
+  assert.deepEqual(t, [], 'ターン終了後の宣言 → 正当な待機')
 }
 
-// 3) to:"all" は宣言を失効させない（親の待機宣言運用と両立）
+// 3) ターン履歴なし（bridge再起動直後）: 宣言が存在すれば起こさない（誤爆しない安全側）
 {
   const messages = [
-    msg(103, 'mio', 'all', '[claim] p2-ev'),
-    msg(105, 'mio', 'bell', '[待機] 収集完了待ち'),
-    msg(106, 'bell', 'all', '全体連絡'),
+    msg(103, 'mio', 'all', '[claim] p2-ev', 10),
+    msg(105, 'mio', 'bell', '[待機] x', 12),
   ]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle' })
-  assert.deepEqual(t, [], 'to:allでは宣言は失効しない')
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => null })
+  assert.deepEqual(t, [], '履歴なし＋宣言あり → 起こさない')
 }
 
-// 4) busy中の席は起こさない
+// 4) 宣言が一度も無い無宣言idle → 履歴が無くても起こす
 {
-  const messages = [msg(103, 'mio', 'all', '[claim] p2-ev')]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'busy' })
+  const messages = [msg(103, 'mio', 'all', '[claim] p2-ev', 10)]
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => null })
+  assert.deepEqual(t, [{ seat: 'mio', task: 'p2-ev' }], '無宣言 → 起こす')
+}
+
+// 5) busy中の席は起こさない
+{
+  const messages = [msg(103, 'mio', 'all', '[claim] p2-ev', 10)]
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'busy', lastBusyEndAt: () => null })
   assert.deepEqual(t, [], 'busyは対象外')
 }
 
-// 5) 宣言が一度も無い無宣言idle → 起こす（ターン長に関係なく）
+// 6) 再吠え間隔: 間隔内は吠えない／超過で再吠え
 {
-  const messages = [msg(103, 'mio', 'all', '[claim] p2-ev')]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle' })
-  assert.deepEqual(t, [{ seat: 'mio', task: 'p2-ev' }], '無宣言idleは起こす')
+  const messages = [msg(103, 'mio', 'all', '[claim] p2-ev', 10)]
+  const argsBase = { ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => min(20) }
+  assert.deepEqual(patrolTargets({ ...argsBase, lastNag: new Map([['mio', base.now - 60_000]]) }), [], '間隔内は再吠えしない')
+  assert.equal(patrolTargets({ ...argsBase, lastNag: new Map([['mio', base.now - 600_000]]) }).length, 1, '間隔超過で再吠えする')
 }
 
-// 6) 再吠え間隔: 直近に吠えた席へは間隔内なら吠えない／間隔超過で再吠え
-{
-  const messages = [msg(103, 'mio', 'all', '[claim] p2-ev')]
-  const lastNag = new Map([['mio', base.now - 60_000]])
-  assert.deepEqual(patrolTargets({ ...base, lastNag, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle' }), [], '間隔内は再吠えしない')
-  const lastNagOld = new Map([['mio', base.now - 600_000]])
-  assert.deepEqual(patrolTargets({ ...base, lastNag: lastNagOld, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle' }).length, 1, '間隔超過で再吠えする')
-}
-
-// 7) to_names配列の名指しも失効になる
+// 7) ターン終了直前の宣言（時計ずれ10秒以内）は有効
 {
   const messages = [
-    msg(103, 'mio', 'all', '[claim] p2-ev'),
-    msg(105, 'mio', 'bell', '[待機] x'),
-    { seq: 106, from: 'koharu', to: null, to_names: ['mio', 'bell'], body: '確認したい' },
+    msg(103, 'mio', 'all', '[claim] p2-ev', 10),
+    { seq: 110, from: 'mio', to: 'bell', body: '[待機] x', ts: new Date(min(20) - 5_000).toISOString() },
   ]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle' })
-  assert.deepEqual(t, [{ seat: 'mio', task: 'p2-ev' }], 'to_names名指しでも宣言は失効する')
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => min(20) })
+  assert.deepEqual(t, [], 'ターン終了±10秒の宣言は有効（時計ずれ許容）')
 }
 
 console.log('PATROL_NUDGE_REPRO_PASS')
