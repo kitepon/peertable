@@ -192,8 +192,16 @@ fi
 # **解決した CLI の実 path を残す。** 残さないと、席も teardown も PATH の `lattice` へ逸れる。
 # release 前の source tree を実測する卓では、それは**pull 系 command を持たない古い install**で、
 # 手順どおり打っても届かない（suzune の監査で実測・room [1037]）。
-printf '{"room":"%s","server_url":"%s","public_url":"%s","mode":"%s","plan_key":"%s","phases":%s,"added_exclude":%s,"lattice_preexisting":%s,"runtime_preexisting":%s,"added_runtime_exclude":%s,"added_root_mcp":%s,"added_mcp_exclude":%s,"external_pane":%s,"project_json_preexisting":%s,"work_order_adapter":%s,"work_order_spool_ref":"%s","lattice_cli":"%s"}\n' \
-  "$room" "$url" "$public_url" "$mode" "$plan" "$phases_json" "$added_exclude" "$lattice_preexisting" "$runtime_preexisting" "$added_runtime_exclude" "$added_root_mcp" "$added_mcp_exclude" "$external_pane" "$project_json_preexisting" "$work_order_adapter" "$work_order_spool_ref" "$lattice_cli" > "$tdir/setup-state.json"
+if [ "$(node -p 'process.platform')" = win32 ]; then
+  node "$repo/skill/scripts/platform/windows/write-setup-state.mjs" "$tdir/setup-state.json" \
+    "$room" "$url" "$public_url" "$mode" "$plan" "$phases_json" "$added_exclude" \
+    "$lattice_preexisting" "$runtime_preexisting" "$added_runtime_exclude" "$added_root_mcp" \
+    "$added_mcp_exclude" "$external_pane" "$project_json_preexisting" "$work_order_adapter" \
+    "$work_order_spool_ref" "$lattice_cli"
+else
+  printf '{"room":"%s","server_url":"%s","public_url":"%s","mode":"%s","plan_key":"%s","phases":%s,"added_exclude":%s,"lattice_preexisting":%s,"runtime_preexisting":%s,"added_runtime_exclude":%s,"added_root_mcp":%s,"added_mcp_exclude":%s,"external_pane":%s,"project_json_preexisting":%s,"work_order_adapter":%s,"work_order_spool_ref":"%s","lattice_cli":"%s"}\n' \
+    "$room" "$url" "$public_url" "$mode" "$plan" "$phases_json" "$added_exclude" "$lattice_preexisting" "$runtime_preexisting" "$added_runtime_exclude" "$added_root_mcp" "$added_mcp_exclude" "$external_pane" "$project_json_preexisting" "$work_order_adapter" "$work_order_spool_ref" "$lattice_cli" > "$tdir/setup-state.json"
+fi
 
 # 稼働状態ブリッジを起こす。**teardown が止めるのと対称にする**——「起こすかは卓の任意」だった間、
 # 手で `nohup` する経路が2つの失敗を招いた: 起こし忘れと、**トークンを持たないシェルで起こす**

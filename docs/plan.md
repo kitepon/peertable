@@ -1672,3 +1672,9 @@ patch `0.7.1`。focused reproはmanaged MCP更新・他server保持・preexistin
 Windows nativeのGit Bashから`teardown.sh`を実行すると、Windows版Pythonが複数の`run_ref`をCRLFで出力し、shellの`read`がLFだけを除いて末尾`\r`を残す。Latticeは正しく`INVALID_RUN_REF`で拒否し、teardownが未完了になる。
 
 共通`teardown.sh`は`process.platform`で環境別adapterを選ぶdispatchだけを持つ。CR除去本体は`skill/scripts/platform/windows/normalize-read-line.mjs`へ置き、POSIX経路は従来値をそのまま使う。正本は`docs/plan_windows-crlf-runref-20260825.md`。
+
+## 57. Windows setup stateのpathを環境別writerでJSON化する（2026-08-25）
+
+Windows nativeのGit Bashでは解決済みLattice CLIが`C:\\...`となる。共通`printf`へ未escapeで埋めると`setup-state.json`が不正JSONになり、全bridgeが起動不能になる。
+
+共通`setup.sh`はWindows writerを呼ぶdispatchだけを持つ。Windows pathを含むJSON serializationは`skill/scripts/platform/windows/write-setup-state.mjs`へ置き、POSIXの従来出力は変更しない。

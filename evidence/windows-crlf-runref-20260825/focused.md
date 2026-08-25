@@ -5,3 +5,5 @@
 - 実装: 共通teardownはWindows adapterへのdispatchだけ。CR除去は`skill/scripts/platform/windows/normalize-read-line.mjs`。
 - focused test: `node experiments/windows-crlf-run-ref-repro.mjs` 2/2 green。
 - syntax: Git for Windows Bashによる`bash -n skill/scripts/teardown.sh` green。
+- 追加再現: 0.8.0 setupで`lattice_cli`のWindows backslashが未escapeとなり、`setup-state.json`をNodeがparseできず3 bridgeが起動不能。
+- 追加実装: 共通setupはWindows writerへのdispatchだけ。JSON serializationは`skill/scripts/platform/windows/write-setup-state.mjs`。
