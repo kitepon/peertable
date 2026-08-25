@@ -280,10 +280,27 @@ export function parsePaneTokenHint(pane) {
 export const STOP_DECLARATION = /\[待機\]|\[監査提出\]|待機します|散会/u
 
 export function patrolTargets({ activeTasks, messages, statusOf, lastBusyStartAt, now, lastNag, nagIntervalMs }) {
-  const owner = new Map() // task_id -> 最新のclaim発言者
+  // task_id -> claim発言者の履歴。[claim]で積み、[claim撤回]で本人の最新claimを取り消す
+  // （実被弾 2026-08-25 #160: 撤回を読めず、撤回済みの後発claim者へ番犬が誤って吠えた。
+  // roomのclaimは割当の正本（決定25）なので、撤回も同じ語彙で読む——正本の外の推定はしない）。
+  const claimHistory = new Map()
   for (const m of messages) {
-    const match = /^\[claim\]\s+(\S+)/u.exec(m.body ?? '')
-    if (match) owner.set(match[1], m.from)
+    const claim = /^\[claim\]\s+([0-9A-Za-z._-]+)/u.exec(m.body ?? '')
+    if (claim) {
+      if (!claimHistory.has(claim[1])) claimHistory.set(claim[1], [])
+      claimHistory.get(claim[1]).push(m.from)
+      continue
+    }
+    const retract = /^\[claim撤回\]\s+([0-9A-Za-z._-]+)/u.exec(m.body ?? '')
+    if (retract) {
+      const history = claimHistory.get(retract[1]) ?? []
+      const index = history.lastIndexOf(m.from)
+      if (index !== -1) history.splice(index, 1)
+    }
+  }
+  const owner = new Map()
+  for (const [task, history] of claimHistory) {
+    if (history.length > 0) owner.set(task, history.at(-1))
   }
   const targets = []
   for (const task of activeTasks) {

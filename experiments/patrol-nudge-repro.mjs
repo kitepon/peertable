@@ -92,4 +92,17 @@ assert.equal(combineSeatLamp('dead', { alive: true, active: true }), 'busy', '�
 assert.equal(combineSeatLamp('dead', { alive: false, active: false }), 'dead', '何も無い→白抜き側')
 assert.equal(combineSeatLamp('blocked', { alive: true, active: false }), 'blocked', '承認詰まりは維持')
 
+// 9) claim撤回の再演（実被弾 #127/#128/#152→#160誤爆）: 後発claimが撤回されたら保有は先行者へ戻る
+{
+  const messages = [
+    msg(103, 'mio', 'all', '[claim] p2-dashboard', 10),
+    msg(104, 'yuzu', 'all', '[claim] p2-dashboard', 11),
+    msg(105, 'yuzu', 'all', '[claim撤回] p2-dashboard。mioの先行claimを確認', 12),
+  ]
+  // mioは宣言なしidle → 起こす対象はmioであってyuzuではない
+  const t9 = patrolTargets({ ...base, activeTasks: ['p2-dashboard'], messages,
+    statusOf: s => 'idle', lastBusyStartAt: () => min(20) })
+  assert.deepEqual(t9, [{ seat: 'mio', task: 'p2-dashboard' }], '撤回後の保有は先行claim者へ戻る')
+}
+
 console.log('PATROL_NUDGE_REPRO_PASS')
