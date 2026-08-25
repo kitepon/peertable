@@ -1698,3 +1698,5 @@ Windows Git Bashの`parent-join.sh`がWindows版Pythonのstdoutで`ensure_ascii=
 共通parent-joinはWindows writerを呼ぶdispatchだけを持つ。UTF-8 JSON生成は`skill/scripts/platform/windows/parent-member-json.mjs`へ置き、POSIXの既存Python経路は変更しない。
 
 Windows Git Bashのcommand substitutionからcurlへUTF-8 JSONを渡す段でも文字化けしたため、Windowsは`register-parent-member.mjs`がbody生成とHTTP POSTを同じNode process内で完結させる。共通parent-joinはWindows登録adapterを呼ぶだけで、POSIX curl経路は不変。
+
+`parent-member-json.mjs`はlibrary import時にCLI出力を行わず、直接実行時だけstdoutへJSONを出す。登録adapterからimportした時にargvを誤解釈した偽member JSONを出す副作用を`isCli`境界で除去する。
