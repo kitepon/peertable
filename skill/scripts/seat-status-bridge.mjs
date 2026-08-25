@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
 
 const args = process.argv.slice(2)
 const proj = args[0]
@@ -152,7 +152,6 @@ async function serverKeepsStatus() {
 // 自己DM（席の自己規律）は保険として残るが、継続の保証はこの番犬が持つ。
 // busy 2分未満は情報読取だけの正当な無宣言ターンがあるため起こさない（誤爆の代償は
 // 待機宣言1ターンで、宣言後の episode は declared 判定で再起こしされない）。
-const STOP_DECLARATION = /\[待機\]|\[監査提出\]|待機します|散会/u
 const NUDGE_MIN_BUSY_MS = 120_000
 const nudgedEpisodes = new Map() // name -> busySince（同一エピソード1回だけ）
 async function nudgeIfDropped(name, busySince) {
@@ -176,6 +175,57 @@ async function nudgeIfDropped(name, busySince) {
     console.error(`seat-status-bridge: 継続番犬が ${name} を起こした（停止宣言なしの busy→idle）`)
   } catch (e) {
     console.error(`seat-status-bridge: 継続番犬の起こしに失敗: ${e.message}`)
+  }
+}
+
+// ---- claim巡回番犬（2026-08-25 オーナー設計）----
+// 「activeなclaimを保有する席が、有効な待機宣言なしにidleでいる」ことを**周期的に**検査して起こす。
+// 上のbusy→idle遷移番犬は2分未満のターンで作業を落とした席を構造的に見ない（実被弾 2026-08-25:
+// 目覚ましで起床→1分未満で「再開します」と宣言だけしてidle化。以後どの装置も起こさなかった）。
+// 待機宣言の有効性: 宣言より後にその席宛の名指しメッセージ（目覚まし・DM）が届いたら失効。
+// 目覚ましで起こされた席の古い宣言文面を、寝ている根拠にしない（同実被弾: #105宣言→#106起床→就寝）。
+// to:"all" は失効させない——親の待機宣言運用（起きても返信不要）と両立させるため。
+const PATROL_INTERVAL_MS = 30_000
+const PATROL_NAG_INTERVAL_MS = 300_000 // 条件が続く席へは5分間隔で再吠えする（1回きりにしない）
+const patrolLastNag = new Map() // seat -> epoch_ms
+let lastPatrolAt = 0
+async function patrolClaims() {
+  if (setup.mode !== 'lattice' || !setup.plan_key) return
+  const now = Date.now()
+  if (now - lastPatrolAt < PATROL_INTERVAL_MS) return
+  lastPatrolAt = now
+  let activeTasks
+  try {
+    const out = execFileSync('lattice', ['todo', 'status', '--json'], { cwd: proj, encoding: 'utf8' })
+    activeTasks = (JSON.parse(out).active_set ?? []).map(t => t.task_id)
+  } catch (e) {
+    console.error(`seat-status-bridge: claim巡回がLatticeを読めない（今周期は検査しない）: ${e.message.split('\n')[0]}`)
+    return
+  }
+  if (!activeTasks.length) return
+  let messages
+  try {
+    messages = (await (await fetch(`${url}/api/${encodeURIComponent(room)}/messages`)).json()).messages ?? []
+  } catch { return }
+  const targets = patrolTargets({
+    activeTasks, messages, statusOf: seat => last.get(seat)?.status ?? null,
+    now, lastNag: patrolLastNag, nagIntervalMs: PATROL_NAG_INTERVAL_MS,
+  })
+  for (const { seat, task } of targets) {
+    patrolLastNag.set(seat, now)
+    try {
+      const res = await fetch(`${url}/api/${encodeURIComponent(room)}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Peertable-Token': token } : {}) },
+        body: JSON.stringify({ from: 'alarm', to: seat,
+          body: `[継続] あなたがclaim中の工程 ${task} が着手中のまま、有効な待機宣言なしに席がidleになっている。作業を続行するか、外部待ちなら目覚まし条件を登録して [待機] を宣言し直すこと。` }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      console.error(`seat-status-bridge: claim巡回が ${seat} を起こした（${task} を保有したまま無宣言idle）`)
+    } catch (e) {
+      patrolLastNag.delete(seat)
+      console.error(`seat-status-bridge: claim巡回の起こしに失敗: ${e.message}`)
+    }
   }
 }
 
@@ -289,6 +339,7 @@ async function tick() {
   }
   // 0件でも0件と言う（条件付きログにしない。沈黙する失敗を作らない・決定58）
   console.error(`seat-status-bridge: ${members.length} 席を見て ${sent} 件送った（tmux席を持たず観測対象外: ${skipped}）`)
+  await patrolClaims()
   return { attempted: sent + failed, failed }
 }
 

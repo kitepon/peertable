@@ -280,3 +280,31 @@ export function parsePaneTokenHint(pane) {
   }
   return latest
 }
+
+// ---- claim巡回番犬の純関数（seat-status-bridge.mjsが使う。testはここからimportする）----
+export const STOP_DECLARATION = /\[待機\]|\[監査提出\]|待機します|散会/u
+
+export function patrolTargets({ activeTasks, messages, statusOf, now, lastNag, nagIntervalMs }) {
+  const owner = new Map() // task_id -> 最新のclaim発言者
+  for (const m of messages) {
+    const match = /^\[claim\]\s+(\S+)/u.exec(m.body ?? '')
+    if (match) owner.set(match[1], m.from)
+  }
+  const targets = []
+  for (const task of activeTasks) {
+    const seat = owner.get(task)
+    if (!seat || statusOf(seat) !== 'idle') continue
+    let declSeq = 0
+    let directSeq = 0
+    for (const m of messages) {
+      if (m.from === seat && STOP_DECLARATION.test(m.body ?? '')) declSeq = m.seq
+      const recipients = Array.isArray(m.to_names) ? m.to_names : [m.to]
+      if (m.from !== seat && recipients.includes(seat)) directSeq = Math.max(directSeq, m.seq)
+    }
+    if (declSeq > 0 && declSeq > directSeq) continue // 宣言が生きている＝正当な待機
+    if (now - (lastNag.get(seat) ?? 0) < nagIntervalMs) continue
+    if (!targets.some(t => t.seat === seat)) targets.push({ seat, task })
+  }
+  return targets
+}
+
