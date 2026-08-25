@@ -294,24 +294,17 @@ export function patrolTargets({ activeTasks, messages, statusOf, now, lastNag, n
   for (const task of activeTasks) {
     const seat = owner.get(task)
     if (!seat || statusOf(seat) !== 'idle') continue
-    if (hasValidStopDeclaration(seat, messages)) continue // 宣言が生きている＝正当な待機
+    let declSeq = 0
+    let directSeq = 0
+    for (const m of messages) {
+      if (m.from === seat && STOP_DECLARATION.test(m.body ?? '')) declSeq = m.seq
+      const recipients = Array.isArray(m.to_names) ? m.to_names : [m.to]
+      if (m.from !== seat && recipients.includes(seat)) directSeq = Math.max(directSeq, m.seq)
+    }
+    if (declSeq > 0 && declSeq > directSeq) continue // 宣言が生きている＝正当な待機
     if (now - (lastNag.get(seat) ?? 0) < nagIntervalMs) continue
     if (!targets.some(t => t.seat === seat)) targets.push({ seat, task })
   }
   return targets
 }
 
-
-// 有効な待機宣言: 席の最新の停止宣言より後に、その席宛の名指しメッセージ（目覚まし・DM）が
-// 届いていないこと。to:"all" は失効させない。巡回番犬の起床判定と waiting ランプ表示が
-// この同じ関数を共有する——表示と執行が別の論理を持つと、どちらかが嘘をつく（2026-08-25）。
-export function hasValidStopDeclaration(seat, messages) {
-  let declSeq = 0
-  let directSeq = 0
-  for (const m of messages) {
-    if (m.from === seat && STOP_DECLARATION.test(m.body ?? '')) declSeq = m.seq
-    const recipients = Array.isArray(m.to_names) ? m.to_names : [m.to]
-    if (m.from !== seat && recipients.includes(seat)) directSeq = Math.max(directSeq, m.seq)
-  }
-  return declSeq > 0 && declSeq > directSeq
-}

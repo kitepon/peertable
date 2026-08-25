@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { STOP_DECLARATION, hasValidStopDeclaration, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
 
 const args = process.argv.slice(2)
 const proj = args[0]
@@ -158,8 +158,10 @@ async function nudgeIfDropped(name, busySince) {
   if (!busySince || nudgedEpisodes.get(name) === busySince) return
   if (Date.now() - Date.parse(busySince) < NUDGE_MIN_BUSY_MS) return
   nudgedEpisodes.set(name, busySince)
-  const messages = roomMessages
-  if (!messages) return
+  let messages
+  try {
+    messages = (await (await fetch(`${url}/api/${encodeURIComponent(room)}/messages`)).json()).messages ?? []
+  } catch { return }
   const since = Date.parse(busySince)
   if (messages.some(m => m.from === name && Date.parse(m.ts) >= since && STOP_DECLARATION.test(m.body ?? ''))) return
   try {
@@ -187,7 +189,7 @@ const PATROL_INTERVAL_MS = 30_000
 const PATROL_NAG_INTERVAL_MS = 300_000 // 条件が続く席へは5分間隔で再吠えする（1回きりにしない）
 const patrolLastNag = new Map() // seat -> epoch_ms
 let lastPatrolAt = 0
-async function patrolClaims(roomMessages) {
+async function patrolClaims() {
   if (setup.mode !== 'lattice' || !setup.plan_key) return
   const now = Date.now()
   if (now - lastPatrolAt < PATROL_INTERVAL_MS) return
@@ -201,8 +203,10 @@ async function patrolClaims(roomMessages) {
     return
   }
   if (!activeTasks.length) return
-  const messages = roomMessages
-  if (!messages) return
+  let messages
+  try {
+    messages = (await (await fetch(`${url}/api/${encodeURIComponent(room)}/messages`)).json()).messages ?? []
+  } catch { return }
   const targets = patrolTargets({
     activeTasks, messages, statusOf: seat => last.get(seat)?.status ?? null,
     now, lastNag: patrolLastNag, nagIntervalMs: PATROL_NAG_INTERVAL_MS,
@@ -293,9 +297,6 @@ function recordReady() {
 async function tick() {
   let members
   try { members = await seats() } catch (e) { console.error(`seat-status-bridge: members を読めない: ${e.message}`); return NOTHING_ATTEMPTED }
-  // waiting判定と claim 巡回が同じメッセージ観測を共有する（fetch失敗時は null＝waitingへ昇格しない安全側）
-  let roomMessages = null
-  try { roomMessages = (await (await fetch(`${url}/api/${encodeURIComponent(room)}/messages`)).json()).messages ?? null } catch { roomMessages = null }
   // **送る前に、server が status を持つ版かを確かめる。**
   // 現行の `POST /members` は、既存メンバーでも `<名前> が参加した` を必ず room へ流す（`post()` が
   // `if (!members.has(name))` の外にある）。status を保持しない版へ投げると、**保存されないうえに
@@ -319,12 +320,6 @@ async function tick() {
     const observation = readSeat(member, prev, observedAt)
     // tmux 席を持たない member（親など）は一度も観測できないので送らない（deriveMissingSession が null を返す）
     if (observation === null) { skipped++; continue }
-    // waiting（2026-08-25 オーナー裁定）: idle のうち「有効な待機宣言がある」席だけを waiting として
-    // 表示する。判定は claim 巡回番犬と同じ hasValidStopDeclaration を共有——表示と執行が同じ論理を
-    // 持つことで、登録記録や自己申告だけで点きっぱなしになる嘘を作らない。宣言は席宛メッセージ到着で失効する。
-    if (observation.status === 'idle' && roomMessages && hasValidStopDeclaration(member.name, roomMessages)) {
-      observation.status = 'waiting'
-    }
     const changed = !prev || prev.status !== observation.status
       || prev.busySince !== observation.busySince
       // token表示は実行中に細かく増える。1k未満の差で8秒ごとにPOSTせず、表示精度に合う粒度で送る。
@@ -344,7 +339,7 @@ async function tick() {
   }
   // 0件でも0件と言う（条件付きログにしない。沈黙する失敗を作らない・決定58）
   console.error(`seat-status-bridge: ${members.length} 席を見て ${sent} 件送った（tmux席を持たず観測対象外: ${skipped}）`)
-  await patrolClaims(roomMessages)
+  await patrolClaims()
   return { attempted: sent + failed, failed }
 }
 
