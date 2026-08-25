@@ -20,6 +20,8 @@
 import { accessSync, constants, existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { windowsImportSpecifier } from './platform/windows/import-specifier.mjs'
+import { resolveWindowsLatticeContracts } from './platform/windows/resolve-lattice-contracts.mjs'
 
 function usage(message) {
   if (message) console.error(`ERROR: ${message}`)
@@ -102,8 +104,13 @@ try {
       : 'Peertable setupの正規手順で setup-state.json の lattice_cli を再生成する',
   )
 }
-const latticePkgSrc = join(dirname(dirname(latticeCli)), 'src', 'todo-contracts.mjs')
-const { todoSelfDigest } = await import(latticePkgSrc)
+const latticePkgSrc = process.platform === 'win32'
+  ? resolveWindowsLatticeContracts(latticeCli)
+  : join(dirname(dirname(latticeCli)), 'src', 'todo-contracts.mjs')
+const latticePkgSpecifier = process.platform === 'win32'
+  ? windowsImportSpecifier(latticePkgSrc)
+  : latticePkgSrc
+const { todoSelfDigest } = await import(latticePkgSpecifier)
 
 const planPathFromRoot = relative(repoRoot, absolutePlanPath)
 if (isAbsolute(planPathFromRoot) || planPathFromRoot.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || planPathFromRoot === '..') {
