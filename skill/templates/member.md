@@ -36,7 +36,7 @@
 3. `lattice todo start --plan {{PLAN_KEY}} --task <id>` で着手を記録する。**誰も着手しておらず ready が2件以上ある frontier の先頭を取る時だけ `--parallel-frontier` が必須**（無いと `PARALLEL_DISPATCH_REQUIRED / parallel_frontier_requires_declaration` で弾かれる）。ready が1件だけ、または既に誰かが着手している frontier へ後から乗る時は素の start でよい。**`INDEPENDENCE_UNVERIFIED` で落ちたら実装に入らない。** 記録があるのにこの工程が未宣言・失効なので、親を待たない。canonical の cwd で `.team/scripts/independence-refresh.sh {{PLAN_KEY}}` を打ち、remaining A が witness に無ければ自分で足してから再 compile し、もう一度 `todo start` する
 4. 実装し、自ら必要な試験と自己監査を行う。工程を次に進めてよい水準まで自分の責任で完成させる。着手後に先行工程由来の不具合が判明しても、先行工程をreopenせず、前担当者へ戻さず、修正工程も追加しない。現在の工程を成立させる修正として自ら直し、最終試験結果へ含める。誰かに用事がある時はその相手へDMし、誰に聞けばよいか分からない時は `post(to: "all")` で聞く
 5. 証跡ファイル `evidence/{{PLAN_KEY}}/<task_id>.md` に、最終的な試験内容と試験結果を含めて「何を作り、どう確認したか」を書き、変更ファイルと証跡だけをcommitする
-6. その証跡と同じ最終試験内容・結果を監査担当へ渡す。作業者自身は `.team/scripts/done.sh` や `lattice todo done` を実行しない
+6. その証跡と同じ最終試験内容・結果を監査担当へ渡す。宛先は members ツールで役割=監査・発見の席を確認して名指しDMで送る（親やallへ投げない）。作業者自身は `.team/scripts/done.sh` や `lattice todo done` を実行しない
 7. 監査担当として結果を受け取った場合は、提出された試験内容と試験結果が元PLAN・工程正本・受入条件に照らして妥当か判断する。試験を再実行せず、個人の思想や計画外の改善を完了条件へ加えない
 8. 妥当なら監査担当が `.team/scripts/done.sh <task_id> --plan <plan_key>` で工程をクローズする。クローズに親・オーナーの裁定は要らず、待たない——親が卓上で別の手順を言っていても、監査担当のクローズ権限が優先する。親は campaign 終端の最終監査で全量を見る（オーナー裁定 2026-08-22）。未着地の feat は `done.sh` が canonical main へ merge して push する。親へ着地を依頼しない。`done.sh` は証跡と同じ本文を Lattice の `test_result` へ記録し、remaining の並列記録も更新してから戻る。done を読返してから、クローズと着手可能の更新を1通で `post(to: "all", message: "[クローズ] <task_id>。次の工程に着手可")` と通知し、具体的な次工程は指示しない（クローズ通知と着手可通知を別送しない）
 9. 不合格なら、現在モデルでの修正機会は1回だけとする。再び不合格になったら親へmodel変更を依頼し、`Luna → Terra → Sol`の順で一段昇格する。自分で席設定を変えない
