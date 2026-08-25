@@ -1684,3 +1684,9 @@ Windows nativeのGit Bashでは解決済みLattice CLIが`C:\\...`となる。�
 `seat-identity.mjs`のCLIはWindows分岐を持つ一方、bridgeが使う公開`observePidCommand()`は常に`/bin/ps`を呼んでいた。Windows nativeではalarm-bridgeがENOENTで起動不能になる。
 
 共通公開関数は`process.platform`でWindows観測関数を呼ぶだけとし、PowerShell／Win32_ProcessによるCreationDateとCommandLineの観測は`skill/scripts/platform/windows/observe-pid-command.mjs`が所有する。POSIXの`/bin/ps`観測は変更しない。
+
+## 59. seat-statusのLattice起動をWindows adapterへ一本化する（2026-08-25）
+
+`seat-usage.mjs`にはWindowsのnpm `.cmd` shimを`cmd.exe /d /c`で起動する公開resolverがある一方、`seat-status-bridge.mjs`だけがresolverを迂回して`.cmd`を`execFileSync`へ直接渡し、`EINVAL`で全claim巡回に失敗していた。
+
+seat-statusは公開resolverだけを使う。Windowsのshim選択と`cmd.exe` argv構築は`skill/scripts/platform/windows/resolve-lattice-command.mjs`へ分離し、共通resolverはplatform dispatchだけを持つ。parent-watchとseat-statusが同じ入口になる。

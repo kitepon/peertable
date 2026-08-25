@@ -3,6 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { homedir, tmpdir } from 'node:os'
 import path, { join } from 'node:path'
+import { resolveWindowsLatticeCommand } from './platform/windows/resolve-lattice-command.mjs'
 
 const TOKEN_HINT = /[↓↑]\s*([0-9]+(?:\.[0-9]+)?)\s*([kKmM]?)\s*tokens\b/gu
 
@@ -105,13 +106,7 @@ export function tmuxArgv(extraArgs = [], { socket, env = process.env, platform =
 export function resolveLatticeExecutable(cli, { platform = process.platform, exists = existsSync } = {}) {
   if (typeof cli !== 'string' || !cli) return { command: cli, argv: ['todo', 'status', '--json'] }
   if (platform !== 'win32') return { command: cli, argv: ['todo', 'status', '--json'] }
-  const lower = cli.toLowerCase()
-  const cmd = lower.endsWith('.cmd') || lower.endsWith('.bat') || lower.endsWith('.exe')
-    ? cli
-    : exists(`${cli}.cmd`)
-      ? `${cli}.cmd`
-      : cli
-  return { command: process.env.ComSpec || 'cmd.exe', argv: ['/d', '/c', cmd, 'todo', 'status', '--json'] }
+  return resolveWindowsLatticeCommand(cli, exists)
 }
 
 /** member の自己申告を優先し、無い既存 member だけ旧 session 名へ互換フォールバックする。 */

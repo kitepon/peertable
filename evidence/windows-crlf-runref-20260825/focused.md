@@ -9,3 +9,5 @@
 - 追加実装: 共通setupはWindows writerへのdispatchだけ。JSON serializationは`skill/scripts/platform/windows/write-setup-state.mjs`。
 - alarm再現: 0.8.1 setupで共有`observePidCommand()`がWindowsでも`/bin/ps`を呼びENOENT。seat-status bridgeは成立、alarm bridgeだけ起動不能。
 - alarm実装: 共通公開関数はWindows観測adapterへdispatchし、PowerShell／Win32_Process処理は`skill/scripts/platform/windows/observe-pid-command.mjs`へ分離。
+- seat-status再現: bridgeはready recordを作るが、claim巡回がWindows npm `lattice.cmd`を直接`execFileSync`して`EINVAL`を反復し、工程とランプを接続できない。
+- seat-status実装: bridgeとparent-watchを既存公開resolverへ一本化し、Windows shim起動は`skill/scripts/platform/windows/resolve-lattice-command.mjs`へ分離。

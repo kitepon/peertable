@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { STOP_DECLARATION, combineSeatLamp, hasActiveDescendant, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, combineSeatLamp, hasActiveDescendant, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
 
 const args = process.argv.slice(2)
 const proj = args[0]
@@ -232,10 +232,8 @@ async function patrolClaims() {
   try {
     // doctor.sh と同じ解決規則（LATTICE_CLI env → setup記録 → 既定 'lattice'、Windowsは .cmd 解決）
     const latticeCli = process.env.LATTICE_CLI || (typeof setup.lattice_cli === 'string' && setup.lattice_cli) || 'lattice'
-    const latticeCommand = process.platform === 'win32' && !/\.(cmd|bat|exe)$/i.test(latticeCli) && existsSync(`${latticeCli}.cmd`)
-      ? `${latticeCli}.cmd`
-      : latticeCli
-    const out = execFileSync(latticeCommand, ['todo', 'status', '--json'], { cwd: proj, encoding: 'utf8' })
+    const lattice = resolveLatticeExecutable(latticeCli)
+    const out = execFileSync(lattice.command, lattice.argv, { cwd: proj, encoding: 'utf8' })
     activeTasks = (JSON.parse(out).active_set ?? []).map(t => t.task_id)
   } catch (e) {
     console.error(`seat-status-bridge: claim巡回がLatticeを読めない（今周期は検査しない）: ${e.message.split('\n')[0]}`)
