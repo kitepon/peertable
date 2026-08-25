@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { homedir, tmpdir } from 'node:os'
 import path, { join } from 'node:path'
 import { resolveWindowsLatticeCommand } from './platform/windows/resolve-lattice-command.mjs'
+import { classifyGrokPaneTail, isGrokPrivacyBanner } from './vendors/grok/pane-status.mjs'
 
 const TOKEN_HINT = /[↓↑]\s*([0-9]+(?:\.[0-9]+)?)\s*([kKmM]?)\s*tokens\b/gu
 
@@ -191,13 +192,7 @@ export const BLOCKED_MARKERS = [
   'Press enter to confirm or esc to cancel',
 ]
 
-/** Grok TUI の SpaceXAI coding-data バナー（2026-08-21 実測。入力は通るが席が死んだように見える）。 */
-export function isGrokPrivacyBanner(tail) {
-  return typeof tail === 'string'
-    && tail.includes('Help improve Grok')
-    && tail.includes('[Opt out]')
-    && tail.includes('[Opt in]')
-}
+export { isGrokPrivacyBanner }
 
 /**
  * pane 末尾の生文字列から画面状態を判定する。判定順は busy → blocked → idle
@@ -213,14 +208,9 @@ export function classifyPaneTail(tail) {
   if (tail.includes("without interrupting Claude's current work")) return 'busy'
   if (tail.includes('Calling tools')) return 'busy'
   if (/…\s*\(\d+(?:m \d+)?s\b/u.test(tail)) return 'busy'
-  // Grok Build TUI は esc to interrupt を出さない（2026-08-21 実測）。
-  // 生成中は `Waiting for response…` / `Responding…` と `[stop]`。
-  // 完了後の `Worked for 38s` は idle。未完了 hook だけ `[hooks: 1/3]`。
-  if (tail.includes('Waiting for response') || tail.includes('Responding…') || tail.includes('Responding...')) return 'busy'
-  if (tail.includes('[stop]')) return 'busy'
-  if (/\[hooks:\s*\d+\/\d+\]/u.test(tail)) return 'busy'
+  const grokStatus = classifyGrokPaneTail(tail)
+  if (grokStatus !== null) return grokStatus
   if (BLOCKED_MARKERS.some(marker => tail.includes(marker))) return 'blocked'
-  if (isGrokPrivacyBanner(tail)) return 'blocked'
   return 'idle'
 }
 

@@ -35,6 +35,7 @@ assert.equal(shouldDeferGrokWake('grok', '◎ waiting · send a message to inter
 assert.equal(shouldDeferGrokWake('grok', '#1 [Peertable #7] room\nEnter:send now'), true)
 assert.equal(shouldDeferGrokWake('grok', 'Waiting for response… 0.1s  1m39s ↓322k [stop]'), true)
 assert.equal(shouldDeferGrokWake('grok', 'Responding…'), true)
+assert.equal(shouldDeferGrokWake('grok', 'Worked for 10m5s  stop  [hooks: 1/3]\n│ > │\nGrok 4.6 (high) · always-approve'), false)
 assert.equal(shouldDeferGrokWake('grok', 'Help improve Grok\n[Opt out] [Opt in]\nGrok 4.6 (medium) · always-approve'), false)
 assert.equal(shouldDeferGrokWake('grok', 'grok-4.6 high · ~/Developer/Throughline'), false)
 assert.equal(shouldDeferGrokWake('grok', 'Enter:send now'), false)
@@ -60,4 +61,4 @@ assert.equal(isIdleSelfWake({
   body: '[次の行動] 変化なし。待機継続。',
 }), false)
 
-console.log('wakeup delivery: 25/25 green')
+console.log('wakeup delivery: 26/26 green')
