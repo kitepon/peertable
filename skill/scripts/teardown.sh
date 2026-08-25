@@ -43,6 +43,14 @@ did() { echo "teardown: [実施] $*"; }
 skip() { echo "teardown: [スキップ] $*"; }
 miss() { echo "teardown: [未実施] $*" >&2; fail=1; }
 yes_() { [ "$1" = "True" ] || [ "$1" = "true" ]; }
+platform=$(node -p 'process.platform')
+normalize_read_line() {
+  if [ "$platform" = win32 ]; then
+    printf '%s' "$1" | node "$script_dir/platform/windows/normalize-read-line.mjs"
+  else
+    printf '%s' "$1"
+  fi
+}
 
 mcp_remove_action=not-managed
 if yes_ "$added_mcp"; then
@@ -194,6 +202,7 @@ elif [ -z "$run_refs" ]; then
   skip "run landing（active runなし）"
 else
   while IFS= read -r run_ref; do
+    run_ref=$(normalize_read_line "$run_ref")
     [ -n "$run_ref" ] || continue
     if landing_report=$(cd "$proj" && "$lattice_cli" run landing --run "$run_ref" 2>&1); then
       unlanded_count=""

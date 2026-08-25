@@ -1666,3 +1666,9 @@ minor `0.7.0`（members / post 応答の追加欄・新 endpoint は追加のみ
 Windowsでは一時file名に`node:path.basename()`を使い、POSIX mode差は判定しない。PowerShell 7はWindows工場hostのshell前提。psmuxはAitermのWindows backendでありshellではない。Peertableに残るmux直接観測はAiterm公開APIへ移行するまで現行互換として明示し、一般の製品前提には昇格させない。
 
 patch `0.7.1`。focused reproはmanaged MCP更新・他server保持・preexisting不変・二回目変更0・symlink拒否をWindows／POSIX同じ入力で検証する。
+
+## 56. Windows版PythonのCRLFを環境別adapterで正規化する（2026-08-25）
+
+Windows nativeのGit Bashから`teardown.sh`を実行すると、Windows版Pythonが複数の`run_ref`をCRLFで出力し、shellの`read`がLFだけを除いて末尾`\r`を残す。Latticeは正しく`INVALID_RUN_REF`で拒否し、teardownが未完了になる。
+
+共通`teardown.sh`は`process.platform`で環境別adapterを選ぶdispatchだけを持つ。CR除去本体は`skill/scripts/platform/windows/normalize-read-line.mjs`へ置き、POSIX経路は従来値をそのまま使う。正本は`docs/plan_windows-crlf-runref-20260825.md`。
