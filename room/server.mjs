@@ -533,6 +533,7 @@ const UI = room => `<!doctype html><html lang="ja"><head><meta charset="utf-8"><
 .chip .st{flex:none;display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dim)}
 .chip .st.busy{background:var(--busy)}
 .chip .st.idle{background:var(--idle)}
+.chip .st.waiting{background:var(--accent)}
 .chip .st.dead{background:var(--dead)}
 .chip .st.blocked{background:var(--blocked)}
 .chip .st.unknown{background:transparent;box-shadow:inset 0 0 0 1.5px var(--dim)}
