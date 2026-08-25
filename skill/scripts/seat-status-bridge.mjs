@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { STOP_DECLARATION, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, combineSeatLamp, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
 
 const args = process.argv.slice(2)
 const proj = args[0]
@@ -121,6 +121,28 @@ function readSeat(member, previous, observedAt) {
     ? ((previous?.status === 'busy' || previous?.status === 'blocked') && previous.busySince ? previous.busySince : observedAt)
     : null
   return { status, busySince, paneTokenHint: parsePaneTokenHint(tail) }
+}
+
+// ---- 預け仕事（jobセッション）の観測（2026-08-25 オーナー裁定）----
+// 席が常駐・長時間ジョブを `peer-<名前>-job*` の名前のtmuxセッションで走らせる取り決めを前提に、
+// その実物を毎周期観測してランプへ合成する。登録・宣言は一切見ない——観測だけ。
+// active判定は「画面内容が前周期から変わった」こと。出力を出さない計算中はidle表示になるが、
+// それは観測できる事実の正直な表示であり、推測で点滅させない。
+const jobPaneHash = new Map() // `${name}:${session}` -> { hash, changedAt }
+function observeJob(socket, name) {
+  const sessions = (tmux(socket, 'list-sessions', '-F', '#{session_name}') ?? '')
+    .split('\n').filter(s => s.startsWith(`peer-${name}-job`))
+  if (sessions.length === 0) return { alive: false, active: false }
+  let active = false
+  for (const session of sessions) {
+    const pane = tmux(socket, 'capture-pane', '-t', session, '-p')
+    if (pane === null) continue
+    const hash = String(pane.length) + ':' + pane.slice(-256)
+    const key = `${name}:${session}`
+    const prev = jobPaneHash.get(key)
+    if (!prev || prev.hash !== hash) { jobPaneHash.set(key, { hash }); active = true }
+  }
+  return { alive: true, active }
 }
 
 async function send(name, observation, observedAt) {
@@ -322,6 +344,13 @@ async function tick() {
     const observation = readSeat(member, prev, observedAt)
     // tmux 席を持たない member（親など）は一度も観測できないので送らない（deriveMissingSession が null を返す）
     if (observation === null) { skipped++; continue }
+    {
+      const target = resolveSeatObservation(member, null) ?? resolveSeatObservation(member, defaultSocket())
+      if (target !== null) {
+        const job = observeJob(target.socket, member.name)
+        observation.status = combineSeatLamp(observation.status, job)
+      }
+    }
     const changed = !prev || prev.status !== observation.status
       || prev.busySince !== observation.busySince
       // token表示は実行中に細かく増える。1k未満の差で8秒ごとにPOSTせず、表示精度に合う粒度で送る。

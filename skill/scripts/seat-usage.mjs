@@ -312,3 +312,15 @@ export function patrolTargets({ activeTasks, messages, statusOf, lastBusyEndAt, 
   return targets
 }
 
+
+// ---- ランプ合成（2026-08-25 オーナー裁定: ドットは1個、席と預け仕事を合成する）----
+// 点滅(busy) = 席のターン実行中 または jobセッションの画面が動いている
+// 点灯(idle) = どのプロセスかは生きているが、何も動いていない
+// 白抜き(dead/unknown相当) = 何も無い
+// blockedは「存在するが承認待ちで詰まっている」の特殊表示としてそのまま通す。
+export function combineSeatLamp(paneStatus, job) {
+  if (job?.active) return 'busy'
+  if (paneStatus === 'busy' || paneStatus === 'blocked') return paneStatus
+  if (paneStatus === 'idle' || job?.alive) return 'idle'
+  return paneStatus // 'dead' 等はそのまま
+}

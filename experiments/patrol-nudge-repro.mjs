@@ -3,7 +3,7 @@
 // 判定: claim保有 ∧ idle ∧ 「最後のターン終了より後に待機宣言が無い」→ 起こす。
 // 実行: node experiments/patrol-nudge-repro.mjs
 import assert from 'node:assert/strict'
-import { patrolTargets } from '../skill/scripts/seat-usage.mjs'
+import { combineSeatLamp, patrolTargets } from '../skill/scripts/seat-usage.mjs'
 
 const T0 = Date.parse('2026-08-25T06:00:00.000Z')
 const min = n => T0 + n * 60_000
@@ -72,5 +72,15 @@ const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
   const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => min(20) })
   assert.deepEqual(t, [], 'ターン終了±10秒の宣言は有効（時計ずれ許容）')
 }
+
+// ---- combineSeatLamp（ドット1個・席とjobの合成）----
+assert.equal(combineSeatLamp('idle', { alive: true, active: true }), 'busy', 'job稼働→点滅')
+assert.equal(combineSeatLamp('idle', { alive: true, active: false }), 'idle', 'job生存のみ→点灯')
+assert.equal(combineSeatLamp('idle', { alive: false, active: false }), 'idle', 'jobなし席生存→点灯')
+assert.equal(combineSeatLamp('busy', { alive: false, active: false }), 'busy', '席ターン中→点滅')
+assert.equal(combineSeatLamp('dead', { alive: true, active: false }), 'idle', '席CLI死・job生存→点灯')
+assert.equal(combineSeatLamp('dead', { alive: true, active: true }), 'busy', '席CLI死・job稼働→点滅')
+assert.equal(combineSeatLamp('dead', { alive: false, active: false }), 'dead', '何も無い→白抜き側')
+assert.equal(combineSeatLamp('blocked', { alive: true, active: false }), 'blocked', '承認詰まりは維持')
 
 console.log('PATROL_NUDGE_REPRO_PASS')
