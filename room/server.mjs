@@ -71,13 +71,14 @@ db.exec(`
 {
   const columns = db.prepare('PRAGMA table_info(members)').all().map((c) => c.name)
   if (!columns.includes('harness')) db.exec('ALTER TABLE members ADD COLUMN harness TEXT')
+  if (!columns.includes('read_seq')) db.exec('ALTER TABLE members ADD COLUMN read_seq INTEGER')
   if (columns.includes('vendor')) db.exec('UPDATE members SET harness = vendor WHERE harness IS NULL')
 }
 
 const MEMBER_COLUMNS = [
   'joined_at', 'harness', 'model', 'effort', 'roles', 'mission', 'delivery', 'observe',
   'aiterm_session_id', 'status', 'status_at', 'busy_since', 'pane_token_hint', 'usage_source',
-  'pid', 'started_identity', 'argv_digest', 'identity_recorded_at',
+  'pid', 'started_identity', 'argv_digest', 'identity_recorded_at', 'read_seq',
 ]
 const MEMBER_JSON_COLUMNS = new Set(['roles', 'delivery', 'observe'])
 
@@ -110,7 +111,8 @@ function putMember(roomName, member) {
 
 // 旧形式（settings/role の重複欄・旧 vendor 欄）を canonical へ畳む。台帳には canonical だけを置く。
 function normalizeMemberMeta(meta) {
-  const { role, settings, vendor, ...rest } = meta
+  // read_seq はserver所有欄。正規経路（POST /messages の相乗りack）以外から書かせない（反証4）
+  const { role, settings, vendor, read_seq: _readSeq, ...rest } = meta
   const out = { ...rest }
   if (out.roles === undefined && role) out.roles = [role]
   if (out.harness === undefined && vendor !== undefined) out.harness = vendor
@@ -407,7 +409,15 @@ http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && rest === 'messages') {
-      const { from, to, to_names: toNames, body: text } = JSON.parse(body)
+      const { from, to, to_names: toNames, body: text, read_seq: readSeq } = JSON.parse(body)
+      // 読了ack（2026-08-25）: 席のclientがread_unreadで取得済みの最終seqを、次の自分の投稿に
+      // 相乗りで申告する。「読んだ後にターンが生きて投稿まで到達した」が読了の証明であり、
+      // read_unread直後のturn死でメッセージが失われる形（読んだ扱いだが未処理）を作らない。
+      // 単調増加のみ受理。wakeup-bridgeは注入直前にこの値を照会し、申告済みseq以下を再配達しない。
+      if (Number.isSafeInteger(readSeq) && readSeq > 0 && typeof from === 'string' && from.length > 0) {
+        db.prepare('UPDATE members SET read_seq = MAX(COALESCE(read_seq, 0), ?) WHERE room = ? AND name = ?')
+          .run(readSeq, room.name, from)
+      }
       // 本文が無ければ **書かずに 400**。ここを素通しにすると `JSON.stringify` が欄ごと落として、
       // append-only の正本へ**本文の無い行**が入る——しかも送信側には 200 と seq が返るので
       // 「送れた」と表示される（2026-08-08 に本番で2件実測。消せない）

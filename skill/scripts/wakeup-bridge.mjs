@@ -469,8 +469,42 @@ async function flushSeat(seat) {
   const queue = pending.get(seat)
   if (!queue || queue.size === 0) return
   flushing.add(seat)
-  const msgs = [...queue.values()].sort((a, b) => a.seq - b.seq)
+  let msgs = []
   try {
+    // 読了ack照会（2026-08-25）: 席のclientはread_unreadで取得した最終seqを次の自分の投稿へ
+    // 相乗り申告し、serverがmember.read_seqへ単調保存する。注入直前に照会し、申告済みseq以下は
+    // 再配達しない（席が読んで返答済みの既読群を再注入して起こした実被弾 2026-08-25 poly卓）。
+    // 読了直後・投稿前にターンが死んだ席はackが無いので従来どおり再配達される＝安全網は保つ。
+    // refreshMembers失敗時は直前観測のread_seqを使う＝古い分は再配達側へ倒れる（安全方向）。
+    await refreshMembers()
+    const ackedSeq = Number(members.get(seat)?.read_seq ?? 0)
+    if (ackedSeq > 0) {
+      const acked = [...queue.values()].filter(msg => msg.seq <= ackedSeq)
+      if (acked.length > 0) {
+        for (const msg of acked) {
+          const state = deliveryStates.get(msg.seq)
+          if (state) state.delivered.add(seat)
+          delivered.add(deliveryKey(msg.seq, seat))
+        }
+        // durable保存失敗時はin-memory印を巻き戻す（TUI成功経路517–525と同じ契約。反証1）
+        try {
+          saveDeliveryState()
+        } catch (error) {
+          for (const msg of acked) {
+            deliveryStates.get(msg.seq)?.delivered.delete(seat)
+            delivered.delete(deliveryKey(msg.seq, seat))
+          }
+          throw error
+        }
+        for (const msg of acked) queue.delete(msg.seq)
+        // 席は本文を自分で読了済み。配達保証（決定102）はacked_read理由のdeliveredで満たす
+        for (const msg of acked) await postReceipt(msg.seq, seat, 'delivered', 'acked_read')
+        log(`既読ackで配達を省略: ${seat} ← ${acked.length} 件（read_seq=${ackedSeq}）`)
+        advanceLastSeq()
+      }
+      if (queue.size === 0) return
+    }
+    msgs = [...queue.values()].sort((a, b) => a.seq - b.seq)
     const outcome = await wake(seat, msgs)
     if (outcome === 'deferred') return
     if (outcome === 'skipped') {

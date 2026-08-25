@@ -37,7 +37,26 @@ const result = await client.callTool({
   },
 })
 await client.close()
-if (result.isError) throw new Error(result.content?.[0]?.text ?? 'SEAT_AITERM_LAUNCH_FAILED')
+if (result.isError) {
+  const text = result.content?.[0]?.text ?? ''
+  // aiterm v0.29.0からready gate失敗（起動時ダイアログ等でprompt未送信）は明示エラーになった。
+  // Peertableの席起動は「未送信→ダイアログ自動通過→着任指示を後段で貼る」を正規手順として
+  // 持っているので、sessionが残るこの失敗だけはnot_sent受領として続行する。
+  if (text.includes('initial_prompt=not_sent') && text.includes(`session_id: ${session_name}`)) {
+    console.log(JSON.stringify({
+      schema: 'aiterm.agent-launch-result.v1',
+      provider: harness,
+      harness: `${harness === 'claude' ? 'claude-code' : `${harness}-cli`}`,
+      session_id: session_name,
+      managed_completion: true,
+      event_cursor: null,
+      wait_command: null,
+      submit_residue: null,
+    }))
+    process.exit(0)
+  }
+  throw new Error(text || 'SEAT_AITERM_LAUNCH_FAILED')
+}
 const receipt = result.structuredContent ?? JSON.parse(result.content?.[0]?.text ?? '{}')
 if (receipt?.schema !== 'aiterm.agent-launch-result.v1' || receipt.provider !== harness || receipt.session_id !== session_name) {
   throw new Error('SEAT_AITERM_LAUNCH_RECEIPT_INVALID')

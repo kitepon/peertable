@@ -13,7 +13,7 @@ import { findModelsDoc, resolveSeatIdentity } from '../skill/scripts/resolve-sea
 
 // client.mjs 側のハードコード版数。package.json の version と一致していることを
 // diagnostics の version_consistency が見る（2 つの版数源の drift 検出。決定45）
-const MCP_VERSION = '0.7.1'
+const MCP_VERSION = '0.8.0'
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const USAGE = `usage:
@@ -63,6 +63,9 @@ const relevant = m => Array.isArray(m.to_names)
   : m.to === ME || (m.to === 'all' && m.from !== ME)
 
 let cursor = 0 // read_unread 用。参加時点から数える
+// 読了ack専用。read_unreadが実際にメッセージを返した時だけ進む（参加時の末尾代入では進まない）。
+// cursorとの分離は反証3（2026-08-25）: 再接続直後のcursorは「未読の起点」であって読了の証明ではない。
+let ackSeq = 0
 
 const mcp = new Server(
   { name: 'room', version: MCP_VERSION },
@@ -159,7 +162,11 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
   const args = req.params.arguments ?? {}
   switch (req.params.name) {
     case 'post': {
-      const r = await fetch(api('messages'), { method: 'POST', headers, body: JSON.stringify({ from: ME, to: args.to, body: args.message }) })
+      // read_seq: read_unreadが実際に返した最終seqだけを相乗り申告する（読了ack・2026-08-25）。
+      // 「読んだ後にターンが生きて投稿まで到達した」の証明であり、wakeup-bridgeはこの値以下を再配達しない。
+      // cursorは流用しない——cursorは参加時に末尾seqへ代入される未読起点であり、再接続直後に
+      // 「読んでいないものを読了申告」して配達待ちの未読を捨てる（反証3・2026-08-25）。
+      const r = await fetch(api('messages'), { method: 'POST', headers, body: JSON.stringify({ from: ME, to: args.to, body: args.message, ...(ackSeq > 0 ? { read_seq: ackSeq } : {}) }) })
       const msg = await r.json()
       if (!r.ok) return { isError: true, ...text(`送信失敗: ${JSON.stringify(msg)}`) }
       // cursor は触らない。自分の発言は relevant で除外されるので進める必要が無く、
@@ -176,7 +183,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
     }
     case 'read_unread': {
       const { messages } = await (await fetch(api(`messages?since=${cursor}`))).json()
-      if (messages.length) cursor = messages[messages.length - 1].seq
+      if (messages.length) { cursor = messages[messages.length - 1].seq; ackSeq = cursor }
       const mine = messages.filter(relevant)
       const roster = await rosterText()
       return text(mine.length ? `${roster}\n${mine.map(fmt).join('\n')}` : `${roster}\n未読なし`)
