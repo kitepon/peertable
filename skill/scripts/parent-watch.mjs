@@ -10,7 +10,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { resolveLatticeExecutable } from './seat-usage.mjs'
+import { resolveLatticeExecutable, resolvePostToken } from './seat-usage.mjs'
 import { addressedToParent as messageAddressedToParent, latticeStaffingChanged, tableStallUpdate } from './parent-watch-logic.mjs'
 
 const args = process.argv.slice(2)
@@ -209,6 +209,24 @@ async function acceptLatticeState(next) {
   return true
 }
 
+const receiptToken = resolvePostToken(process.env)
+const postedParentReceipts = new Set()
+async function postParentReceipt(seq) {
+  if (postedParentReceipts.has(seq)) return
+  postedParentReceipts.add(seq)
+  try {
+    const res = await fetch(`${serverUrl}/api/${encodeURIComponent(room)}/deliveries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(receiptToken ? { 'X-Peertable-Token': receiptToken } : {}) },
+      body: JSON.stringify({ seq, recipient: parent, result: 'delivered', reason: 'parent_watch' }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  } catch (error) {
+    postedParentReceipts.delete(seq)
+    process.stderr.write(`PARENT_RECEIPT_FAILED: seq=${seq} ${error.message}\n`)
+  }
+}
+
 async function acceptMessage(message) {
   if (!Number.isSafeInteger(message?.seq) || message.seq <= state.last_seq) return false
   const matched = addressedToParent(message)
@@ -225,6 +243,12 @@ async function acceptMessage(message) {
       body: roomUpdate ? (message.body || ROOM_UPDATE_FALLBACK) : message.body,
       message,
     })
+    // 親宛の名指しDMは、この中継（writeEvent成功＝親の通知ストリームへ入った）をもって配達成立とし、
+    // server の配送 receipt へ delivered(reason: parent_watch) を書く（2026-08-25 オーナー裁定）。
+    // これが無いと送り手の席から親宛DMが永遠に pending に見え、報告の再記録ループで
+    // 席のターンを燃やし続ける（実被弾: mio が報告のたびに「bell配達pending」を再送）。
+    // to:"all" は席側配達（wakeup-bridge）が receipt を所有するので書かない。
+    if (!roomUpdate) await postParentReceipt(message.seq)
   }
   state = { ...state, last_seq: message.seq, last_event_at: now() }
   saveState(state)
