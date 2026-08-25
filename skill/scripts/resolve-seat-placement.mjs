@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 02_models.md の役割→1位〜3位から、着席可能な harness / model / effort を解決する。
 // 具体モデル名はここに持たない。台帳と順位表をその場で読む。
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -245,7 +245,12 @@ export function resolveSeatIdentity({
   }
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+// realpath比較にする——symlink経由（例: ~/.claude/skills/peertable → 実体tree）で呼ばれると
+// パス文字列比較が外れ、mainが走らず「exit 0・出力なし」で沈黙する（実被弾 2026-08-25:
+// launch-seat.sh が SEAT_LAUNCH_HARNESS_UNSUPPORTED: harness= で落ち、原因が見えなかった）。
+const isMain = process.argv[1] && (() => {
+  try { return realpathSync(resolve(process.argv[1])) === realpathSync(fileURLToPath(import.meta.url)) } catch { return false }
+})()
 if (isMain) {
   const args = process.argv.slice(2)
   let roles = ''
