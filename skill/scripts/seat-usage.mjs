@@ -284,7 +284,7 @@ export function parsePaneTokenHint(pane) {
 // ---- claim巡回番犬の純関数（seat-status-bridge.mjsが使う。testはここからimportする）----
 export const STOP_DECLARATION = /\[待機\]|\[監査提出\]|待機します|散会/u
 
-export function patrolTargets({ activeTasks, messages, statusOf, lastBusyEndAt, now, lastNag, nagIntervalMs }) {
+export function patrolTargets({ activeTasks, messages, statusOf, lastBusyStartAt, now, lastNag, nagIntervalMs }) {
   const owner = new Map() // task_id -> 最新のclaim発言者
   for (const m of messages) {
     const match = /^\[claim\]\s+(\S+)/u.exec(m.body ?? '')
@@ -302,9 +302,12 @@ export function patrolTargets({ activeTasks, messages, statusOf, lastBusyEndAt, 
     for (const m of messages) {
       if (m.from === seat && STOP_DECLARATION.test(m.body ?? '')) declTs = Date.parse(m.ts ?? '') || declTs
     }
-    const busyEnd = lastBusyEndAt(seat)
+    const busyStart = lastBusyStartAt(seat)
+    // 錨はターン「開始」（2026-08-25 実被弾 #120: 終了錨だと「宣言→数秒後にターン終了」の正常系が
+    // 常に古い判定を食らい誤爆する）。「最後のターンの開始より後に宣言した」＝そのターンが宣言を
+    // 残したこと。起床ターンが無宣言で終わると、手持ちの宣言は前ターン開始より古くなり必ず捕まる。
     // bridge再起動等でターン履歴が無い席は、宣言の存在だけで正当とみなす（誤爆しない安全側）
-    const declared = busyEnd == null ? declTs > 0 : declTs >= busyEnd - 10_000
+    const declared = busyStart == null ? declTs > 0 : declTs >= busyStart - 10_000
     if (declared) continue
     if (now - (lastNag.get(seat) ?? 0) < nagIntervalMs) continue
     if (!targets.some(t => t.seat === seat)) targets.push({ seat, task })
@@ -323,4 +326,29 @@ export function combineSeatLamp(paneStatus, job) {
   if (paneStatus === 'busy' || paneStatus === 'blocked') return paneStatus
   if (paneStatus === 'idle' || job?.alive) return 'idle'
   return paneStatus // 'dead' 等はそのまま
+}
+
+// paneプロセスの子孫に実働（CPU消費）が居るかの判定素材。psの `pid ppid pcpu` 出力を受け取り、
+// root配下の子孫（root自身は除く）に pcpu >= 閾値 が居れば true。席がCodex内蔵background terminal等、
+// tmuxセッションを作らずに走らせた預け仕事を、プロセスツリーの実観測で拾う（2026-08-25 オーナー裁定
+//「子プロセスも見る」）。nohup等でツリーから切り離された仕事はここでは見えない——それは
+// peer-<name>-job* セッション慣例の側が受け持つ（二本立て）。
+export function hasActiveDescendant(psRows, rootPid, { minCpu = 1.0 } = {}) {
+  const children = new Map()
+  const cpu = new Map()
+  for (const row of psRows) {
+    const m = /^\s*(\d+)\s+(\d+)\s+([\d.]+)/.exec(row)
+    if (!m) continue
+    const [pid, ppid, pcpu] = [Number(m[1]), Number(m[2]), Number(m[3])]
+    if (!children.has(ppid)) children.set(ppid, [])
+    children.get(ppid).push(pid)
+    cpu.set(pid, pcpu)
+  }
+  const queue = [...(children.get(rootPid) ?? [])]
+  while (queue.length) {
+    const pid = queue.pop()
+    if ((cpu.get(pid) ?? 0) >= minCpu) return true
+    queue.push(...(children.get(pid) ?? []))
+  }
+  return false
 }

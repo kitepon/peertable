@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // claim巡回番犬（観測ベース判定・2026-08-25 オーナー裁定）の focused repro。
-// 判定: claim保有 ∧ idle ∧ 「最後のターン終了より後に待機宣言が無い」→ 起こす。
+// 判定: claim保有 ∧ idle ∧ 「最後のターン開始より後に待機宣言が無い」→ 起こす。
 // 実行: node experiments/patrol-nudge-repro.mjs
 import assert from 'node:assert/strict'
-import { combineSeatLamp, patrolTargets } from '../skill/scripts/seat-usage.mjs'
+import { combineSeatLamp, hasActiveDescendant, patrolTargets } from '../skill/scripts/seat-usage.mjs'
 
 const T0 = Date.parse('2026-08-25T06:00:00.000Z')
 const min = n => T0 + n * 60_000
@@ -17,7 +17,7 @@ const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
     msg(103, 'mio', 'all', '[claim] p2-ev', 10),
     msg(105, 'mio', 'bell', '[待機] 収集完了待ち', 12),
   ]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => min(20) })
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyStartAt: () => min(15) })
   assert.deepEqual(t, [{ seat: 'mio', task: 'p2-ev' }], 'ターン終了後に宣言なし → 起こす')
 }
 
@@ -27,7 +27,7 @@ const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
     msg(103, 'mio', 'all', '[claim] p2-ev', 10),
     msg(110, 'mio', 'bell', '[待機] 収集完了待ち', 21),
   ]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => min(20) })
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyStartAt: () => min(15) })
   assert.deepEqual(t, [], 'ターン終了後の宣言 → 正当な待機')
 }
 
@@ -37,40 +37,49 @@ const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
     msg(103, 'mio', 'all', '[claim] p2-ev', 10),
     msg(105, 'mio', 'bell', '[待機] x', 12),
   ]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => null })
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyStartAt: () => null })
   assert.deepEqual(t, [], '履歴なし＋宣言あり → 起こさない')
 }
 
 // 4) 宣言が一度も無い無宣言idle → 履歴が無くても起こす
 {
   const messages = [msg(103, 'mio', 'all', '[claim] p2-ev', 10)]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => null })
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyStartAt: () => null })
   assert.deepEqual(t, [{ seat: 'mio', task: 'p2-ev' }], '無宣言 → 起こす')
 }
 
 // 5) busy中の席は起こさない
 {
   const messages = [msg(103, 'mio', 'all', '[claim] p2-ev', 10)]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'busy', lastBusyEndAt: () => null })
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'busy', lastBusyStartAt: () => null })
   assert.deepEqual(t, [], 'busyは対象外')
 }
 
 // 6) 再吠え間隔: 間隔内は吠えない／超過で再吠え
 {
   const messages = [msg(103, 'mio', 'all', '[claim] p2-ev', 10)]
-  const argsBase = { ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => min(20) }
+  const argsBase = { ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyStartAt: () => min(15) }
   assert.deepEqual(patrolTargets({ ...argsBase, lastNag: new Map([['mio', base.now - 60_000]]) }), [], '間隔内は再吠えしない')
   assert.equal(patrolTargets({ ...argsBase, lastNag: new Map([['mio', base.now - 600_000]]) }).length, 1, '間隔超過で再吠えする')
 }
 
-// 7) ターン終了直前の宣言（時計ずれ10秒以内）は有効
+// 7) ターン中の宣言（開始後・終了前）は有効——実被弾 #120: 終了錨だと正常系が誤爆した
 {
   const messages = [
     msg(103, 'mio', 'all', '[claim] p2-ev', 10),
-    { seq: 110, from: 'mio', to: 'bell', body: '[待機] x', ts: new Date(min(20) - 5_000).toISOString() },
+    msg(110, 'mio', 'bell', '[待機] x', 16),
   ]
-  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyEndAt: () => min(20) })
-  assert.deepEqual(t, [], 'ターン終了±10秒の宣言は有効（時計ずれ許容）')
+  const t = patrolTargets({ ...base, activeTasks: ['p2-ev'], messages, statusOf: () => 'idle', lastBusyStartAt: () => min(15) })
+  assert.deepEqual(t, [], 'ターン中に出した宣言は有効（#120の誤爆型）')
+}
+
+// 8) hasActiveDescendant: pane子孫のCPU実働検知
+{
+  const rows = ['  100  1  0.0', '  200  100  0.0', '  300  200  45.2', '  400  1  99.0']
+  assert.equal(hasActiveDescendant(rows, 100), true, '孫がCPU消費 → 稼働')
+  assert.equal(hasActiveDescendant(rows, 200), true, '直下の子 → 稼働')
+  assert.equal(hasActiveDescendant(['  200  100  0.3'], 100), false, '閾値未満 → 非稼働')
+  assert.equal(hasActiveDescendant(rows, 999), false, '子孫なし → 非稼働')
 }
 
 // ---- combineSeatLamp（ドット1個・席とjobの合成）----

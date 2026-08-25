@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { STOP_DECLARATION, combineSeatLamp, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, combineSeatLamp, hasActiveDescendant, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
 
 const args = process.argv.slice(2)
 const proj = args[0]
@@ -221,7 +221,7 @@ async function nudgeIfDropped(name, busySince) {
 const PATROL_INTERVAL_MS = 30_000
 const PATROL_NAG_INTERVAL_MS = 300_000 // 条件が続く席へは5分間隔で再吠えする（1回きりにしない）
 const patrolLastNag = new Map() // seat -> epoch_ms
-const busyEndedAt = new Map() // seat -> epoch_ms（このbridgeプロセスが観測した最後のターン終了）
+const busyStartedAt = new Map() // seat -> epoch_ms（このbridgeプロセスが観測した最後のターン開始）
 let lastPatrolAt = 0
 async function patrolClaims() {
   if (setup.mode !== 'lattice' || !setup.plan_key) return
@@ -248,7 +248,7 @@ async function patrolClaims() {
   } catch { return }
   const targets = patrolTargets({
     activeTasks, messages, statusOf: seat => last.get(seat)?.status ?? null,
-    lastBusyEndAt: seat => busyEndedAt.get(seat) ?? null,
+    lastBusyStartAt: seat => busyStartedAt.get(seat) ?? null,
     now, lastNag: patrolLastNag, nagIntervalMs: PATROL_NAG_INTERVAL_MS,
   })
   for (const { seat, task } of targets) {
@@ -364,6 +364,16 @@ async function tick() {
       const target = resolveSeatObservation(member, null) ?? resolveSeatObservation(member, defaultSocket())
       if (target !== null) {
         const job = observeJob(target.socket, member.name)
+        // 席paneの子孫プロセス（Codex内蔵background terminal等）の実働もjob稼働として合成する
+        if (!job.active && observation.status === 'idle') {
+          const panePid = tmuxPanePid(target.socket, target.target)
+          if (panePid) {
+            try {
+              const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu='], { encoding: 'utf8' }).split('\n')
+              if (hasActiveDescendant(rows, panePid)) job.active = true
+            } catch { /* psが失敗する端末では子孫観測なしで続行（named session観測は生きている） */ }
+          }
+        }
         observation.status = combineSeatLamp(observation.status, job)
       }
     }
@@ -377,7 +387,7 @@ async function tick() {
       await send(name, observation, observedAt)
       last.set(name, { ...observation, at: now })
       sent++
-      if ((prev?.status === 'busy' || prev?.status === 'blocked') && observation.status === 'idle') busyEndedAt.set(name, now)
+      if ((observation.status === 'busy' || observation.status === 'blocked') && prev?.status !== 'busy' && prev?.status !== 'blocked') busyStartedAt.set(name, now)
       if (prev?.status === 'busy' && observation.status === 'idle') await nudgeIfDropped(name, prev.busySince)
       if (changed) console.error(`seat-status-bridge: ${name} → ${observation.status}${prev ? `（${prev.status} から）` : ''}`)
     } catch (e) {
