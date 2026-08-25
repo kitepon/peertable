@@ -267,6 +267,31 @@ async function checkStall() {
   const workers = members
     .filter(m => m.name !== parent && m.delivery?.kind !== 'parent_watch')
     .map(m => ({ name: m.name, status: m.status ?? null }))
+  // 全席idleでも、各claim保有席に有効な待機宣言があるなら正当な外部待ちであり停滞ではない
+  // （2026-08-25 オーナー裁定の系: 巡回番犬が起こす対象ゼロの夜に、親へ停滞警報を鳴らし続けるのは
+  // 親のターンを焼くだけの無駄。判定は番犬と同じ「宣言はターン開始より新しいか」…をここでは
+  // 簡略に「claim保有席の最新自発言が停止宣言か」で見る——正当待機の席は必ず宣言で締めている）。
+  const claimOwners = new Map()
+  const retractRe = /^\[claim撤回\]\s+([0-9A-Za-z._-]+)/u
+  const claimRe = /^\[claim\]\s+([0-9A-Za-z._-]+)/u
+  let roomMessages = null
+  try { roomMessages = (await readJson('/messages')).messages ?? null } catch { roomMessages = null }
+  if (roomMessages) {
+    const history = new Map()
+    for (const m of roomMessages) {
+      const c = claimRe.exec(m.body ?? '')
+      if (c) { if (!history.has(c[1])) history.set(c[1], []); history.get(c[1]).push(m.from); continue }
+      const r = retractRe.exec(m.body ?? '')
+      if (r) { const h = history.get(r[1]) ?? []; const i = h.lastIndexOf(m.from); if (i !== -1) h.splice(i, 1) }
+    }
+    for (const [task, h] of history) if (h.length) claimOwners.set(task, h.at(-1))
+    const stopRe = /\[待機\]|\[監査提出\]|待機します|散会/u
+    const lastOwn = new Map()
+    for (const m of roomMessages) if (m.from) lastOwn.set(m.from, m.body ?? '')
+    const owners = new Set(claimOwners.values())
+    const allDeclared = [...owners].every(seat => stopRe.test(lastOwn.get(seat) ?? ''))
+    if (owners.size > 0 && allDeclared) return false
+  }
   const { stall, event } = tableStallUpdate(
     state.stall ?? null,
     { ready: lattice.ready, active: lattice.active, workers },
