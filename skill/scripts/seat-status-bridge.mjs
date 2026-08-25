@@ -145,6 +145,7 @@ function observeJob(socket, name) {
   const sessions = listed.split('\n').filter(s => s.startsWith(`peer-${name}-job`))
   if (sessions.length === 0) return { alive: false, active: false }
   let active = false
+  let psRows = null
   for (const session of sessions) {
     const pane = tmux(socket, 'capture-pane', '-t', session, '-p')
     if (pane === null) continue
@@ -152,6 +153,18 @@ function observeJob(socket, name) {
     const key = `${name}:${session}`
     const prev = jobPaneHash.get(key)
     if (!prev || prev.hash !== hash) { jobPaneHash.set(key, { hash }); active = true }
+    // 画面に何も出さず働くジョブ（checkpointだけ書く収集等）は画面hashでは稼働に見えない
+    // （実被弾 2026-08-25: 収集が毎分書き込み中なのにランプが点灯止まり）。jobセッションの
+    // プロセスツリーのCPU実働も稼働として合成する。セッション全体が預け仕事なので足場除外は不要。
+    if (!active) {
+      const jobPanePid = tmuxPanePid(socket, session)
+      if (jobPanePid) {
+        try {
+          psRows ??= execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu=,etime='], { encoding: 'utf8' }).split('\n')
+          if (hasActiveDescendant(psRows, Number(jobPanePid), { minAgeGapSeconds: 0 })) active = true
+        } catch { /* psが使えない端末では画面hash判定だけで続行 */ }
+      }
+    }
   }
   return { alive: true, active }
 }
@@ -221,7 +234,8 @@ async function nudgeIfDropped(name, busySince) {
 const PATROL_INTERVAL_MS = 30_000
 const PATROL_NAG_INTERVAL_MS = 300_000 // 条件が続く席へは5分間隔で再吠えする（1回きりにしない）
 const patrolLastNag = new Map() // seat -> epoch_ms
-const busyStartedAt = new Map() // seat -> epoch_ms（このbridgeプロセスが観測した最後のターン開始）
+const busyStartedAt = new Map() // seat -> epoch_ms（このbridgeプロセスが観測した最後のターン開始・pane基準）
+const paneLast = new Map() // seat -> 直前周期のpane生status（番犬系専用。表示合成とは分離）
 let lastPatrolAt = 0
 async function patrolClaims() {
   if (setup.mode !== 'lattice' || !setup.plan_key) return
@@ -358,6 +372,10 @@ async function tick() {
     const observation = readSeat(member, prev, observedAt)
     // tmux 席を持たない member（親など）は一度も観測できないので送らない（deriveMissingSession が null を返す）
     if (observation === null) { skipped++; continue }
+    // 番犬（ターン終了検知・busy履歴）はpaneの生状態だけを読む。表示用の合成ランプ（job込み）を
+    // ここへ流すと、静かなジョブの画面出力の間欠でランプがbusy⇄idleに揺れ、その揺れを
+    // 「ターン終了」と誤認して正当待機の席へ[継続]を撃つ（実被弾 2026-08-25 #175: mio誤起床）。
+    const paneStatus = observation.status
     {
       const target = resolveSeatObservation(member, null) ?? resolveSeatObservation(member, defaultSocket())
       if (target !== null) {
@@ -367,7 +385,7 @@ async function tick() {
           const panePid = tmuxPanePid(target.socket, target.target)
           if (panePid) {
             try {
-              const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu='], { encoding: 'utf8' }).split('\n')
+              const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu=,etime='], { encoding: 'utf8' }).split('\n')
               if (hasActiveDescendant(rows, Number(panePid))) job.active = true
             } catch { /* psが失敗する端末では子孫観測なしで続行（named session観測は生きている） */ }
           }
@@ -385,8 +403,10 @@ async function tick() {
       await send(name, observation, observedAt)
       last.set(name, { ...observation, at: now })
       sent++
-      if ((observation.status === 'busy' || observation.status === 'blocked') && prev?.status !== 'busy' && prev?.status !== 'blocked') busyStartedAt.set(name, now)
-      if (prev?.status === 'busy' && observation.status === 'idle') await nudgeIfDropped(name, prev.busySince)
+      const prevPane = paneLast.get(name)
+      if ((paneStatus === 'busy' || paneStatus === 'blocked') && prevPane !== 'busy' && prevPane !== 'blocked') busyStartedAt.set(name, now)
+      if (prevPane === 'busy' && paneStatus === 'idle') await nudgeIfDropped(name, prev?.busySince ?? null)
+      paneLast.set(name, paneStatus)
       if (changed) console.error(`seat-status-bridge: ${name} → ${observation.status}${prev ? `（${prev.status} から）` : ''}`)
     } catch (e) {
       failed++
