@@ -129,9 +129,20 @@ function readSeat(member, previous, observedAt) {
 // active判定は「画面内容が前周期から変わった」こと。出力を出さない計算中はidle表示になるが、
 // それは観測できる事実の正直な表示であり、推測で点滅させない。
 const jobPaneHash = new Map() // `${name}:${session}` -> { hash, changedAt }
+let jobObserveFailureLogged = false
 function observeJob(socket, name) {
-  const sessions = (tmux(socket, 'list-sessions', '-F', '#{session_name}') ?? '')
-    .split('\n').filter(s => s.startsWith(`peer-${name}-job`))
+  const listed = tmux(socket, 'list-sessions', '-F', '#{session_name}')
+  if (listed === null) {
+    // 「jobなし」と「観測手段が壊れている」を同じ顔にしない（silent absence禁止・2026-08-25 オーナー裁定）。
+    // この端末でjob観測が成立しない場合、ランプ合成は席paneのみで動いていることを明示的に吠える。
+    if (!jobObserveFailureLogged) {
+      jobObserveFailureLogged = true
+      console.error('JOB_OBSERVE_UNAVAILABLE: tmux list-sessions が失敗するため、預け仕事のランプ合成はこの端末で無効（席paneのみで表示）。以後この警告は繰り返さない')
+    }
+    return { alive: false, active: false }
+  }
+  jobObserveFailureLogged = false
+  const sessions = listed.split('\n').filter(s => s.startsWith(`peer-${name}-job`))
   if (sessions.length === 0) return { alive: false, active: false }
   let active = false
   for (const session of sessions) {
@@ -219,7 +230,12 @@ async function patrolClaims() {
   lastPatrolAt = now
   let activeTasks
   try {
-    const out = execFileSync('lattice', ['todo', 'status', '--json'], { cwd: proj, encoding: 'utf8' })
+    // doctor.sh と同じ解決規則（LATTICE_CLI env → setup記録 → 既定 'lattice'、Windowsは .cmd 解決）
+    const latticeCli = process.env.LATTICE_CLI || (typeof setup.lattice_cli === 'string' && setup.lattice_cli) || 'lattice'
+    const latticeCommand = process.platform === 'win32' && !/\.(cmd|bat|exe)$/i.test(latticeCli) && existsSync(`${latticeCli}.cmd`)
+      ? `${latticeCli}.cmd`
+      : latticeCli
+    const out = execFileSync(latticeCommand, ['todo', 'status', '--json'], { cwd: proj, encoding: 'utf8' })
     activeTasks = (JSON.parse(out).active_set ?? []).map(t => t.task_id)
   } catch (e) {
     console.error(`seat-status-bridge: claim巡回がLatticeを読めない（今周期は検査しない）: ${e.message.split('\n')[0]}`)

@@ -166,6 +166,28 @@ for (const [name, judge] of [['wakeup', judgeWakeup], ['seat-status', judgeSeatS
   line(result.level, result.text)
 }
 
+// 4.5 端末別の装置可用性（silent absence禁止・2026-08-25 オーナー裁定）:
+// この端末で「動かない」なら動かないと表示する。黙ってMacだけで動く状態を作らない。
+{
+  // job観測（アクティブランプへの預け仕事合成）: tmux list-sessions がこの端末で成立するか
+  try {
+    const probe = spawnSync('tmux', ['list-sessions', '-F', '#{session_name}'], { encoding: 'utf8' })
+    if (probe.error) throw probe.error
+    line('OK', `job観測: tmux list-sessions 実行可（ランプ合成は有効。jobは peer-<name>-job* セッションで走らせること）`)
+  } catch (error) {
+    line('NG', `job観測: tmux list-sessions が失敗——預け仕事のランプ合成はこの端末で無効（${String(error.message ?? error).split('\n')[0]}）`)
+  }
+  // 読了ack: server members に read_seq 欄が観測できるか（席が一度もackしていない間は判定できない）
+  try {
+    const res = JSON.parse(execFileSync('curl', ['-s', `${url}/api/${encodeURIComponent(room)}/members`], { encoding: 'utf8' }))
+    const withAck = (res.members ?? []).filter(m => m.read_seq !== undefined).length
+    if (withAck > 0) line('OK', `読了ack: server対応を確認（read_seq保持 ${withAck} 席）`)
+    else line('判定不能', '読了ack: read_seq を持つ席がまだ無い（旧serverか、席が一度も read_unread→post していないか区別できない）')
+  } catch (error) {
+    line('NG', `読了ack: members を読めない（${String(error.message ?? error).split('\n')[0]}）`)
+  }
+}
+
 // 5. Lattice 併用モードの工程正本
 if (mode === 'lattice') {
   const latticeCli = process.env.LATTICE_CLI || (typeof setup.lattice_cli === 'string' && setup.lattice_cli) || 'lattice'
