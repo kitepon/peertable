@@ -367,7 +367,7 @@ async function tick() {
           const panePid = tmuxPanePid(target.socket, target.target)
           if (panePid) {
             try {
-              const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu='], { encoding: 'utf8' }).split('\n')
+              const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu=,etime='], { encoding: 'utf8' }).split('\n')
               if (hasActiveDescendant(rows, Number(panePid))) job.active = true
             } catch { /* psが失敗する端末では子孫観測なしで続行（named session観測は生きている） */ }
           }

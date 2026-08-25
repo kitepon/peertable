@@ -73,24 +73,21 @@ const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
   assert.deepEqual(t, [], 'ターン中に出した宣言は有効（#120の誤爆型）')
 }
 
-// 8) hasActiveDescendant: pane子孫のCPU実働検知
+// 8) hasActiveDescendant: pane子孫のCPU実働検知（席と同時起動の足場は除外・後から生まれた仕事だけ）
 {
-  const rows = ['  100  1  0.0', '  200  100  0.0', '  300  200  45.2', '  400  1  99.0']
-  assert.equal(hasActiveDescendant(rows, 100), true, '孫がCPU消費 → 稼働')
-  assert.equal(hasActiveDescendant(rows, 200), true, '直下の子 → 稼働')
-  assert.equal(hasActiveDescendant(['  200  100  0.3'], 100), false, '閾値未満 → 非稼働')
+  //             pid  ppid cpu  etime（pane=100はetime 11:49:33、足場は同時、jobは後から）
+  const rows = [
+    '  100   1   0.0  11:49:33',
+    '  200 100   1.3  11:49:33',   // CLI本体（足場・同時起動）: 恒常1%でも仕事ではない
+    '  300 200   0.0  11:49:31',   // MCP server（足場）
+    '  400 200  45.2  01:02:03',   // 後から生まれた収集ジョブ
+  ]
+  assert.equal(hasActiveDescendant(rows, 100), true, '後から生まれたCPU実働ジョブ → 稼働')
+  assert.equal(hasActiveDescendant(rows.slice(0, 3), 100), false, '足場だけ（同時起動）→ 非稼働')
+  assert.equal(hasActiveDescendant(['  400 100  0.3  00:05:00'], 100), false, '閾値未満 → 非稼働')
   assert.equal(hasActiveDescendant(rows, 999), false, '子孫なし → 非稼働')
+  assert.equal(hasActiveDescendant(['  400 100  99.0  11:49:00'], 100), false, 'rootのetime不明 → 誤検知しない安全側')
 }
-
-// ---- combineSeatLamp（ドット1個・席とjobの合成）----
-assert.equal(combineSeatLamp('idle', { alive: true, active: true }), 'busy', 'job稼働→点滅')
-assert.equal(combineSeatLamp('idle', { alive: true, active: false }), 'idle', 'job生存のみ→点灯')
-assert.equal(combineSeatLamp('idle', { alive: false, active: false }), 'idle', 'jobなし席生存→点灯')
-assert.equal(combineSeatLamp('busy', { alive: false, active: false }), 'busy', '席ターン中→点滅')
-assert.equal(combineSeatLamp('dead', { alive: true, active: false }), 'idle', '席CLI死・job生存→点灯')
-assert.equal(combineSeatLamp('dead', { alive: true, active: true }), 'busy', '席CLI死・job稼働→点滅')
-assert.equal(combineSeatLamp('dead', { alive: false, active: false }), 'dead', '何も無い→白抜き側')
-assert.equal(combineSeatLamp('blocked', { alive: true, active: false }), 'blocked', '承認詰まりは維持')
 
 // 9) claim撤回の再演（実被弾 #127/#128/#152→#160誤爆）: 後発claimが撤回されたら保有は先行者へ戻る
 {

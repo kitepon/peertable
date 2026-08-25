@@ -335,21 +335,36 @@ export function combineSeatLamp(paneStatus, job) {
 // tmuxセッションを作らずに走らせた預け仕事を、プロセスツリーの実観測で拾う（2026-08-25 オーナー裁定
 //「子プロセスも見る」）。nohup等でツリーから切り離された仕事はここでは見えない——それは
 // peer-<name>-job* セッション慣例の側が受け持つ（二本立て）。
-export function hasActiveDescendant(psRows, rootPid, { minCpu = 1.0 } = {}) {
+export function hasActiveDescendant(psRows, rootPid, { minCpu = 1.0, minAgeGapSeconds = 60 } = {}) {
+  const parseEtime = (raw) => {
+    // ps etime: [[dd-]hh:]mm:ss
+    const m = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/.exec(raw)
+    if (!m) return null
+    return (Number(m[1] ?? 0) * 86400) + (Number(m[2] ?? 0) * 3600) + (Number(m[3]) * 60) + Number(m[4])
+  }
   const children = new Map()
   const cpu = new Map()
+  const age = new Map()
   for (const row of psRows) {
-    const m = /^\s*(\d+)\s+(\d+)\s+([\d.]+)/.exec(row)
+    const m = /^\s*(\d+)\s+(\d+)\s+([\d.]+)\s+(\S+)/.exec(row)
     if (!m) continue
     const [pid, ppid, pcpu] = [Number(m[1]), Number(m[2]), Number(m[3])]
     if (!children.has(ppid)) children.set(ppid, [])
     children.get(ppid).push(pid)
     cpu.set(pid, pcpu)
+    age.set(pid, parseEtime(m[4]))
   }
+  const rootAge = age.get(rootPid)
   const queue = [...(children.get(rootPid) ?? [])]
   while (queue.length) {
     const pid = queue.pop()
-    if ((cpu.get(pid) ?? 0) >= minCpu) return true
+    // 席と同時に起動したプロセスは足場（CLI本体・MCP server群）であって預け仕事ではない。
+    // 足場はアイドルでも1%前後のCPUを食い、ランプを恒常的に点滅させる誤検知源になる
+    // （実被弾 2026-08-25: 監査待ちのkoharuが「ずっとアクティブ」に見えた）。
+    // 「paneより有意に後から生まれた」ことだけを預け仕事の観測条件にする——起動時刻は
+    // 観測できる事実であり、コマンド名の恣意的なリストを持たない。
+    const laterBorn = rootAge != null && age.get(pid) != null && rootAge - age.get(pid) >= minAgeGapSeconds
+    if (laterBorn && (cpu.get(pid) ?? 0) >= minCpu) return true
     queue.push(...(children.get(pid) ?? []))
   }
   return false
