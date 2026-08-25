@@ -1690,3 +1690,9 @@ Windows nativeのGit Bashでは解決済みLattice CLIが`C:\\...`となる。�
 `seat-usage.mjs`にはWindowsのnpm `.cmd` shimを`cmd.exe /d /c`で起動する公開resolverがある一方、`seat-status-bridge.mjs`だけがresolverを迂回して`.cmd`を`execFileSync`へ直接渡し、`EINVAL`で全claim巡回に失敗していた。
 
 seat-statusは公開resolverだけを使う。Windowsのshim選択と`cmd.exe` argv構築は`skill/scripts/platform/windows/resolve-lattice-command.mjs`へ分離し、共通resolverはplatform dispatchだけを持つ。parent-watchとseat-statusが同じ入口になる。
+
+## 60. parent member JSONをWindows UTF-8 writerへ分離する（2026-08-25）
+
+Windows Git Bashの`parent-join.sh`がWindows版Pythonのstdoutで`ensure_ascii=False`を使い、日本語role `統括`をcp932 bytesでroomへ送って`????`として保存した。
+
+共通parent-joinはWindows writerを呼ぶdispatchだけを持つ。UTF-8 JSON生成は`skill/scripts/platform/windows/parent-member-json.mjs`へ置き、POSIXの既存Python経路は変更しない。
