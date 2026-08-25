@@ -145,6 +145,7 @@ function observeJob(socket, name) {
   const sessions = listed.split('\n').filter(s => s.startsWith(`peer-${name}-job`))
   if (sessions.length === 0) return { alive: false, active: false }
   let active = false
+  let psRows = null
   for (const session of sessions) {
     const pane = tmux(socket, 'capture-pane', '-t', session, '-p')
     if (pane === null) continue
@@ -152,6 +153,18 @@ function observeJob(socket, name) {
     const key = `${name}:${session}`
     const prev = jobPaneHash.get(key)
     if (!prev || prev.hash !== hash) { jobPaneHash.set(key, { hash }); active = true }
+    // 画面に何も出さず働くジョブ（checkpointだけ書く収集等）は画面hashでは稼働に見えない
+    // （実被弾 2026-08-25: 収集が毎分書き込み中なのにランプが点灯止まり）。jobセッションの
+    // プロセスツリーのCPU実働も稼働として合成する。セッション全体が預け仕事なので足場除外は不要。
+    if (!active) {
+      const jobPanePid = tmuxPanePid(socket, session)
+      if (jobPanePid) {
+        try {
+          psRows ??= execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu=,etime='], { encoding: 'utf8' }).split('\n')
+          if (hasActiveDescendant(psRows, Number(jobPanePid), { minAgeGapSeconds: 0 })) active = true
+        } catch { /* psが使えない端末では画面hash判定だけで続行 */ }
+      }
+    }
   }
   return { alive: true, active }
 }
