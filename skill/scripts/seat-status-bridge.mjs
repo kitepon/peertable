@@ -370,7 +370,7 @@ async function tick() {
           if (panePid) {
             try {
               const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu='], { encoding: 'utf8' }).split('\n')
-              if (hasActiveDescendant(rows, panePid)) job.active = true
+              if (hasActiveDescendant(rows, Number(panePid))) job.active = true
             } catch { /* psが失敗する端末では子孫観測なしで続行（named session観測は生きている） */ }
           }
         }
