@@ -32,7 +32,7 @@ if [ -z "$parent_harness" ] && [ -n "$model" ]; then
   esac
 fi
 if [ "$(node -p 'process.platform')" = win32 ]; then
-  member=$(node "$(dirname "$0")/platform/windows/parent-member-json.mjs" "$name" "$model" "$effort" "$parent_harness" "$mission")
+  node "$(dirname "$0")/platform/windows/register-parent-member.mjs" "$url" "$room" "$name" "$model" "$effort" "$parent_harness" "$mission"
 else
 member=$(python3 - "$name" "$model" "$effort" "$parent_harness" "$mission" <<'PY'
 import json, sys
@@ -53,10 +53,10 @@ body['delivery'] = {'kind': 'parent_watch', 'host': harness or ''}
 print(json.dumps(body, ensure_ascii=False))
 PY
 )
-fi
 curl -sf -X POST "$url/api/$room/members" \
   -H "X-Peertable-Token: $PEERTABLE_POST_TOKEN" -H 'content-type: application/json' \
   -d "$member" > /dev/null
+fi
 echo "joined: ${name}（room=${room}）"
 
 here="$(cd "$(dirname "$0")" && pwd)"
