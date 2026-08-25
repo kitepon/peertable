@@ -369,3 +369,35 @@ export function hasActiveDescendant(psRows, rootPid, { minCpu = 1.0, minAgeGapSe
   }
   return false
 }
+
+// pane子孫（filter該当分）の累積CPU時間合計（秒）。pcpu%は減衰平均でIO待ち主体のジョブが0.0へ
+// 丸まる（実被弾 2026-08-25: 毎分数百リクエストの収集がpcpu 0.0で「非稼働」表示）。
+// 累積CPU時間は実カウンタで、働いていれば周期間で必ず増える——「変化が発生しているか」を見る。
+// psの `pid ppid time etime` 出力を受ける。filterは(childAgeSec, rootAgeSec)=>boolで足場除外等に使う。
+export function subtreeCpuSeconds(psRows, rootPid, { includeChild = () => true } = {}) {
+  const parseClock = (raw) => {
+    const m = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)(?:\.\d+)?$/.exec(raw)
+    if (!m) return null
+    return (Number(m[1] ?? 0) * 86400) + (Number(m[2] ?? 0) * 3600) + (Number(m[3]) * 60) + Number(m[4])
+  }
+  const children = new Map()
+  const rec = new Map()
+  for (const row of psRows) {
+    const m = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(\S+)/.exec(row)
+    if (!m) continue
+    const [pid, ppid] = [Number(m[1]), Number(m[2])]
+    if (!children.has(ppid)) children.set(ppid, [])
+    children.get(ppid).push(pid)
+    rec.set(pid, { cpu: parseClock(m[3]), age: parseClock(m[4]) })
+  }
+  const rootAge = rec.get(rootPid)?.age ?? null
+  let total = 0
+  const queue = [...(children.get(rootPid) ?? [])]
+  while (queue.length) {
+    const pid = queue.pop()
+    const r = rec.get(pid)
+    if (r && includeChild(r.age, rootAge)) total += r.cpu ?? 0
+    queue.push(...(children.get(pid) ?? []))
+  }
+  return total
+}

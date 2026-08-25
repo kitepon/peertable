@@ -3,7 +3,7 @@
 // 判定: claim保有 ∧ idle ∧ 「最後のターン開始より後に待機宣言が無い」→ 起こす。
 // 実行: node experiments/patrol-nudge-repro.mjs
 import assert from 'node:assert/strict'
-import { combineSeatLamp, hasActiveDescendant, patrolTargets } from '../skill/scripts/seat-usage.mjs'
+import { combineSeatLamp, hasActiveDescendant, subtreeCpuSeconds, patrolTargets } from '../skill/scripts/seat-usage.mjs'
 
 const T0 = Date.parse('2026-08-25T06:00:00.000Z')
 const min = n => T0 + n * 60_000
@@ -100,6 +100,19 @@ const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
   const t9 = patrolTargets({ ...base, activeTasks: ['p2-dashboard'], messages,
     statusOf: s => 'idle', lastBusyStartAt: () => min(20) })
   assert.deepEqual(t9, [{ seat: 'mio', task: 'p2-dashboard' }], '撤回後の保有は先行claim者へ戻る')
+}
+
+// 10) subtreeCpuSeconds: 累積CPU秒の合算（IO待ちでpcpu0でも時間は進む）と足場filter
+{
+  const rows = [
+    '  100   1   0:05.00  11:49:33',
+    '  200 100   1:23.45  11:49:33',   // 足場（同時起動）
+    '  300 200   0:02.50  01:02:03',   // 後から生まれたジョブ
+  ]
+  assert.equal(subtreeCpuSeconds(rows, 100), 85, '全子孫合算（83+2、秒未満切捨て）')
+  const noScaffold = subtreeCpuSeconds(rows, 100, { includeChild: (c, r) => r != null && c != null && r - c >= 60 })
+  assert.equal(noScaffold, 2, '足場除外で後発ジョブ分だけ')
+  assert.equal(subtreeCpuSeconds([], 100), 0, '子孫なしは0')
 }
 
 console.log('PATROL_NUDGE_REPRO_PASS')

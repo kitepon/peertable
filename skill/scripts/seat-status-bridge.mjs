@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { STOP_DECLARATION, combineSeatLamp, hasActiveDescendant, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, combineSeatLamp, hasActiveDescendant, subtreeCpuSeconds, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
 
 const args = process.argv.slice(2)
 const proj = args[0]
@@ -129,6 +129,7 @@ function readSeat(member, previous, observedAt) {
 // active判定は「画面内容が前周期から変わった」こと。出力を出さない計算中はidle表示になるが、
 // それは観測できる事実の正直な表示であり、推測で点滅させない。
 const jobPaneHash = new Map() // `${name}:${session}` -> { hash, changedAt }
+const jobCpuSeconds = new Map() // `${name}:${session}` -> 前周期の子孫累積CPU秒
 let jobObserveFailureLogged = false
 function observeJob(socket, name) {
   const listed = tmux(socket, 'list-sessions', '-F', '#{session_name}')
@@ -160,8 +161,12 @@ function observeJob(socket, name) {
       const jobPanePid = tmuxPanePid(socket, session)
       if (jobPanePid) {
         try {
-          psRows ??= execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu=,etime='], { encoding: 'utf8' }).split('\n')
-          if (hasActiveDescendant(psRows, Number(jobPanePid), { minAgeGapSeconds: 0 })) active = true
+          psRows ??= execFileSync('ps', ['-axo', 'pid=,ppid=,time=,etime='], { encoding: 'utf8' }).split('\n')
+          // pcpu%はIO待ち主体のジョブで0.0に丸まる。累積CPU時間の前周期差分で「変化」を見る
+          const seconds = subtreeCpuSeconds(psRows, Number(jobPanePid))
+          const prevSeconds = jobCpuSeconds.get(key)
+          jobCpuSeconds.set(key, seconds)
+          if (prevSeconds !== undefined && seconds > prevSeconds) active = true
         } catch { /* psが使えない端末では画面hash判定だけで続行 */ }
       }
     }
@@ -236,6 +241,7 @@ const PATROL_NAG_INTERVAL_MS = 300_000 // 条件が続く席へは5分間隔で�
 const patrolLastNag = new Map() // seat -> epoch_ms
 const busyStartedAt = new Map() // seat -> epoch_ms（このbridgeプロセスが観測した最後のターン開始・pane基準）
 const paneLast = new Map() // seat -> 直前周期のpane生status（番犬系専用。表示合成とは分離）
+const paneJobCpuSeconds = new Map() // seat -> 前周期の非足場子孫の累積CPU秒
 let lastPatrolAt = 0
 async function patrolClaims() {
   if (setup.mode !== 'lattice' || !setup.plan_key) return
@@ -385,8 +391,14 @@ async function tick() {
           const panePid = tmuxPanePid(target.socket, target.target)
           if (panePid) {
             try {
-              const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,pcpu=,etime='], { encoding: 'utf8' }).split('\n')
-              if (hasActiveDescendant(rows, Number(panePid))) job.active = true
+              const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,time=,etime='], { encoding: 'utf8' }).split('\n')
+              // 足場（席と同時起動）を除外し、後から生まれた子孫の累積CPU秒の前周期差分で稼働判定
+              const seconds = subtreeCpuSeconds(rows, Number(panePid), {
+                includeChild: (childAge, rootAge) => rootAge != null && childAge != null && rootAge - childAge >= 60,
+              })
+              const prevSeconds = paneJobCpuSeconds.get(member.name)
+              paneJobCpuSeconds.set(member.name, seconds)
+              if (prevSeconds !== undefined && seconds > prevSeconds) job.active = true
             } catch { /* psが失敗する端末では子孫観測なしで続行（named session観測は生きている） */ }
           }
         }
