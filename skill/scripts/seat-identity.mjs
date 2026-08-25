@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { observeWindowsPidCommand, parseWindowsCreationDate } from './platform/windows/observe-pid-command.mjs'
 
 export function hashArgv(argv) {
   return createHash('sha256').update(String(argv), 'utf8').digest('hex')
@@ -22,6 +23,7 @@ export function observePidCommand(pid) {
     error.code = 'SEAT_IDENTITY_NO_PID'
     throw error
   }
+  if (process.platform === 'win32') return observeWindowsPidCommand(pid, hashArgv)
   const started = execFileSync('/bin/ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', env: psEnv() }).trim()
   const argv = execFileSync('/bin/ps', ['-o', 'command=', '-p', String(pid)], { encoding: 'utf8', env: psEnv() }).trim()
   if (!started || !argv) {
@@ -34,23 +36,7 @@ export function observePidCommand(pid) {
 
 const AGENT = /(?:claude|codex|grok|composer)(?:\.cmd|\.exe)?(?:\s|$)/iu
 
-export function parseWinCreationDate(value) {
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) throw new Error('pid の CreationDate を解釈できない')
-    return value.toISOString()
-  }
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) throw new Error('pid の CreationDate を解釈できない')
-    return parsed.toISOString()
-  }
-  const text = String(value ?? '').trim()
-  const microsoft = /^\/Date\((-?\d+)(?:[+-]\d+)?\)\/$/u.exec(text)
-  if (microsoft) return new Date(Number(microsoft[1])).toISOString()
-  const parsed = new Date(text)
-  if (Number.isNaN(parsed.getTime())) throw new Error(`pid の CreationDate を解釈できない: ${text}`)
-  return parsed.toISOString()
-}
+export const parseWinCreationDate = parseWindowsCreationDate
 
 // ps の lstart 書式（LC_TIME）と非ASCII argv のエスケープ（LC_CTYPE）は locale で変わり、
 // 観測者ごとに digest が割れる（2026-08-22 実測）。Lattice 側の観測も LC_ALL=C に固定している。

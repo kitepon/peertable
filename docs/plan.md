@@ -1678,3 +1678,9 @@ Windows nativeのGit Bashから`teardown.sh`を実行すると、Windows版Pytho
 Windows nativeのGit Bashでは解決済みLattice CLIが`C:\\...`となる。共通`printf`へ未escapeで埋めると`setup-state.json`が不正JSONになり、全bridgeが起動不能になる。
 
 共通`setup.sh`はWindows writerを呼ぶdispatchだけを持つ。Windows pathを含むJSON serializationは`skill/scripts/platform/windows/write-setup-state.mjs`へ置き、POSIXの従来出力は変更しない。
+
+## 58. pid本人観測をWindows環境別実装へdispatchする（2026-08-25）
+
+`seat-identity.mjs`のCLIはWindows分岐を持つ一方、bridgeが使う公開`observePidCommand()`は常に`/bin/ps`を呼んでいた。Windows nativeではalarm-bridgeがENOENTで起動不能になる。
+
+共通公開関数は`process.platform`でWindows観測関数を呼ぶだけとし、PowerShell／Win32_ProcessによるCreationDateとCommandLineの観測は`skill/scripts/platform/windows/observe-pid-command.mjs`が所有する。POSIXの`/bin/ps`観測は変更しない。

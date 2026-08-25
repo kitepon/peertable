@@ -7,3 +7,5 @@
 - syntax: Git for Windows Bashによる`bash -n skill/scripts/teardown.sh` green。
 - 追加再現: 0.8.0 setupで`lattice_cli`のWindows backslashが未escapeとなり、`setup-state.json`をNodeがparseできず3 bridgeが起動不能。
 - 追加実装: 共通setupはWindows writerへのdispatchだけ。JSON serializationは`skill/scripts/platform/windows/write-setup-state.mjs`。
+- alarm再現: 0.8.1 setupで共有`observePidCommand()`がWindowsでも`/bin/ps`を呼びENOENT。seat-status bridgeは成立、alarm bridgeだけ起動不能。
+- alarm実装: 共通公開関数はWindows観測adapterへdispatchし、PowerShell／Win32_Process処理は`skill/scripts/platform/windows/observe-pid-command.mjs`へ分離。
