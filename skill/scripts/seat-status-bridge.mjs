@@ -129,7 +129,7 @@ function readSeat(member, previous, observedAt) {
 // active判定は「画面内容が前周期から変わった」こと。出力を出さない計算中はidle表示になるが、
 // それは観測できる事実の正直な表示であり、推測で点滅させない。
 const jobPaneHash = new Map() // `${name}:${session}` -> { hash, changedAt }
-const jobCpuSeconds = new Map() // `${name}:${session}` -> 前周期の子孫累積CPU秒
+const jobCpuSeconds = new Map() // `${name}:${session}` -> 前周期の累積CPU秒（root=job本体を含む）
 let jobObserveFailureLogged = false
 function observeJob(socket, name) {
   const listed = tmux(socket, 'list-sessions', '-F', '#{session_name}')
@@ -163,7 +163,7 @@ function observeJob(socket, name) {
         try {
           psRows ??= execFileSync('ps', ['-axo', 'pid=,ppid=,time=,etime='], { encoding: 'utf8' }).split('\n')
           // pcpu%はIO待ち主体のジョブで0.0に丸まる。累積CPU時間の前周期差分で「変化」を見る
-          const seconds = subtreeCpuSeconds(psRows, Number(jobPanePid))
+          const seconds = subtreeCpuSeconds(psRows, Number(jobPanePid), { includeRoot: true })
           const prevSeconds = jobCpuSeconds.get(key)
           jobCpuSeconds.set(key, seconds)
           if (prevSeconds !== undefined && seconds > prevSeconds) active = true

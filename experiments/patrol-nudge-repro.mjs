@@ -109,10 +109,20 @@ const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
     '  200 100   1:23.45  11:49:33',   // 足場（同時起動）
     '  300 200   0:02.50  01:02:03',   // 後から生まれたジョブ
   ]
-  assert.equal(subtreeCpuSeconds(rows, 100), 85, '全子孫合算（83+2、秒未満切捨て）')
+  assert.equal(subtreeCpuSeconds(rows, 100), 85.95, '全子孫合算（83.45+2.50、小数部を保つ）')
   const noScaffold = subtreeCpuSeconds(rows, 100, { includeChild: (c, r) => r != null && c != null && r - c >= 60 })
-  assert.equal(noScaffold, 2, '足場除外で後発ジョブ分だけ')
+  assert.equal(noScaffold, 2.5, '足場除外で後発ジョブ分だけ')
   assert.equal(subtreeCpuSeconds([], 100), 0, '子孫なしは0')
+  // jobセッションはroot（pane pid）自身が預け仕事の本体。数えないと監督ループ型が丸ごと不可視
+  // （実被弾 2026-08-26: mioのp5daily監督ループ 2.25秒がidle扱い）
+  assert.equal(subtreeCpuSeconds(rows, 100, { includeRoot: true }), 90.95, 'includeRootでroot自身も合算')
+  const supervisor = ['  27634 1  0:02.25  15:55:13', '  2682 27634  0:00.00  00:00:12']
+  assert.equal(subtreeCpuSeconds(supervisor, 27634), 0, 'root除外だと監督ループの実働が0に見える（欠陥再演）')
+  assert.equal(subtreeCpuSeconds(supervisor, 27634, { includeRoot: true }), 2.25, 'includeRootで監督ループの実働が見える')
+  // 小数部の切捨ては、数msずつ進むジョブの周期差分を永久に0にする
+  const before = subtreeCpuSeconds(['  50 1  0:02.25  10:00:00'], 50, { includeRoot: true })
+  const after = subtreeCpuSeconds(['  50 1  0:02.26  10:00:30'], 50, { includeRoot: true })
+  assert.ok(after > before, '30秒で数ms進んだジョブが稼働として観測される')
 }
 
 console.log('PATROL_NUDGE_REPRO_PASS')

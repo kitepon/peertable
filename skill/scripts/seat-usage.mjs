@@ -374,9 +374,11 @@ export function hasActiveDescendant(psRows, rootPid, { minCpu = 1.0, minAgeGapSe
 // 丸まる（実被弾 2026-08-25: 毎分数百リクエストの収集がpcpu 0.0で「非稼働」表示）。
 // 累積CPU時間は実カウンタで、働いていれば周期間で必ず増える——「変化が発生しているか」を見る。
 // psの `pid ppid time etime` 出力を受ける。filterは(childAgeSec, rootAgeSec)=>boolで足場除外等に使う。
-export function subtreeCpuSeconds(psRows, rootPid, { includeChild = () => true } = {}) {
+export function subtreeCpuSeconds(psRows, rootPid, { includeChild = () => true, includeRoot = false } = {}) {
+  // 小数部を捨てない: 30秒周期で数msずつ進む常駐ジョブは、秒未満を切ると差分が永久に0になり
+  // 「生きているのに稼働として観測されない」（実被弾 2026-08-26: mioのp5daily監督ループ）
   const parseClock = (raw) => {
-    const m = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)(?:\.\d+)?$/.exec(raw)
+    const m = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$/.exec(raw)
     if (!m) return null
     return (Number(m[1] ?? 0) * 86400) + (Number(m[2] ?? 0) * 3600) + (Number(m[3]) * 60) + Number(m[4])
   }
@@ -392,6 +394,10 @@ export function subtreeCpuSeconds(psRows, rootPid, { includeChild = () => true }
   }
   const rootAge = rec.get(rootPid)?.age ?? null
   let total = 0
+  // 席paneでは root（harness本体）は常時CPUを進めるので数えない（足場除外と同じ理由）。
+  // jobセッションでは root（pane pid）そのものが預け仕事の本体なので数える——数えないと
+  // 監督ループ型のジョブが丸ごと不可視になる（実被弾 2026-08-26: mioのp5dailyがidle表示）
+  if (includeRoot) total += rec.get(rootPid)?.cpu ?? 0
   const queue = [...(children.get(rootPid) ?? [])]
   while (queue.length) {
     const pid = queue.pop()
