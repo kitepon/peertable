@@ -5,7 +5,7 @@
 親（オーケストレーター）に最終判断が集中しない、メンバー並列型のマルチエージェント作業システム。
 
 作成日: 2026-08-08
-状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows 着席の残穴は決定90。着席の役割必須と 02_models 機械解決は決定91（`0.4.12`）。ターン終了の自己DMを MCP 毎回面へ載せるのは決定92（`0.4.13`）。親番犬の件数比較と切れた follow は決定93（`0.4.14`）。待機自己DMの無限起こし禁止は決定94（`0.4.15`）。Claude channel の同じ穴は決定95（`0.4.16`）。役割・settings・mission の機械強制とチップ掲載は決定96（`0.4.17`）。member 台帳の SQLite 一本化・run-bridge 退役・hold 退席廃止は決定97〜99（`0.5.0`）。実効稼働状態の一元生成・保存/配送receipt分離・bridge台帳・kickoff-gate・resume は決定101〜105（`0.7.0`・2026-08-24 稼働状況不可視インシデントの根治）。既存卓MCP upgradeは決定106（`0.7.1`）。
+状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows 着席の残穴は決定90。着席の役割必須と 02_models 機械解決は決定91（`0.4.12`）。ターン終了の自己DMを MCP 毎回面へ載せるのは決定92（`0.4.13`）。親番犬の件数比較と切れた follow は決定93（`0.4.14`）。待機自己DMの無限起こし禁止は決定94（`0.4.15`）。Claude channel の同じ穴は決定95（`0.4.16`）。役割・settings・mission の機械強制とチップ掲載は決定96（`0.4.17`）。member 台帳の SQLite 一本化・run-bridge 退役・hold 退席廃止は決定97〜99（`0.5.0`）。実効稼働状態の一元生成・保存/配送receipt分離・bridge台帳・kickoff-gate・resume は決定101〜105（`0.7.0`・2026-08-24 稼働状況不可視インシデントの根治）。既存卓MCP upgradeは決定106（`0.7.1`）。発言scriptの送信既定は決定107、job帰属のOS環境変数継承・命名規約廃止・harness死亡検知は決定108〜110、ランプ粒度と目覚ましfail-openは決定111〜112（`0.8.9`〜`0.8.13`・2026-08-26）。
 リポジトリ: github.com/kitepon/peertable（**公開済み 2026-08-08・MIT・public**）/ npm: **peertable@0.7.1**（2026-08-25）。Claude 席は `notifications/claude/channel`。Codex / Grok は同じ経路で席 TUI へ新着を入れる。親の再着卓投稿も `post-message.mjs` の UTF-8（Windows python stdout の cp932 で本文を壊さない）。工程クローズは監査担当の `done.sh`（feat SHA が origin/main の祖先でなければ script が着地する。親は着地しない）。mission の更新は席の `set-mission.sh`（chip と `[mission]` 1行。再起動しない）。Fable ツール実行中の稼働チップは経過時間行と `/btw` 固定句で判定する。Grok 作業中は `Waiting for response` / `[stop]`。privacy バナーは `GROK_PRIVACY_NOTICE_ROLLOUT=0`
 工場: dotagents 開発工場の管理対象（**自作コア11製品の1つ**・wire v7 の固定15製品目）。統合契約は dotagents 側が所有し、本 repo の source・state・skill 配布・release は Peertable が所有し続ける
 
@@ -1700,3 +1700,21 @@ Windows Git Bashの`parent-join.sh`がWindows版Pythonのstdoutで`ensure_ascii=
 Windows Git Bashのcommand substitutionからcurlへUTF-8 JSONを渡す段でも文字化けしたため、Windowsは`register-parent-member.mjs`がbody生成とHTTP POSTを同じNode process内で完結させる。共通parent-joinはWindows登録adapterを呼ぶだけで、POSIX curl経路は不変。
 
 `parent-member-json.mjs`はlibrary import時にCLI出力を行わず、直接実行時だけstdoutへJSONを出す。登録adapterからimportした時にargvを誤解釈した偽member JSONを出す副作用を`isCli`境界で除去する。
+
+## 60. 発言scriptを送信既定にする（2026-08-26・決定107）
+
+**決定107: `post-message.mjs` は送信までを行い、serverの受領seqを確認してから成功終了する。** JSON印字だけの経路は `--build-only` として明示分離する（change-seat / set-mission の内部組立用）。印字をPOST成功と誤読して親の通知が14時間未達になった実被弾の根治で、「送ったつもり」を物理的に作れなくする。対策は「AIが確認を回す」型でなく「機械が非ゼロで落ちる」型だけを数える（オーナー裁定）。`0.8.9`。
+
+## 61. 預け仕事の帰属をOSの環境変数継承で辿る（2026-08-26・決定108〜110）
+
+**決定108: 預け仕事のCPU実働判定はjob本体（root）を合算し、CPU秒の小数部を保つ。** rootを数えず秒未満を切ると、監督ループ型のジョブが永久にidle表示になる（実被弾: mioのp5daily）。`0.8.9`。
+
+**決定109: jobセッションの命名規約（`peer-<name>-job*`）は廃止。帰属はOSの継承機構で辿る。** launch-seatがtmuxの`update-environment`へ`PEERTABLE_MEMBER`を載せ、席が作るセッションには持ち主が自動で刻まれる。観測はsession envが正、旧`peer-<name>-`前置は後方互換のみ（`attributeJobSession`）。psmux等のtmux互換欠けで`show-environment`が使えない端末は`ENV_ATTRIBUTION_UNAVAILABLE`を一度だけ吠えて名前fallbackで継続し、doctorが「env帰属」を端末別に機械判定する。登録簿・申告・命名規則は帰属の根拠にしない（オーナー裁定「規約とか登録とか小細工せず、普通にOSのプロセス情報から辿れ」）。`0.8.10`〜`0.8.11`。
+
+**決定110: paneのshellだけが生きてharnessが死んだ席はdeadと判定する（`isPaneHarnessMissing`）。** pane processがshellで子孫ゼロならharness不在。実被弾: mioのCodexが落ちて素のbashが露出、ランプはidleのまま番犬DMがshellへ打鍵され続け、死亡に90分誰も気づけなかった。`0.8.12`。
+
+## 62. ランプ粒度と目覚まし条件の恒久裁定（2026-08-26・決定111〜112）
+
+**決定111: 点滅の粒度は観測周期（8秒）の実測そのまま。平滑化・観測窓・「直近N秒は稼働扱い」は一切入れない。** バースト型ジョブ（WS録画等）が点滅⇄点灯を行き来するのは正しい表示である（オーナー裁定「明確に1」。動いていない時間を動いていることにする表示は嘘）。
+
+**決定112: 目覚ましの判定コマンドは終了・死亡・失敗でも exit 0 になる形で登録する（fail-open）。** 「プロセス存続∧時間経過」のような成功だけの条件は、ジョブが死ぬと永久に成立せず誰も死を検知しない（実被弾: 録画デーモン死亡）。member.mdの作業ループへ焼き込み済み。初仕事はmio再着席時のp5dailyジョブ消失検知（room #285）。
