@@ -131,6 +131,7 @@ function readSeat(member, previous, observedAt) {
 const jobPaneHash = new Map() // `${name}:${session}` -> { hash, changedAt }
 const jobCpuSeconds = new Map() // `${name}:${session}` -> 前周期の累積CPU秒（root=job本体を含む）
 let jobObserveFailureLogged = false
+let envAttributionFailureLogged = false
 function observeJob(socket, name, memberNames, envCache) {
   const listed = tmux(socket, 'list-sessions', '-F', '#{session_name}')
   if (listed === null) {
@@ -148,8 +149,19 @@ function observeJob(socket, name, memberNames, envCache) {
   const names = memberNames?.length ? memberNames : [name]
   const envOf = (session) => {
     if (envCache?.has(session)) return envCache.get(session)
-    const out = tmux(socket, 'show-environment', '-t', session, 'PEERTABLE_MEMBER')
-    const m = out === null ? null : /^PEERTABLE_MEMBER=(.+)$/m.exec(out)
+    // 変数名指定でなく全量listを読む: 「変数が無い」と「show-environment自体が使えない」
+    // （psmux等のtmux互換の欠け）を区別するため。使えない端末は名前fallbackで動き続けるが、
+    // その事実は黙らず一度だけ吠える（silent absence禁止）
+    const out = tmux(socket, 'show-environment', '-t', session)
+    if (out === null) {
+      if (!envAttributionFailureLogged) {
+        envAttributionFailureLogged = true
+        console.error('ENV_ATTRIBUTION_UNAVAILABLE: show-environment がこの端末のtmux/psmuxで失敗するため、預け仕事の帰属はsession envで判定できない（peer-<name>- 前置の名前fallbackのみで動作）')
+      }
+      envCache?.set(session, null)
+      return null
+    }
+    const m = /^PEERTABLE_MEMBER=(.+)$/m.exec(out)
     const value = m ? m[1].trim() : null
     envCache?.set(session, value)
     return value

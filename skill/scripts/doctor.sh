@@ -173,9 +173,19 @@ for (const [name, judge] of [['wakeup', judgeWakeup], ['seat-status', judgeSeatS
   try {
     const probe = spawnSync('tmux', ['list-sessions', '-F', '#{session_name}'], { encoding: 'utf8' })
     if (probe.error) throw probe.error
-    line('OK', `job観測: tmux list-sessions 実行可（ランプ合成は有効。jobは peer-<name>-job* セッションで走らせること）`)
+    line('OK', `job観測: tmux list-sessions 実行可（ランプ合成は有効。ジョブは席のシェルからtmuxセッションで走らせる——名前は自由）`)
   } catch (error) {
     line('NG', `job観測: tmux list-sessions が失敗——預け仕事のランプ合成はこの端末で無効（${String(error.message ?? error).split('\n')[0]}）`)
+  }
+  // env帰属（2026-08-26 オーナー裁定: 帰属は規約名でなくOSの環境変数継承）: この端末のtmux/psmuxが
+  // update-environment と show-environment を持つか。持たない実装（psmuxの互換欠け等）では
+  // 名前fallback（peer-<name>- 前置）だけで動くので、その事実を機械判定で出す。
+  try {
+    const opts = execFileSync('tmux', tmuxArgv(['show-options', '-g', 'update-environment'], { socket: resolveTmuxSocket(process.env).socket }), { encoding: 'utf8' })
+    if (/PEERTABLE_MEMBER/.test(opts)) line('OK', 'env帰属: update-environment に PEERTABLE_MEMBER が載っている（新規セッションへ持ち主が自動継承される）')
+    else line('NG', 'env帰属: update-environment に PEERTABLE_MEMBER が無い——launch-seat をこの版で一度通すと設定される。それまで帰属は peer-<name>- 前置の名前fallbackのみ')
+  } catch (error) {
+    line('NG', `env帰属: show-options が失敗——この端末のtmux/psmuxはenv帰属を判定できず、名前fallbackのみで動作（${String(error.message ?? error).split('\n')[0]}）`)
   }
   // 読了ack: server members に read_seq 欄が観測できるか（席が一度もackしていない間は判定できない）
   try {
