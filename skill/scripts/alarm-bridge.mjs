@@ -91,9 +91,13 @@ async function tick() {
     }
     nextDue.set(file, Date.now() + Math.max(2, Number(reg.interval_s) || 10) * 1000)
     let met = false
+    let firedOutput = ''
     try {
-      await run('bash', ['-c', reg.script], { timeout: 30_000, maxBuffer: 1024 * 1024 })
+      const { stdout, stderr } = await run('bash', ['-c', reg.script], { timeout: 30_000, maxBuffer: 1024 * 1024 })
       met = true
+      // 発火の証拠を残す: fail-open型の条件は「なぜ成立したか」が出力にしか現れない
+      // （実被弾 2026-08-26: statusの一過性失敗で即発火したが、何が失敗したか記録が無く未解明）
+      firedOutput = `${stdout ?? ''}${stderr ?? ''}`.trim().slice(0, 300)
     } catch (e) {
       // exit 非0 = 条件未成立（正常）。timeout/spawn 失敗はログへ（成立と区別し、握りつぶさない）
       if (e.killed || e.code === 'ENOENT') log(`条件スクリプトの実行失敗（${entry}）: ${e.message}`)
@@ -103,7 +107,7 @@ async function tick() {
       await wake(reg.seat, reg.note || entry)
       unlinkSync(file)
       nextDue.delete(file)
-      log(`起床: ${reg.seat} ← ${reg.note || entry}`)
+      log(`起床: ${reg.seat} ← ${reg.note || entry}${firedOutput ? `｜条件出力: ${firedOutput}` : ''}`)
     } catch (e) {
       log(`起床の投函に失敗（次周期に再試行）: ${e.message}`)
     }
