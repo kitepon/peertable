@@ -330,6 +330,21 @@ export function combineSeatLamp(paneStatus, job) {
   return paneStatus // 'dead' 等はそのまま
 }
 
+// ---- 預け仕事セッションの帰属（2026-08-26 オーナー裁定: 規約名でなくOSの継承機構で辿る）----
+// 正はsession envのPEERTABLE_MEMBER——席のシェルが持つ値をtmuxのupdate-environmentが作成時に
+// 自動で写したもので、席は名前も申告も要らない。envが無い既存セッションだけ、旧来の
+// `peer-<name>-` 前置の最長一致で拾う（後方互換。stamp導入前に立った常駐を殺さないため）。
+// 席セッションそのもの（`peer-<name>` 完全一致）は預け仕事ではない。
+export function attributeJobSession({ session, memberNames, env }) {
+  if (memberNames.includes(session.replace(/^peer-/, ''))) return null
+  if (env !== null && env !== undefined && memberNames.includes(env)) return env
+  let best = null
+  for (const n of memberNames) {
+    if (session.startsWith(`peer-${n}-`) && (best === null || n.length > best.length)) best = n
+  }
+  return best
+}
+
 // paneプロセスの子孫に実働（CPU消費）が居るかの判定素材。psの `pid ppid pcpu` 出力を受け取り、
 // root配下の子孫（root自身は除く）に pcpu >= 閾値 が居れば true。席がCodex内蔵background terminal等、
 // tmuxセッションを作らずに走らせた預け仕事を、プロセスツリーの実観測で拾う（2026-08-25 オーナー裁定

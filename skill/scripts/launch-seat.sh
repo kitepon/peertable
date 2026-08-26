@@ -447,6 +447,14 @@ PY
 fi
 seat_tmux=$(tmux_at display-message -p -t "$sess" '#{socket_path}')
 
+# 席が作る派生tmuxセッションへ PEERTABLE_MEMBER を自動継承させる（2026-08-26 オーナー裁定:
+# 帰属は規約名でなくOSの継承機構で辿る）。tmuxは既定でclientのenvを剥ぐので、update-environmentへ
+# 1回だけ載せる。これで席発のセッションは名前が何でも、session envのPEERTABLE_MEMBERで持ち主が読める
+if ! tmux_at show-options -g update-environment 2>/dev/null | grep -q 'PEERTABLE_MEMBER'; then
+  tmux_at set-option -ga update-environment ' PEERTABLE_MEMBER' || \
+    echo "SEAT_ENV_STAMP_UNAVAILABLE: update-environment を設定できず、派生セッションの帰属はsession envに載らない" >&2
+fi
+
 # Aiterm管理席の process 起動は公開launch receiptで確定している。旧direct CLI launch向けの
 # ヘッダ/trust dialog待機をここへ重ねると、brief turnでヘッダが画面外へ流れた正常席をrollbackする。
 # 必須room MCPの成立は、次の member登録readbackだけで判定する。

@@ -3,7 +3,7 @@
 // 判定: claim保有 ∧ idle ∧ 「最後のターン開始より後に待機宣言が無い」→ 起こす。
 // 実行: node experiments/patrol-nudge-repro.mjs
 import assert from 'node:assert/strict'
-import { combineSeatLamp, hasActiveDescendant, subtreeCpuSeconds, patrolTargets } from '../skill/scripts/seat-usage.mjs'
+import { attributeJobSession, combineSeatLamp, hasActiveDescendant, subtreeCpuSeconds, patrolTargets } from '../skill/scripts/seat-usage.mjs'
 
 const T0 = Date.parse('2026-08-25T06:00:00.000Z')
 const min = n => T0 + n * 60_000
@@ -123,6 +123,20 @@ const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
   const before = subtreeCpuSeconds(['  50 1  0:02.25  10:00:00'], 50, { includeRoot: true })
   const after = subtreeCpuSeconds(['  50 1  0:02.26  10:00:30'], 50, { includeRoot: true })
   assert.ok(after > before, '30秒で数ms進んだジョブが稼働として観測される')
+}
+
+// 11) attributeJobSession: 帰属はsession envが正・名前規約は後方互換のみ（2026-08-26 オーナー裁定）
+{
+  const names = ['mio', 'yuzu', 'koharu']
+  const at = (session, env = null) => attributeJobSession({ session, memberNames: names, env })
+  assert.equal(at('recorder', 'yuzu'), 'yuzu', 'env stampがあれば名前は自由')
+  assert.equal(at('peer-yuzu-p3-record'), 'yuzu', 'env無しの既存セッションは peer-<name>- 前置で拾う（実被弾: 録画がランプ不可視）')
+  assert.equal(at('peer-mio-job-p5daily'), 'mio', '旧 -job 規約名もそのまま拾える')
+  assert.equal(at('peer-mio'), null, '席セッションそのものは預け仕事ではない')
+  assert.equal(at('peer-mio', 'mio'), null, '席セッションはenvがあっても預け仕事ではない')
+  assert.equal(at('unrelated-session'), null, 'env無し・前置不一致は帰属なし')
+  assert.equal(at('recorder', 'stranger'), null, '未知のenv値では帰属しない')
+  assert.equal(at('peer-mio-x', 'yuzu'), 'yuzu', 'envと名前が食い違ったらenv（実物）が勝つ')
 }
 
 console.log('PATROL_NUDGE_REPRO_PASS')

@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { STOP_DECLARATION, combineSeatLamp, hasActiveDescendant, subtreeCpuSeconds, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, attributeJobSession, combineSeatLamp, hasActiveDescendant, subtreeCpuSeconds, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
 
 const args = process.argv.slice(2)
 const proj = args[0]
@@ -131,7 +131,7 @@ function readSeat(member, previous, observedAt) {
 const jobPaneHash = new Map() // `${name}:${session}` -> { hash, changedAt }
 const jobCpuSeconds = new Map() // `${name}:${session}` -> 前周期の累積CPU秒（root=job本体を含む）
 let jobObserveFailureLogged = false
-function observeJob(socket, name) {
+function observeJob(socket, name, memberNames, envCache) {
   const listed = tmux(socket, 'list-sessions', '-F', '#{session_name}')
   if (listed === null) {
     // 「jobなし」と「観測手段が壊れている」を同じ顔にしない（silent absence禁止・2026-08-25 オーナー裁定）。
@@ -143,7 +143,19 @@ function observeJob(socket, name) {
     return { alive: false, active: false }
   }
   jobObserveFailureLogged = false
-  const sessions = listed.split('\n').filter(s => s.startsWith(`peer-${name}-job`))
+  // 帰属はsession envのPEERTABLE_MEMBER（OSの継承をtmux update-environmentが写した実物）が正。
+  // 名前は自由——`-job` 規約は廃止（2026-08-26 オーナー裁定）。env読みは周期内cacheで1セッション1回。
+  const names = memberNames?.length ? memberNames : [name]
+  const envOf = (session) => {
+    if (envCache?.has(session)) return envCache.get(session)
+    const out = tmux(socket, 'show-environment', '-t', session, 'PEERTABLE_MEMBER')
+    const m = out === null ? null : /^PEERTABLE_MEMBER=(.+)$/m.exec(out)
+    const value = m ? m[1].trim() : null
+    envCache?.set(session, value)
+    return value
+  }
+  const sessions = listed.split('\n').filter(Boolean)
+    .filter(session => attributeJobSession({ session, memberNames: names, env: envOf(session) }) === name)
   if (sessions.length === 0) return { alive: false, active: false }
   let active = false
   let psRows = null
@@ -369,6 +381,8 @@ async function tick() {
   if (!supported) { console.error(`seat-status-bridge: ${members.length} 席を見たが、server が未対応なので送っていない`); return NOTHING_ATTEMPTED }
   const now = Date.now()
   const observedAt = new Date(now).toISOString()
+  const memberNames = members.map(m => m.name)
+  const envCache = new Map() // session env読みの周期内cache（帰属判定は全memberで同じ実物を見る）
   let sent = 0
   let skipped = 0
   let failed = 0
@@ -385,7 +399,7 @@ async function tick() {
     {
       const target = resolveSeatObservation(member, null) ?? resolveSeatObservation(member, defaultSocket())
       if (target !== null) {
-        const job = observeJob(target.socket, member.name)
+        const job = observeJob(target.socket, member.name, memberNames, envCache)
         // 席paneの子孫プロセス（Codex内蔵background terminal等）の実働もjob稼働として合成する
         if (!job.active && observation.status === 'idle') {
           const panePid = tmuxPanePid(target.socket, target.target)
