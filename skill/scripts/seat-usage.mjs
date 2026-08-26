@@ -236,6 +236,28 @@ export function tmuxPanePid(socket, target, exec = execFileSync) {
  * （`pane_dead=0`）で、末尾の画面は停止直前のまま残るため、`classifyPaneTail` だけでは
  * `idle` と誤判定する。
  */
+/**
+ * paneのshellだけが生きていて中のharnessが死んだ席をdeadと判定する素材（実被弾 2026-08-26:
+ * mioのCodexが落ちて素のbashが露出、ランプはidle表示のまま番犬DMがshellへ打鍵され続けた）。
+ * pane processがshell（bash/zsh/sh系）で、子プロセスが1つも居なければ、席のharnessは存在しない。
+ * pane processがharness本体（shellでない）の場合はこの判定の対象外——それが生きていれば席は生きている。
+ */
+export function isPaneHarnessMissing(psRows, panePid) {
+  if (!panePid) return false
+  let command = null
+  let hasChild = false
+  for (const row of psRows) {
+    const m = /^\s*(\d+)\s+(\d+)\s+(.+)$/.exec(row)
+    if (!m) continue
+    if (m[1] === String(panePid)) command = m[3].trim()
+    if (m[2] === String(panePid)) hasChild = true
+  }
+  if (command === null) return false
+  const bin = command.split(/\s+/)[0].split('/').pop()
+  if (!/^(?:-?bash|-?zsh|-?sh|-?dash|-?ksh)$/.test(bin)) return false
+  return !hasChild
+}
+
 export function isPaneProcessStopped(panePid, exec = execFileSync) {
   if (!panePid) return false
   try {

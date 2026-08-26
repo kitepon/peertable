@@ -3,7 +3,7 @@
 // 判定: claim保有 ∧ idle ∧ 「最後のターン開始より後に待機宣言が無い」→ 起こす。
 // 実行: node experiments/patrol-nudge-repro.mjs
 import assert from 'node:assert/strict'
-import { attributeJobSession, combineSeatLamp, hasActiveDescendant, subtreeCpuSeconds, patrolTargets } from '../skill/scripts/seat-usage.mjs'
+import { attributeJobSession, combineSeatLamp, isPaneHarnessMissing, hasActiveDescendant, subtreeCpuSeconds, patrolTargets } from '../skill/scripts/seat-usage.mjs'
 
 const T0 = Date.parse('2026-08-25T06:00:00.000Z')
 const min = n => T0 + n * 60_000
@@ -137,6 +137,20 @@ const base = { now: min(60), lastNag: new Map(), nagIntervalMs: 300_000 }
   assert.equal(at('unrelated-session'), null, 'env無し・前置不一致は帰属なし')
   assert.equal(at('recorder', 'stranger'), null, '未知のenv値では帰属しない')
   assert.equal(at('peer-mio-x', 'yuzu'), 'yuzu', 'envと名前が食い違ったらenv（実物）が勝つ')
+}
+
+
+// 12) isPaneHarnessMissing: harnessが死にshellだけ残った席をdeadと判定（実被弾 2026-08-26: mio）
+{
+  const alive = ['  100 1 bash', '  200 100 node /Users/x/.local/bin/codex -m gpt']
+  assert.equal(isPaneHarnessMissing(alive, 100), false, 'shell配下にharnessが居れば生存')
+  const orphanShell = ['  100 1 bash']
+  assert.equal(isPaneHarnessMissing(orphanShell, 100), true, 'shellだけで子なし → harness死亡')
+  const directHarness = ['  100 1 node /opt/homebrew/bin/something']
+  assert.equal(isPaneHarnessMissing(directHarness, 100), false, 'pane自体がharnessなら対象外')
+  assert.equal(isPaneHarnessMissing(['  100 1 -zsh'], 100), true, 'login shell表記(-zsh)も判定する')
+  assert.equal(isPaneHarnessMissing([], 100), false, 'pane pidが見つからなければ安全側（判定しない）')
+  assert.equal(isPaneHarnessMissing(orphanShell, null), false, 'pid不明は判定しない')
 }
 
 console.log('PATROL_NUDGE_REPRO_PASS')

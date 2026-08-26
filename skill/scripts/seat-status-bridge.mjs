@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { STOP_DECLARATION, attributeJobSession, combineSeatLamp, hasActiveDescendant, subtreeCpuSeconds, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, attributeJobSession, combineSeatLamp, isPaneHarnessMissing, hasActiveDescendant, subtreeCpuSeconds, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
 
 const args = process.argv.slice(2)
 const proj = args[0]
@@ -114,9 +114,18 @@ function readSeat(member, previous, observedAt) {
   const tentativeStatus = classifyPaneTail(tail)
   // pane 自体は生きたまま中の CLI プロセスだけが停止する局面（Lattice pull run の accept hold 等）を
   // 拾う。画面の残像だけでは idle に誤判定するため、idle と読めた時だけ実プロセスの stat を見る。
-  const status = tentativeStatus === 'idle' && isPaneProcessStopped(tmuxPanePid(target.socket, target.target))
-    ? 'dead'
-    : tentativeStatus
+  let status = tentativeStatus
+  if (tentativeStatus === 'idle') {
+    const panePid = tmuxPanePid(target.socket, target.target)
+    if (isPaneProcessStopped(panePid)) status = 'dead'
+    else {
+      // harness死亡でshellだけ残った席（実被弾 2026-08-26: mio）。画面の残像はidleに見える
+      try {
+        const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,command='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n')
+        if (isPaneHarnessMissing(rows, Number(panePid))) status = 'dead'
+      } catch { /* psが使えない端末では従来判定のまま */ }
+    }
+  }
   const busySince = status === 'busy' || status === 'blocked'
     ? ((previous?.status === 'busy' || previous?.status === 'blocked') && previous.busySince ? previous.busySince : observedAt)
     : null
