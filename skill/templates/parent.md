@@ -117,10 +117,8 @@ peertable_parent_post() {
     echo "PEERTABLE_POSTER_MISSING: $poster" >&2
     return 1
   fi
-  node "$poster" "$PEERTABLE_PARENT_NAME" "$to" "$*" \
-    | curl -sf -X POST "$PEERTABLE_ROOM_API/messages" \
-        -H "X-Peertable-Token: $PEERTABLE_POST_TOKEN" \
-        -H 'content-type: application/json' --data-binary @-
+  # post-message.mjs が送信と受領seq確認まで行う（非ゼロ＝未達。印字をPOST成功と誤読した2026-08-26の実被弾対策）
+  node "$poster" "$PEERTABLE_PARENT_NAME" "$to" "$*"
 }
 ```
 <!-- parent-rejoin-shell:end -->

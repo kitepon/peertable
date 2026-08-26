@@ -236,7 +236,7 @@ fi
 
 body="[席設定変更] ${parent} が ${name} の ${changes} に変更（${change_method}）"
 [ -z "$reason" ] || body="${body}。理由: ${reason}"
-history=$(node "$(dirname "$0")/post-message.mjs" "$parent" "$name" "$body")
+history=$(node "$(dirname "$0")/post-message.mjs" --build-only "$parent" "$name" "$body")
 history_response=$(env -u PEERTABLE_POST_TOKEN node "$credential_helper" request "$credential_file" POST \
   "$url/api/$room/messages" "$history") || {
   echo "SEAT_CHANGE_CHANGED_BUT_HISTORY_FAILED: ${name} は ${changes} で再着席済み、room履歴の記録に失敗" >&2

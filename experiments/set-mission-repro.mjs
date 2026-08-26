@@ -148,7 +148,7 @@ try {
     assert.equal(after.vendor, 'claude')
     assert.equal(after.model, 'opus')
     assert.equal(after.effort, 'high')
-    assert.equal(after.role, '実装')
+    assert.deepEqual(after.roles, ['実装'])
   })
   const messages = (await api('messages')).messages.filter(m => m.from !== 'system')
   check('room に [mission] が1行残る', () => {

@@ -68,7 +68,7 @@ process.exit(m.mission===want ? 0 : 1)
 }
 
 body="[mission] ${name}: ${text}"
-history=$(node "$script_dir/post-message.mjs" "$name" "all" "$body")
+history=$(node "$script_dir/post-message.mjs" --build-only "$name" "all" "$body")
 history_response=$(env -u PEERTABLE_POST_TOKEN node "$credential_helper" request "$credential_file" POST \
   "$url/api/$room/messages" "$history") || {
   echo "SET_MISSION_CHANGED_BUT_ANNOUNCE_FAILED: chip は更新済み、[mission] の投稿に失敗" >&2

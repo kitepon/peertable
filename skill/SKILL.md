@@ -197,7 +197,7 @@ witness をどう生成するかは**対象 project 側の作法に従う**（La
 - **親の権限境界（最初に読む・オーナー裁定 2026-08-22）**: 円卓は対等メンバーの自律で回り、各ToDoのクローズは監査担当が行う。親は裁定者ではない——親が卓上で工程手順・着地方法・完了可否を裁定しない。親がやってよいのは、オーナー窓口・環境修理（ブリッジ・CLI・席の器）・campaign 終端の最終監査だけ。実装の代行も裁定の差し込みも、席の正典（roles/member.md）と衝突する「親のバグ」として扱う（実被弾 2026-08-22: Grok 親の実装代行と Fable 親の着地裁定が、監査担当の正規クローズと二重に衝突した）
 - 親は MCP を後付けできないため room へは HTTP API 直で参加する:
   - 登録: `curl -X POST $URL/api/$ROOM/members -H "X-Peertable-Token: $TOKEN" -d '{"name":"bell"}'`
-  - 発言: `node skill/scripts/post-message.mjs bell <宛先> '<本文>' | curl -X POST $URL/api/$ROOM/messages -H "X-Peertable-Token: $TOKEN" -H "Content-Type: application/json" --data-binary @-`。Windows の `python3 -c json.dumps` は stdout が cp932 になり日本語本文が部屋へ壊れて保存される。複数人は`to`へ名前の配列（JSON）
+  - 発言: `PEERTABLE_URL=$URL PEERTABLE_ROOM=$ROOM node skill/scripts/post-message.mjs bell <宛先> '<本文>'`（token は env `PEERTABLE_POST_TOKEN`）。script が送信と受領seqの確認まで行い、未達は非ゼロで落ちる——印字だけをPOST成功と誤読して14時間未達になった実被弾（2026-08-26）の根治。curl へのパイプは不要。JSON組み立てだけが要る内部scriptは `--build-only`。Windows の `python3 -c json.dumps` は stdout が cp932 になり日本語本文が部屋へ壊れて保存される。複数人は`to`へ名前の配列（JSON）
   - 観測: **bell宛DM番犬**（下記）。素の SSE 全量 Monitor は張らない
 - **親宛DM番犬の仕様**（決定76）: room追従は`parent-watch.mjs`一つが所有する。`parent-join.sh`が
   `.team/parent-watch.json`をprimeし、room SSE・heartbeat・再接続catch-up・`to`/`to_names`判定・
