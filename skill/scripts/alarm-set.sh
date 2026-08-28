@@ -9,6 +9,12 @@ set -eu
 proj="${1:?project_dir}"; seat="${2:?seat}"; note="${3:?note}"; shift 3
 script="$*"
 [ -n "$script" ] || { echo "ALARM_SET_SCRIPT_REQUIRED: 条件スクリプトが空" >&2; exit 2; }
+# 誤った project path を mkdir -p が幻のツリーとして実体化し、誰も読まない場所へ exit 0 で
+# 登録が「成功」する（実被弾 2026-08-28: worktree cwd からの相対 'poly' が poly/poly/.team/ を
+# 生み、席は登録済みと思って15時間停滞）。目覚まし係が読むのは既存卓の .team だけなので、
+# .team が既に在る場所しか受け付けず、path は絶対に解決して返す。
+proj="$(cd -- "$proj" 2>/dev/null && pwd)" || { echo "ALARM_SET_PROJECT_INVALID: project_dir が存在しない" >&2; exit 2; }
+[ -d "$proj/.team" ] || { echo "ALARM_SET_PROJECT_INVALID: ${proj}/.team が無い（卓の project root を渡すこと）" >&2; exit 2; }
 dir="$proj/.team/alarms"
 mkdir -p "$dir"
 id="$(date +%s)-$$"
