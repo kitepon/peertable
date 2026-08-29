@@ -25,6 +25,10 @@ fi
 sock=$(node "$(dirname "$0")/tmux-socket.mjs")
 room=$(node -e 'process.stdout.write(require(process.argv[1]).room)' "$team/setup-state.json")
 session="peertable-${name}-${room}"
+# **session が在るだけでは常駐が生きている証拠にならない**（中の node だけ死んで殻が残る）。
+# pid/進捗の生存確認を通れずここへ来たsessionは、Windowsでlogを開いたままの可能性がある。
+# log切詰めより先に畳み、EBUSYを発生させない。
+tmux_at kill-session -t "$session" 2>/dev/null || true
 # **死んだ記録をここで消す。** 残すと下の loop が前回の `ready_at` を読んで、
 # 新しい bridge が1バイトも動いていない段階で success を返す——「起動していないのに
 # 起動したと言う」＝この supervisor が塞ぐはずの穴そのものになる。
@@ -41,9 +45,6 @@ for v in PEERTABLE_TMUX_SOCKET PEERTABLE_POST_TOKEN PEERTABLE_CREDENTIAL_FILE PE
   eval "val=\${$v:-}"
   [ -n "$val" ] && env_prefix="$env_prefix $v=$(printf '%q' "$val")"
 done
-# **session が在るだけでは常駐が生きている証拠にならない**（中の node だけ死んで殻が残る）。
-# 上で pid 生存を確かめて here まで来た＝生きていないので、殻は畳んでから立て直す。
-tmux_at kill-session -t "$session" 2>/dev/null || true
 if [ "$(node -p 'process.platform')" = "win32" ]; then
   # psmuxが起動する正規shellはPowerShell 7。POSIXの`env`とMSYS pathを文字列のまま
   # 渡すとnodeへ到達する前に終了するため、Windows nodeに各pathをargvとして変換させ、

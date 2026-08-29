@@ -5,7 +5,7 @@
 親（オーケストレーター）に最終判断が集中しない、メンバー並列型のマルチエージェント作業システム。
 
 作成日: 2026-08-08
-状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows 着席の残穴は決定90。着席の役割必須と 02_models 機械解決は決定91（`0.4.12`）。ターン終了の自己DMを MCP 毎回面へ載せるのは決定92（`0.4.13`）。親番犬の件数比較と切れた follow は決定93（`0.4.14`）。待機自己DMの無限起こし禁止は決定94（`0.4.15`）。Claude channel の同じ穴は決定95（`0.4.16`）。役割・settings・mission の機械強制とチップ掲載は決定96（`0.4.17`）。member 台帳の SQLite 一本化・run-bridge 退役・hold 退席廃止は決定97〜99（`0.5.0`）。実効稼働状態の一元生成・保存/配送receipt分離・bridge台帳・kickoff-gate・resume は決定101〜105（`0.7.0`・2026-08-24 稼働状況不可視インシデントの根治）。既存卓MCP upgradeは決定106（`0.7.1`）。発言scriptの送信既定は決定107、job帰属のOS環境変数継承・命名規約廃止・harness死亡検知は決定108〜110、ランプ粒度と目覚ましfail-openは決定111〜112（`0.8.9`〜`0.8.13`・2026-08-26）。常駐の機械生存保証・socket消失判定・親番犬の静音門は決定113〜115（`0.8.16`〜`0.8.17`・2026-08-29）。Windows nativeのbridge起動とdoctorのnpm shim解決は決定116（`0.8.18`・2026-08-29）。
+状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows 着席の残穴は決定90。着席の役割必須と 02_models 機械解決は決定91（`0.4.12`）。ターン終了の自己DMを MCP 毎回面へ載せるのは決定92（`0.4.13`）。親番犬の件数比較と切れた follow は決定93（`0.4.14`）。待機自己DMの無限起こし禁止は決定94（`0.4.15`）。Claude channel の同じ穴は決定95（`0.4.16`）。役割・settings・mission の機械強制とチップ掲載は決定96（`0.4.17`）。member 台帳の SQLite 一本化・run-bridge 退役・hold 退席廃止は決定97〜99（`0.5.0`）。実効稼働状態の一元生成・保存/配送receipt分離・bridge台帳・kickoff-gate・resume は決定101〜105（`0.7.0`・2026-08-24 稼働状況不可視インシデントの根治）。既存卓MCP upgradeは決定106（`0.7.1`）。発言scriptの送信既定は決定107、job帰属のOS環境変数継承・命名規約廃止・harness死亡検知は決定108〜110、ランプ粒度と目覚ましfail-openは決定111〜112（`0.8.9`〜`0.8.13`・2026-08-26）。常駐の機械生存保証・socket消失判定・親番犬の静音門は決定113〜115（`0.8.16`〜`0.8.17`・2026-08-29）。Windows nativeのbridge起動とdoctorのnpm shim解決は決定116、全bridgeの進捗生存判定とlog解放順は決定117（`0.8.18`〜`0.8.19`・2026-08-29）。
 リポジトリ: github.com/kitepon/peertable（**公開済み 2026-08-08・MIT・public**）/ npm: **peertable@0.7.1**（2026-08-25）。Claude 席は `notifications/claude/channel`。Codex / Grok は同じ経路で席 TUI へ新着を入れる。親の再着卓投稿も `post-message.mjs` の UTF-8（Windows python stdout の cp932 で本文を壊さない）。工程クローズは監査担当の `done.sh`（feat SHA が origin/main の祖先でなければ script が着地する。親は着地しない）。mission の更新は席の `set-mission.sh`（chip と `[mission]` 1行。再起動しない）。Fable ツール実行中の稼働チップは経過時間行と `/btw` 固定句で判定する。Grok 作業中は `Waiting for response` / `[stop]`。privacy バナーは `GROK_PRIVACY_NOTICE_ROLLOUT=0`
 工場: dotagents 開発工場の管理対象（**自作コア11製品の1つ**・wire v7 の固定15製品目）。統合契約は dotagents 側が所有し、本 repo の source・state・skill 配布・release は Peertable が所有し続ける
 
@@ -1734,3 +1734,9 @@ Windows Git Bashのcommand substitutionからcurlへUTF-8 JSONを渡す段でも
 LiveTRの円卓setupで、alarm／seat-statusの両bridgeがrecordもlogも作らず消えた。原因はpsmux上のPowerShellへ`env ... node /c/...`を渡しており、node起動前に失敗したことだった。あわせて`doctor.sh`はnpmの`lattice.cmd`を`execFileSync`へ直接渡して`EINVAL`になっていたため、Windows command shimの解決を引数汎用の一関数へまとめ、従来の`todo status`とdoctorの`status --json`を同じcmd.exe経路へ通す。
 
 focused reproはPowerShell子processで空白・日本語・引用符を含むenv／引数／pathとlog生成を実行し、shim解決はtodo／project statusの両argvを固定する。patch `0.8.18`。
+
+## 65. 全bridgeの進捗生存判定とWindowsのlog解放順を固定する（2026-08-29・決定117）
+
+**決定117: 周期ensureが読む生存証拠は全bridgeで`last_progress_at`へ統一する。** wakeupだけでなくalarmとseat-statusも各tickで同じ原子的更新を行う。pidと`ready_at`だけでは、pid再利用とループ固着を区別できないため生存証拠にしない。
+
+0.8.18 post-install smokeで、生きているalarm／seat-statusが進捗時刻を持たず毎回再起動されることを実測した。Windowsでは旧processがlogを保持したままlog切詰めを先行して`EBUSY`も出た。再起動が必要な場合はtmux session停止をrecord削除・log切詰めより前へ移し、保持processを先に終了する。patch `0.8.19`。

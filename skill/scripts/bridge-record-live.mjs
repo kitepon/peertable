@@ -3,7 +3,7 @@
 // Windows は pid を再利用する。alive な pid だけでは本人ではない
 // （2026-08-21 実測: wakeup-bridge.json の pid が oracle-mcp に再利用され、
 // 本物の配達は死んだまま ensure-bridge が起動済みと誤認した）。
-import { readFileSync } from 'node:fs'
+import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -19,6 +19,13 @@ export function bridgeRecordLive(record, now = Date.now()) {
   const at = Date.parse(stamp)
   if (!Number.isFinite(at)) return false
   return (now - at) <= STALE_MS
+}
+
+export function updateBridgeProgress(path, now = new Date()) {
+  const record = JSON.parse(readFileSync(path, 'utf8'))
+  const temporary = `${path}.${process.pid}.tmp`
+  writeFileSync(temporary, JSON.stringify({ ...record, last_progress_at: now.toISOString() }) + '\n')
+  renameSync(temporary, path)
 }
 
 const invokedDirectly = Boolean(process.argv[1])

@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { bridgeRecordLive } from '../skill/scripts/bridge-record-live.mjs'
+import { bridgeRecordLive, updateBridgeProgress } from '../skill/scripts/bridge-record-live.mjs'
 
 const REPO = dirname(dirname(fileURLToPath(import.meta.url)))
 const root = mkdtempSync(join(tmpdir(), 'peertable-stale-pid-'))
@@ -37,6 +37,13 @@ try {
   check('本人の pid・新しい progress は live', () => {
     if (bridgeRecordLive({ pid: dummyPid, last_progress_at: new Date().toISOString() })) return
     throw new Error('新しい progress を dead にした')
+  })
+  check('共通progress更新後のrecordは live', () => {
+    const generic = join(project, '.team', 'generic-bridge.json')
+    writeFileSync(generic, JSON.stringify({ pid: dummyPid, ready_at: new Date().toISOString() }) + '\n')
+    updateBridgeProgress(generic, new Date())
+    if (bridgeRecordLive(JSON.parse(readFileSync(generic, 'utf8')))) return
+    throw new Error('progress更新後のrecordをdeadにした')
   })
   check('死んだ pid は progress が新しくても dead', () => {
     if (!bridgeRecordLive({ pid: 2_000_000_000, last_progress_at: new Date().toISOString() })) return

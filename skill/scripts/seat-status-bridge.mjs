@@ -28,6 +28,7 @@ import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 
 import { join } from 'node:path'
 
 import { STOP_DECLARATION, attributeJobSession, combineSeatLamp, isPaneHarnessMissing, hasActiveDescendant, subtreeCpuSeconds, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { updateBridgeProgress } from './bridge-record-live.mjs'
 
 const args = process.argv.slice(2)
 const proj = args[0]
@@ -381,7 +382,8 @@ function recordReady() {
   readyRecorded = true
   const record = JSON.parse(readFileSync(pidPath, 'utf8'))
   const temporary = `${pidPath}.${process.pid}.tmp`
-  writeFileSync(temporary, JSON.stringify({ ...record, ready_at: new Date().toISOString() }) + '\n')
+  const readyAt = new Date().toISOString()
+  writeFileSync(temporary, JSON.stringify({ ...record, ready_at: readyAt, last_progress_at: readyAt }) + '\n')
   renameSync(temporary, pidPath)
 }
 
@@ -484,6 +486,7 @@ let provenWritable = false
 async function guardedTick() {
   await beatBridge()
   const { attempted, failed } = await tick() ?? NOTHING_ATTEMPTED
+  updateBridgeProgress(pidPath)
   const decided = decideBridgeContinuation({ attempted, failed, provenWritable, failedTicks, limit: FAILED_TICK_LIMIT })
   provenWritable = decided.provenWritable
   failedTicks = decided.failedTicks

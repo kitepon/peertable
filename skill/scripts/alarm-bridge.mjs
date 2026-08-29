@@ -22,6 +22,7 @@ import { promisify } from 'node:util'
 
 import { resolvePostToken } from './seat-usage.mjs'
 import { observePidCommand } from './seat-identity.mjs'
+import { updateBridgeProgress } from './bridge-record-live.mjs'
 
 const run = promisify(execFile)
 const [proj, flag] = process.argv.slice(2)
@@ -57,9 +58,10 @@ if (!token) { console.error('ALARM_BRIDGE_TOKEN_MISSING: 書込トークンが�
 mkdirSync(alarmsDir, { recursive: true })
 
 const self = observePidCommand(process.pid)
+const startedAt = new Date().toISOString()
 writeFileSync(record, JSON.stringify({
   pid: process.pid, start_identity: self.started_identity, room, server_url: url,
-  started_at: new Date().toISOString(), ready_at: new Date().toISOString(),
+  started_at: startedAt, ready_at: startedAt, last_progress_at: startedAt,
 }) + '\n')
 const cleanup = () => { try { unlinkSync(record) } catch {} process.exit(0) }
 process.on('SIGTERM', cleanup)
@@ -117,5 +119,6 @@ async function tick() {
 log(`alarm-bridge start: room=${room} project=${proj} pid=${process.pid}`)
 for (;;) {
   try { await tick() } catch (e) { log(`tick 失敗（続行）: ${e.message}`) }
+  updateBridgeProgress(record)
   await sleep(2000)
 }
