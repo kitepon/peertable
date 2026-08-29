@@ -156,3 +156,9 @@ test('room未読は返した位置までだけ進み残りを次回へ保つ', (
   assert.ok(first.consumedSeq < 6)
   assert.match(first.text, /read_unreadを再実行/u)
 })
+
+test('親post入口は明示envだけでなく共通token解決を使う', () => {
+  const source = readFileSync(new URL('./post-message.mjs', import.meta.url), 'utf8')
+  assert.ok(source.includes("import { resolvePostToken } from './seat-usage.mjs'"))
+  assert.ok(source.includes('resolvePostToken(process.env)'))
+})

@@ -5,6 +5,7 @@
 // python stdout の cp932 は日本語本文を壊す）。
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { resolvePostToken } from './seat-usage.mjs'
 
 const args = process.argv.slice(2)
 const buildOnly = args[0] === '--build-only'
@@ -35,7 +36,7 @@ if (!url || !room) {
   process.stderr.write('POST_MESSAGE_TARGET_UNRESOLVED: PEERTABLE_URL/PEERTABLE_ROOM も cwd の .team/setup-state.json も無く、送信先を決められない\n')
   process.exit(1)
 }
-const token = process.env.PEERTABLE_POST_TOKEN ?? null
+const token = resolvePostToken(process.env) || null
 
 const headers = { 'content-type': 'application/json' }
 if (token !== null) headers['x-peertable-token'] = token
