@@ -10,7 +10,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { resolveLatticeExecutable, resolvePostToken } from './seat-usage.mjs'
+import { resolveLatticeExecutable, resolvePostToken, parentWatchShouldNotify } from './seat-usage.mjs'
 import { addressedToParent as messageAddressedToParent, latticeStaffingChanged, tableStallUpdate } from './parent-watch-logic.mjs'
 
 const args = process.argv.slice(2)
@@ -171,6 +171,10 @@ function exitWhenParentStdinCloses() {
   if (typeof stdin.resume === 'function') stdin.resume()
 }
 
+async function logQuiet(event) {
+  process.stderr.write(`[quiet] ${JSON.stringify(event)}\n`)
+}
+
 async function writeEvent(event) {
   await new Promise((resolve, reject) => {
     process.stdout.write(`${JSON.stringify(event)}\n`, error => error ? reject(error) : resolve())
@@ -197,7 +201,7 @@ async function acceptLatticeState(next) {
   state = { ...state, lattice: next, last_event_at: now() }
   saveState(state)
   if (!changed) return false
-  await writeEvent({
+  await logQuiet({
     schema: 'peertable.parent-watch-event.v1',
     type: 'parent_lattice_update',
     parent,
@@ -232,7 +236,8 @@ async function acceptMessage(message) {
   const matched = addressedToParent(message)
   if (matched) {
     const roomUpdate = message.to === 'all'
-    await writeEvent({
+    const emit = parentWatchShouldNotify(message, roomUpdate) ? writeEvent : logQuiet
+    await emit({
       schema: 'peertable.parent-watch-event.v1',
       type: roomUpdate ? 'parent_room_update' : 'parent_dm',
       parent,
