@@ -13,7 +13,10 @@
 // 実測（2026-08-17・Grok Build TUI）: Grok 既定は follow_up_behavior=queue。素送信は
 // 今のターンへ混ざらず入力キューへ積まれ、次の user ターンになる。Grok 席だけ idle を待つ。
 import { execFile } from 'node:child_process'
-import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import {
+  closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync,
+  unlinkSync, writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { resolvePostToken, resolveSeatObservation, tmuxArgv } from './seat-usage.mjs'
@@ -500,6 +503,44 @@ async function wake(seat, msgs) {
   // Claude 席は「受理された兆候」を成功とみなし、回復キーに Escape を使わない。
   const CLAUDE_ACCEPTED = /paste again to expand|\[Pasted text|esc to interrupt|✻|✽|✳|·\s*\w+ing…/u
   const isClaude = memberHarness(member) === 'claude'
+  // Codex席の成立判定は画面でなくrollout transcript（席CODEX_HOMEの正本記録）で行う。
+  // 画面照合はTUIのレイアウト・描画タイミングごとに偽陽性/偽陰性を繰り返した（実被弾
+  // 2026-08-29に4系統: 会話履歴の残存誤検知・マーカー不在時のフォールバック誤検知・
+  // 受理済みキュー表示の誤検知・偽delivered）。submitされた本文はidle時ただちに
+  // rolloutへuser messageとして書かれるので、それだけを受理の証拠とする。
+  // 実行中ターン（esc to interrupt / to queue message）はCodexが入力をキューする実測
+  // （2026-08-08）に基づき受理扱いを維持する。
+  const codexSessionsDir = join(proj, '.team', 'seats', `${seat}.codex`, 'sessions')
+  const rolloutHasMarker = () => {
+    if (marker.length < 8) return false
+    let newest = null; let newestM = -Infinity
+    const walk = (dir) => {
+      let entries
+      try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
+      for (const entry of entries) {
+        const file = join(dir, entry.name)
+        if (entry.isDirectory()) { walk(file); continue }
+        if (!entry.name.startsWith('rollout-') || !entry.name.endsWith('.jsonl')) continue
+        let m
+        try { m = statSync(file).mtimeMs } catch { continue }
+        if (m > newestM) { newestM = m; newest = file }
+      }
+    }
+    walk(codexSessionsDir)
+    if (newest === null) return false
+    let bytes
+    try {
+      const size = statSync(newest).size
+      const fd = openSync(newest, 'r')
+      const len = Math.min(size, 262144)
+      const buf = Buffer.alloc(len)
+      readSync(fd, buf, 0, len, size - len)
+      closeSync(fd)
+      bytes = buf.toString('utf8')
+    } catch { return false }
+    return bytes.replace(/\s+/gu, '').includes(marker)
+  }
+  const isCodex = memberHarness(member) === 'codex'
   for (let attempt = 0; attempt < 3; attempt++) {
     await sleep(1200)
     const after = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
@@ -510,8 +551,10 @@ async function wake(seat, msgs) {
     const tailSquashed = composerSquashed(String(after.stdout ?? ''))
     const queuedOrRunning = tailJoined.includes('esc to interrupt') || tailJoined.includes('to queue message')
       || (isClaude && CLAUDE_ACCEPTED.test(tailJoined))
-    const stuck = (!isClaude && tailJoined.includes('esc dismiss'))
-      || (marker.length >= 8 && tailSquashed.includes(marker) && !queuedOrRunning)
+    const stuck = isCodex
+      ? (!queuedOrRunning && !rolloutHasMarker())
+      : ((!isClaude && tailJoined.includes('esc dismiss'))
+        || (marker.length >= 8 && tailSquashed.includes(marker) && !queuedOrRunning))
     if (!stuck) break
     if (attempt === 2) {
       log(`DELIVERY_STUCK: ${seat} の入力欄に本文が残ったまま送信できない（popup／入力詰まり）。受領を確定せず次周期に再試行する`)
