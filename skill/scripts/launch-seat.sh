@@ -482,6 +482,7 @@ pass_codex_pane() {
   while IFS= read -r key; do
     [ -n "$key" ] || continue
     tmux_at send-keys -t "$sess" "$key" || return 1
+    sleep .3
   done < <(python3 -c 'import json,sys
 a=json.loads(sys.stdin.read() or "null")
 print("\n".join(a.get("keys") or []) if isinstance(a, dict) else "")' <<<"$json")
@@ -615,6 +616,15 @@ if [ "$brief_dispatched" = true ]; then
 fi
 
 if [ -n "$brief" ] && [ "$brief_dispatched" != true ]; then
+  if [ "$brief_in_composer" != true ]; then
+    if node "$peertable_script_dir/aiterm-send.mjs" "$sess" "$brief_file" >/dev/null; then
+      brief_completed=true
+      echo "briefed: $sess（Aiterm pty_send）"
+    else
+      echo "LAUNCH_BRIEF_SEND_FAILED: Aiterm pty_sendでbriefをdispatchできない" >&2
+      exit 1
+    fi
+  else
   # Codex はヘッダを描いた後も MCP 初期化を続ける。Aiterm の ready 契約に合わせ、
   # 同じ可視 pane 内に入力候補行とモデルフッタがある構造を連続して観測する。
   # hook / MCP warning の更新で画面全体が変わっても、入力欄周辺が ready なら通す。
@@ -682,6 +692,7 @@ if [ -n "$brief" ] && [ "$brief_dispatched" != true ]; then
   fi
   brief_completed=true
   echo "briefed: $sess"
+  fi
 fi
 fi
 
