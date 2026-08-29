@@ -48,10 +48,11 @@ try {
 
   // 1) 状態未報告・bridge 未登録: unknown へ落ち、理由が bridge 未登録を指す
   await fetch(`${base}/members`, { method: 'POST', headers, body: JSON.stringify({ name: 'mio', harness: 'claude' }) })
-  let { members, bridges } = await (await fetch(`${base}/members`)).json()
+  let { members, bridges, capabilities } = await (await fetch(`${base}/members`)).json()
   check('未報告の席は status_effective=unknown', members[0].status_effective === 'unknown')
   check('理由が status_bridge_unreported', members[0].status_reason === 'status_bridge_unreported', members[0].status_reason)
   check('bridge 台帳も status_bridge_unreported', bridges.seat_status.state === 'status_bridge_unreported')
+  check('現在作業の公開能力を宣言する', capabilities.member_activity_v1 === true)
 
   // 2) bridge 心拍 + fresh 状態: 実効状態が生の status のまま通る
   await fetch(`${base}/bridges`, { method: 'POST', headers, body: JSON.stringify({ kind: 'seat_status', pid: 1234, state: 'running' }) })
@@ -63,6 +64,29 @@ try {
   check('bridge 心拍後は up', bridges.seat_status.state === 'up')
   check('fresh な報告は実効状態にそのまま出る', members[0].status_effective === 'busy' && members[0].status_reason === 'fresh')
   check('status_age_ms が付く', Number.isFinite(members[0].status_age_ms))
+
+  // 2b) busy の現在作業は最新の自己申告から取り、idle では古い作業を現在形で出さない
+  await fetch(`${base}/messages`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ from: 'mio', to: 'mio', body: '[次の行動] 稼働状態を文字で常時表示する。' }),
+  })
+  ;({ members } = await (await fetch(`${base}/members`)).json())
+  check('busy は最新の次の行動を現在作業として返す', members[0].activity_text === '稼働状態を文字で常時表示する。')
+  check('現在作業の発言時刻を返す', typeof members[0].activity_at === 'string')
+
+  await fetch(`${base}/members`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ name: 'mio', status: 'idle', status_at: new Date().toISOString(), usage_source: 'pane_status' }),
+  })
+  ;({ members } = await (await fetch(`${base}/members`)).json())
+  check('idle は古い作業でなく待機中を返す', members[0].activity_text === '待機中')
+
+  await fetch(`${base}/members`, {
+    method: 'POST', headers,
+    body: JSON.stringify({ name: 'mio', status: 'blocked', status_at: new Date().toISOString(), usage_source: 'pane_status' }),
+  })
+  ;({ members } = await (await fetch(`${base}/members`)).json())
+  check('blocked は承認操作待ちを明示する', members[0].activity_text === '承認操作待ち')
 
   // 3) 閾値経過: 状態も bridge も途絶 → unknown / status_bridge_down（受入条件2の縮小版実測）
   await sleep(STALE_MS + 300)

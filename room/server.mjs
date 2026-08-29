@@ -235,6 +235,40 @@ function effectiveStatus(member, bridges, now = Date.now()) {
   }
 }
 
+// 状態点とは別に、閲覧者が「いま何をしているか」を読める短い表示をserverで一元生成する。
+// idle/dead/blocked は過去のmissionや発言を現在形で再表示しない。busyだけ、本人の最新の
+// [次の行動] / [claim] / [引受] / [作業中] を現在作業として採る。
+const ACTIVITY_PREFIX = /^\[(?:次の行動|claim|引受|作業中)\]\s*/i
+function compactActivity(body) {
+  const plain = String(body).replace(ACTIVITY_PREFIX, '').replace(/\s+/g, ' ').trim()
+  const chars = [...plain]
+  return chars.length <= 120 ? plain : `${chars.slice(0, 119).join('')}…`
+}
+function readActivityMessages(room) {
+  if (!existsSync(room.logPath)) return { messages: [], readable: true }
+  let readable = true
+  const messages = []
+  for (const line of readFileSync(room.logPath, 'utf8').split('\n').filter(Boolean)) {
+    try { messages.push(JSON.parse(line)) } catch { readable = false }
+  }
+  return { messages, readable }
+}
+function memberActivity(member, effective, activityLog) {
+  const status = effective.status_effective
+  if (status === 'idle') return { activity_text: '待機中', activity_at: null }
+  if (status === 'dead') return { activity_text: 'セッション停止', activity_at: null }
+  if (status === 'blocked') return { activity_text: '承認操作待ち', activity_at: null }
+  if (status !== 'busy') return { activity_text: '稼働状態を確認できません', activity_at: null }
+  for (let index = activityLog.messages.length - 1; index >= 0; index--) {
+    const message = activityLog.messages[index]
+    if (message.from !== member.name || typeof message.body !== 'string' || !ACTIVITY_PREFIX.test(message.body)) continue
+    const text = compactActivity(message.body)
+    if (text) return { activity_text: text, activity_at: message.ts ?? null }
+  }
+  if (!activityLog.readable) return { activity_text: '作業情報を取得できません', activity_at: null }
+  return { activity_text: '作業内容未報告', activity_at: null }
+}
+
 // ---- 配送状態の導出（決定102）-----------------------------------------------------
 // receipt（wakeup-bridge の実投入記録）が正。無い宛先は member 台帳と bridge 台帳から
 // pending / seat_unavailable / bridge_unavailable を導出する。room_saved だけでは配達と言わない。
@@ -353,12 +387,16 @@ http.createServer(async (req, res) => {
     if (req.method === 'GET' && rest === 'members') {
       const now = Date.now()
       const bridges = bridgeHealth(room.name, now)
+      const activityLog = readActivityMessages(room)
       return json(res, 200, {
-        members: listMembers(room.name).map(m => ({ ...m, ...effectiveStatus(m, bridges, now) })),
+        members: listMembers(room.name).map(m => {
+          const effective = effectiveStatus(m, bridges, now)
+          return { ...m, ...effective, ...memberActivity(m, effective, activityLog) }
+        }),
         bridges,
         capabilities: {
           member_observation_v1: true, member_ledger_v1: true,
-          effective_status_v1: true, delivery_receipt_v1: true,
+          effective_status_v1: true, member_activity_v1: true, delivery_receipt_v1: true,
         },
       }, CORS)
     }
@@ -524,12 +562,14 @@ const UI = room => `<!doctype html><html lang="ja"><head><meta charset="utf-8"><
 <title>${esc(room)} · Peertable</title>${FAVICON}<style>${STYLE}
 .top{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px 0}
 .top>div{max-width:760px;margin:0 auto}
-.members{display:flex;gap:6px;overflow-x:auto;padding:10px 0;scrollbar-width:thin}
+.members{display:flex;gap:8px;overflow-x:auto;padding:10px 0;scrollbar-width:thin}
 .bridgewarn{color:var(--busy);font-size:12px;font-weight:650;padding:0 0 8px}
 .bridgewarn:empty{display:none}
 .chip.has-meta{cursor:pointer}
 /* 稼働状態の点。報告が途絶えたら unknown（中空）へ落として、古い状態を出し続けない */
 .chip .nm{display:inline-flex;align-items:center;gap:5px}
+.chip .state-label{font-size:10px;font-weight:700;color:var(--dim);white-space:nowrap}
+.chip .activity{display:block;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);font-size:10px;font-weight:500}
 .chip .st{flex:none;display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dim)}
 .chip .st.busy{background:var(--busy)}
 .chip .st.idle{background:var(--idle)}
@@ -539,7 +579,7 @@ const UI = room => `<!doctype html><html lang="ja"><head><meta charset="utf-8"><
 .metapop{position:fixed;z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.18);max-width:70vw}
 .metapop .metaname{font-weight:600;margin-bottom:2px}
 .metapop .metaline{color:var(--dim)}
-.chip{position:relative;flex:none;display:flex;align-items:center;gap:7px;padding:5px 11px 5px 5px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:12px;font-weight:600}
+.chip{position:relative;flex:none;display:flex;align-items:center;gap:7px;min-width:150px;max-width:230px;padding:6px 11px 6px 6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:12px;font-weight:600}
 .chip .av{width:22px;height:22px;font-size:11px;flex:none}
 .chip .id{display:flex;flex-direction:column;gap:1px;min-width:0;line-height:1.25}
 .chip.recent{border-color:hsl(var(--h) var(--sat) var(--edge))}
@@ -755,8 +795,10 @@ async function refreshMembers(){
     // 閲覧面ごとに独自の鮮度判定を持つと、MCP と Web UI で違う判定になり誤認が再発する
     const st=m.status_effective??null
     if(st)c.classList.add('is-'+st)
+    const stateText=st?({busy:'作業中',idle:'待機',dead:'停止',blocked:'承認待ち',unknown:'不明'}[st]??st):'不明'
     const reason={status_unreported:'未報告(seat-status bridge が動いていない)',status_heartbeat_stale:'状態heartbeatが途絶えている',status_bridge_down:'状態bridgeが停止(status_bridge_down)',status_bridge_unreported:'状態bridgeが未登録',bridge_auth_failed:'bridge認証失敗(403)'}[m.status_reason]
-    meta.push(st?'状態 '+({busy:'作業中',idle:'待機',dead:'停止',blocked:'承認待ち',unknown:'不明'}[st]??st)+(reason?'（'+reason+'）':''):'状態 未取得（旧serverは実効状態を返さない）')
+    meta.push(st?'状態 '+stateText+(reason?'（'+reason+'）':''):'状態 未取得（旧serverは実効状態を返さない）')
+    meta.push('現在 '+(m.activity_text??'未取得（旧server）'))
     const usage=[]
     const busyAge=m.busy_since?Date.now()-Date.parse(m.busy_since):NaN
     if((st==='busy'||st==='blocked')&&Number.isFinite(busyAge)&&busyAge>=0)usage.push('継続 '+elapsed(busyAge))
@@ -766,12 +808,12 @@ async function refreshMembers(){
     c.appendChild(el('span','av',initial(m.name)))
     const id=el('span','id')
     const nameRow=el('span','nm',m.name)
-    // チップの常設表示は「アバター・名前・◉」だけ。◉は状態が新鮮な時だけ色が付き、
-    // 途絶・未報告は中空リング＝bridge が動いていないことがひと目で分かる。
-    // roles / settings / mission は title（ホバー）とタップ popover にだけ出す。
     nameRow.appendChild(el('span','st '+(st??'unknown')))
+    nameRow.appendChild(el('span','state-label',stateText))
     id.appendChild(nameRow)
+    id.appendChild(el('span','activity',m.activity_text??'現在作業未取得'))
     c.appendChild(id)
+    c.setAttribute('aria-label',m.name+'、'+stateText+'、'+(m.activity_text??'現在作業未取得'))
     // タップ環境には hover が無いので、押した時に同じ内容を出す（ホバーは title が担う）
     if(meta.length){c.classList.add('has-meta');c.addEventListener('click',ev=>{ev.stopPropagation();showMeta(c,m,meta)})}
     membersEl.appendChild(c)
@@ -821,6 +863,8 @@ function celebrate(name){
 }
 const BEAT=${HEARTBEAT_MS}
 let lastSeq=0,lastBeat=Date.now(),es=null,emptyEl=null,firstLoad=true,catching=false,memberDebounce=null
+const scheduleMemberRefresh=()=>{clearTimeout(memberDebounce);memberDebounce=setTimeout(refreshMembers,150)}
+const isActivityMessage=m=>m.from!=='system'&&typeof m.body==='string'&&/^(?:\[(?:次の行動|claim|引受|作業中)\])/i.test(m.body)
 // seq で二重描画を弾く。張り直し後の追いつきと SSE の新着が重なっても同じ発言は1回しか出ない
 function apply(m,live=false){
   if(m.seq<=lastSeq)return false
@@ -859,12 +903,12 @@ function connect(){
   // 場合は、この差分だけが手掛かりになる
   es.addEventListener('ping',e=>{lastBeat=Date.now();if(Number(e.data)>lastSeq)catchUp()})
   // 稼働状態・素性の変化。既存の refreshMembers() を150msデバウンスで呼ぶ（部分更新は実装しない）
-  es.addEventListener('member',()=>{clearTimeout(memberDebounce);memberDebounce=setTimeout(refreshMembers,150)})
+  es.addEventListener('member',scheduleMemberRefresh)
   es.onmessage=e=>{
     lastBeat=Date.now()
     const m=JSON.parse(e.data),stick=nearBottom()
     if(!apply(m,true))return
-    if(m.from==='system')refreshMembers();else{markActive(m.from);if(isCompletion(m))celebrate(m.from)}
+    if(m.from==='system')refreshMembers();else{markActive(m.from);if(isActivityMessage(m))scheduleMemberRefresh();if(isCompletion(m))celebrate(m.from)}
     if(stick)window.scrollTo(0,document.body.scrollHeight)
     syncToBottom()
   }
