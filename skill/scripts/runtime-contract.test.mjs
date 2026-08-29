@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -118,4 +118,23 @@ test('Lattice task alarmはready/activeだけで成立し未出現taskでは発�
   assert.equal(latticeTaskAvailable(status, 't03', 'p'), true)
   assert.equal(latticeTaskAvailable(status, 't05', 'p'), false)
   assert.equal(latticeTaskAvailable(status, 't04', 'other'), false)
+})
+
+test('Grok席configはClaude/Cursor互換を止めroom以外のproject MCPを無効化する', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'peertable-grok-seat-'))
+  const output = join(dir, 'seat', 'config.toml')
+  try {
+    writeFileSync(join(dir, '.mcp.json'), JSON.stringify({ mcpServers: {
+      booth: { command: 'node' }, room: { command: 'node' }, extra: { command: 'node' },
+    } }))
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL('./grok-seat-config.mjs', import.meta.url)), dir, output], { encoding: 'utf8' })
+    assert.equal(result.status, 0, result.stderr)
+    const config = readFileSync(output, 'utf8')
+    assert.match(config, /\[compat\.claude\][\s\S]*mcps = false/u)
+    assert.match(config, /\[compat\.cursor\][\s\S]*hooks = false/u)
+    assert.match(config, /disabled_mcp_servers = \["booth","extra"\]/u)
+    assert.doesNotMatch(config, /"room"/u)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 })

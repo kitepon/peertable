@@ -244,7 +244,7 @@ case "$harness" in
       exit 1
     fi
     cp "${HOME}/.grok/auth.json" "${grok_home}/auth.json"
-    printf '%s\n' '[ui]' 'permission_mode = "always-approve"' >"${grok_home}/config.toml"
+    node "$peertable_script_dir/grok-seat-config.mjs" "$proj" "${grok_home}/config.toml"
     echo "grok preflight: GROK_HOME=${grok_home} ${grok_bin} --model ${model} --reasoning-effort ${effort} -p ping"
     preflight_cmd=(env GROK_HOME="$grok_home" "$grok_bin" --model "$model" --reasoning-effort "$effort" -p "ping")
     ;;
@@ -349,7 +349,7 @@ if [ "$harness" = grok ]; then
   fi
   cp "${HOME}/.grok/auth.json" "${grok_home}/auth.json"
   chmod 600 "${grok_home}/auth.json" 2>/dev/null || true
-  printf '%s\n' '[ui]' 'permission_mode = "always-approve"' >"${grok_home}/config.toml"
+  node "$peertable_script_dir/grok-seat-config.mjs" "$proj" "${grok_home}/config.toml"
 fi
 
 # 前の卓の残骸を回収してから、Aiterm の公開 agent launcher を唯一の席起動経路として呼ぶ。

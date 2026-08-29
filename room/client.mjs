@@ -415,6 +415,7 @@ async function runDiagnostics(asJson) {
       'scripts/alarm-condition.mjs',
       'scripts/agent-pane-status.mjs',
       'scripts/codex-dialog.mjs',
+      'scripts/grok-seat-config.mjs',
       // 円卓開始ゲートと既存 room の正規 resume 入口（決定104・105）。欠けると親の依頼確定と再稼働が手作業へ戻る
       'scripts/kickoff-gate.mjs',
       'scripts/resume.sh',

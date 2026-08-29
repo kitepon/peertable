@@ -1758,3 +1758,5 @@ LiveTRのWindows席でboothとroomの2件選択画面が出たが、launcherは�
 **決定123: setup／launch／resumeは円卓runtimeを一回の入口で現行版へ収束させる。** alarm／seat-status／wakeupの順序、旧版停止、再起動、ready確認を利用AIへ委ねない。launchはAiterm dispatch前の独自prompt連続判定を廃止し、全harnessでdispatch後の実ターン開始または完了を成功条件にする。Grok通信失敗はbusyでなくblocked、Windows bridge logはUTF-8固定。決定122の20秒固定を廃止する。patch `0.8.25`。
 
 **決定124: alarm本文はUTF-8 stdinで輸送し、Codex既知dialogは現在画面だけで処理する。** Windows Git BashからPython argvへ渡した日本語noteがroom保存前に壊れたため、NUL区切りUTF-8 stdinをNode writerが保存する。既存卓のalarm helper更新もlaunch自身が行う。wakeupのdialog巡回は現在のbusy／idle composerをscrollback上の古いapprovalより優先し、実作業中の席へDown／Enterを送らない。patch `0.8.25`。
+
+**決定125: Grok席は互換輸入を明示OFFにしroom以外のproject MCPを無効化する。** `GROK_HOME`を分けるだけではGrok 1.0.5が`~/.claude.json`・`.cursor/mcp.json`・hooks・skillsを既定で読み、LiveTR席へ11 MCPと30 hooksを起動した。席専用configへ`[compat.claude]`／`[compat.cursor]`の全互換項目false、Codex session false、project `.mcp.json`のroom以外をdisabled overrideとして生成する。`grok inspect`でroomだけを実測して受入する。patch `0.8.25`。
