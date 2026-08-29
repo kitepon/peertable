@@ -60,6 +60,11 @@ if tmux_at has-session -t "$target" 2>/dev/null; then
   fi
 elif tmux_at list-sessions >/dev/null 2>&1; then
   : # serverへ到達でき、対象sessionが無い
+elif [ -n "${member_socket:-}" ] && [ ! -S "${member_socket}" ]; then
+  # socketファイル自体が消えている＝tmux serverごと死んでいる（OS再起動等）。
+  # 席のprocessは存在しえないので「畳めない」ではなく「畳む対象が無い」が正
+  # （実被弾 2026-08-29: Mac再起動後のresumeが全席でここに落ちて再起動できなかった）
+  echo "SEAT_LEAVE_SESSION_GONE: tmux socket消失（${member_socket}）。畳む対象なしとして続行" >&2
 else
   echo "SEAT_LEAVE_SESSION_UNREADABLE: ${member_socket:-tmux}" >&2
   failed=1
