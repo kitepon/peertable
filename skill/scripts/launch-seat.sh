@@ -474,6 +474,7 @@ codex_update_accepted=false
 codex_trust_accepted=false
 claude_trust_accepted=false
 codex_dialog_helper="$peertable_script_dir/codex-dialog.mjs"
+claude_dialog_helper="$peertable_script_dir/claude-dialog.mjs"
 pass_codex_pane() {
   local json key
   json=$(printf '%s' "$1" | node "$codex_dialog_helper" || true)
@@ -488,6 +489,18 @@ print("\n".join(a.get("keys") or []) if isinstance(a, dict) else "")' <<<"$json"
 }
 codex_pane_blocks_ready() {
   printf '%s' "$1" | node "$codex_dialog_helper" --ready-ok
+}
+pass_claude_mcp_pane() {
+  local json key
+  json=$(printf '%s' "$1" | node "$claude_dialog_helper" || true)
+  [ -n "$json" ] && [ "$json" != "null" ] || return 1
+  while IFS= read -r key; do
+    [ -n "$key" ] || continue
+    tmux_at send-keys -t "$sess" "$key" || return 1
+  done < <(python3 -c 'import json,sys
+a=json.loads(sys.stdin.read() or "null")
+print("\n".join(a.get("keys") or []) if isinstance(a, dict) else "")' <<<"$json")
+  return 0
 }
 while [ $SECONDS -lt "$room_ready_deadline" ]; do
   # Grok Build は初めて開く作業treeで、room MCPを初期化する前にworkspace trustを尋ねる。
@@ -551,17 +564,11 @@ while [ $SECONDS -lt "$room_ready_deadline" ]; do
   # 同意が member 登録より前に出る。選択肢2（this and all future）だけを通す。
   if [ "$harness" = claude ] && [ "$mcp_consent_accepted" != true ]; then
     claude_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
-    case "$claude_screen" in
-      *"New MCP server found in this project: room"*)
-        if ! tmux_at send-keys -t "$sess" Down || ! tmux_at send-keys -t "$sess" Enter; then
-          echo "SEAT_CLAUDE_MCP_CONSENT_FAILED: room MCP 同意へ応答できない" >&2
-          exit 1
-        fi
-        mcp_consent_accepted=true
-        room_ready_deadline=$((SECONDS + 90))
-        echo "claude room MCP consent: accepted"
-        ;;
-    esac
+    if pass_claude_mcp_pane "$claude_screen"; then
+      mcp_consent_accepted=true
+      room_ready_deadline=$((SECONDS + 90))
+      echo "claude room MCP consent: accepted"
+    fi
   fi
   room_members=$(curl -sf "$url/api/$room/members" 2>/dev/null || true)
   if printf '%s' "$room_members" | python3 -c 'import json,sys; name=sys.argv[1]; members=json.load(sys.stdin).get("members",[]); raise SystemExit(0 if any(m.get("name") == name for m in members) else 1)' "$name"; then
