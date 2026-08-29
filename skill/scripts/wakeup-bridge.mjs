@@ -486,7 +486,19 @@ async function wake(seat, msgs) {
   } else {
     await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'C-u'], { socket: observation.socket }))
     await sleep(100)
-    await run('tmux', tmuxArgv(['send-keys', '-l', '-t', observation.target, text], { socket: observation.socket }))
+    // 素打ち（send-keys -l）は長文で連続keystrokeとして届き、TUIのpaste burst検知を
+    // 半端な状態に落として composer が submit 不能に固まる形を繰り返した（実被弾
+    // 2026-08-29: Codex席が同日3回、掃除も効かない入力破損）。正規の bracketed paste
+    // （load-buffer→paste-buffer -p）で「1回の貼り付け」として届ける。
+    const pasteBuf = `wakeup-${process.pid}-${Date.now()}`
+    const pasteFile = join(proj, '.team', `wakeup-paste-${process.pid}.txt`)
+    writeFileSync(pasteFile, text)
+    try {
+      await run('tmux', tmuxArgv(['load-buffer', '-b', pasteBuf, pasteFile], { socket: observation.socket }))
+      await run('tmux', tmuxArgv(['paste-buffer', '-p', '-d', '-b', pasteBuf, '-t', observation.target], { socket: observation.socket }))
+    } finally {
+      try { unlinkSync(pasteFile) } catch { /* 一時fileの掃除失敗は配達判定に影響しない */ }
+    }
     await sleep(750)
     await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
   }
