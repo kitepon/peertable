@@ -172,3 +172,13 @@ test('親post入口は明示envだけでなく共通token解決を使う', () =>
   assert.ok(source.includes("import { resolvePostToken } from './seat-usage.mjs'"))
   assert.ok(source.includes('resolvePostToken(process.env)'))
 })
+
+test('teardownはalarm-bridgeを停止してから.teamを削除する', () => {
+  const source = readFileSync(new URL('./teardown.sh', import.meta.url), 'utf8')
+  const stop = source.indexOf('alarm-bridge.mjs" "$proj" --stop')
+  const remove = source.indexOf('rm -rf "$proj/.team"')
+  assert.ok(stop >= 0)
+  assert.ok(remove >= 0 && stop < remove)
+  assert.ok(source.includes('did "alarm-bridge 停止"'))
+  assert.ok(source.includes('miss "alarm-bridge 停止に失敗'))
+})

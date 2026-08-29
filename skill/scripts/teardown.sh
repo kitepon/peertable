@@ -128,6 +128,18 @@ else
   skip "seat-status-bridge（起動記録なし）"
 fi
 
+# 工程変化の目覚ましbridgeも同じWindows processとしてlogを保持する。記録を残したまま
+# `.team/`を消すとalarm-bridge.logがEBUSYになり、MCP/exclude復元の途中でteardownが止まる。
+if [ -f "$proj/.team/alarm-bridge.json" ]; then
+  if node "$(dirname "$0")/alarm-bridge.mjs" "$proj" --stop; then
+    did "alarm-bridge 停止"
+  else
+    miss "alarm-bridge 停止に失敗（常駐が残る）— 上の ALARM_BRIDGE_STOP_FAILED を見て手で止める"
+  fi
+else
+  skip "alarm-bridge（起動記録なし）"
+fi
+
 # run-bridge は退役済み（2026-08-22）。旧卓の常駐が残っていれば記録の pid を照合して止める。
 if [ -f "$proj/.team/run-bridge.json" ]; then
   rb_pid=$(python3 -c "import json;print(json.load(open('$proj/.team/run-bridge.json')).get('pid',''))" 2>/dev/null || true)
