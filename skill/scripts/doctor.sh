@@ -46,7 +46,7 @@ const team = join(proj, '.team')
 
 const { bridgeRecordLive } = await import(pathToFileURL(join(scriptDir, 'bridge-record-live.mjs')))
 const { observePidCommand } = await import(pathToFileURL(join(scriptDir, 'refresh-seat-identity.mjs')))
-const { resolveTmuxSocket, tmuxArgv } = await import(pathToFileURL(join(scriptDir, 'seat-usage.mjs')))
+const { resolveLatticeInvocation, resolveTmuxSocket, tmuxArgv } = await import(pathToFileURL(join(scriptDir, 'seat-usage.mjs')))
 
 let ng = 0
 function line(level, text) {
@@ -202,10 +202,8 @@ for (const [name, judge] of [['wakeup', judgeWakeup], ['seat-status', judgeSeatS
 if (mode === 'lattice') {
   const latticeCli = process.env.LATTICE_CLI || (typeof setup.lattice_cli === 'string' && setup.lattice_cli) || 'lattice'
   try {
-    const command = process.platform === 'win32' && !/\.(cmd|bat|exe)$/i.test(latticeCli) && existsSync(`${latticeCli}.cmd`)
-      ? `${latticeCli}.cmd`
-      : latticeCli
-    const out = execFileSync(command, ['status', '--json'], { cwd: proj, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 })
+    const invocation = resolveLatticeInvocation(latticeCli, ['status', '--json'])
+    const out = execFileSync(invocation.command, invocation.argv, { cwd: proj, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 })
     const status = JSON.parse(out)
     line('OK', `Lattice: state=${status.state} active_runs=${(status.active_runs ?? []).length}`)
   } catch (error) {

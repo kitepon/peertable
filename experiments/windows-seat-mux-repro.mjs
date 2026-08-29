@@ -6,6 +6,7 @@ import path from 'node:path'
 import {
   aitermPsmuxNamespace,
   resolveLatticeExecutable,
+  resolveLatticeInvocation,
   tmuxArgv,
   usesPsmuxNamespace,
 } from '../skill/scripts/seat-usage.mjs'
@@ -44,6 +45,14 @@ assert.deepEqual(
   resolveLatticeExecutable('C:/npm/lattice.cmd', { platform: 'win32', exists: () => false }),
   { command: comspec, argv: ['/d', '/c', 'C:/npm/lattice.cmd', 'todo', 'status', '--json'] },
 )
+assert.deepEqual(
+  resolveLatticeInvocation('C:/npm/lattice', ['status', '--json'], {
+    platform: 'win32',
+    exists: p => p === 'C:/npm/lattice.cmd',
+    comspec,
+  }),
+  { command: comspec, argv: ['/d', '/c', 'C:/npm/lattice.cmd', 'status', '--json'] },
+)
 
 const liveNs = aitermPsmuxNamespace(process.env)
 if (process.platform === 'win32') {
@@ -51,4 +60,4 @@ if (process.platform === 'win32') {
   assert.equal(liveNs, `aiterm-${createHash('sha1').update(liveDir).digest('hex').slice(0, 12)}`)
 }
 
-console.log('windows seat mux repro: 11/11 green')
+console.log('windows seat mux repro: 12/12 green')

@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { homedir, tmpdir } from 'node:os'
 import path, { join } from 'node:path'
-import { resolveWindowsLatticeCommand } from './platform/windows/resolve-lattice-command.mjs'
+import { resolveWindowsCommand, resolveWindowsLatticeCommand } from './platform/windows/resolve-lattice-command.mjs'
 import { classifyGrokPaneTail, isGrokPrivacyBanner } from './vendors/grok/pane-status.mjs'
 
 const TOKEN_HINT = /[↓↑]\s*([0-9]+(?:\.[0-9]+)?)\s*([kKmM]?)\s*tokens\b/gu
@@ -108,6 +108,14 @@ export function resolveLatticeExecutable(cli, { platform = process.platform, exi
   if (typeof cli !== 'string' || !cli) return { command: cli, argv: ['todo', 'status', '--json'] }
   if (platform !== 'win32') return { command: cli, argv: ['todo', 'status', '--json'] }
   return resolveWindowsLatticeCommand(cli, exists)
+}
+
+export function resolveLatticeInvocation(cli, argv, {
+  platform = process.platform,
+  exists = existsSync,
+  comspec = process.env.ComSpec || 'cmd.exe',
+} = {}) {
+  return resolveWindowsCommand(cli, argv, { platform, exists, comspec })
 }
 
 /** member の自己申告を優先し、無い既存 member だけ旧 session 名へ互換フォールバックする。 */

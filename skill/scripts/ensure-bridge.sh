@@ -44,7 +44,16 @@ done
 # **session が在るだけでは常駐が生きている証拠にならない**（中の node だけ死んで殻が残る）。
 # 上で pid 生存を確かめて here まで来た＝生きていないので、殻は畳んでから立て直す。
 tmux_at kill-session -t "$session" 2>/dev/null || true
-tmux_at new-session -d -s "$session" "env${env_prefix} node $(dirname "$0")/$script $(printf '%q ' "$proj" "$@") >> $(printf '%q' "$log") 2>&1"
+if [ "$(node -p 'process.platform')" = "win32" ]; then
+  # psmuxが起動する正規shellはPowerShell 7。POSIXの`env`とMSYS pathを文字列のまま
+  # 渡すとnodeへ到達する前に終了するため、Windows nodeに各pathをargvとして変換させ、
+  # PowerShell EncodedCommandを一箇所で組み立てる。
+  win_command=$(node "$(dirname "$0")/platform/windows/build-bridge-command.mjs" \
+    "$(dirname "$0")/$script" "$proj" "$log" "$@")
+  tmux_at new-session -d -s "$session" "$win_command"
+else
+  tmux_at new-session -d -s "$session" "env${env_prefix} node $(dirname "$0")/$script $(printf '%q ' "$proj" "$@") >> $(printf '%q' "$log") 2>&1"
+fi
 for _ in $(seq 1 30); do
   if [ -f "$record" ] && node -e 'process.exit(require(process.argv[1]).ready_at?0:1)' "$record"; then
     # **末尾は本物の改行にする。** `"\\n"` と書くと JS がリテラルの `\`+`n` を足し、
