@@ -349,32 +349,43 @@ async function wake(seat, msgs) {
   // 本文次第では席の権限で任意コマンドになる）。配達は止め、毎周期 typed log で叫ぶ。
   // **pane_current_command は「bash の下で agent CLI が走る」形を bash と報告することがある**
   // （実被弾 2026-08-22: 生きている codex 席が bash 判定になり配達が全停止、席が起きなかった）。
-  // shell 名だった時だけ pane 配下の生きた子孫を数え、**子孫ゼロの素の shell** だけを遮断する。
-  // agent CLI が死ねば子孫も消えるので、塞ぎたい穴（room 本文の shell 実行）はこの条件で塞がる。
+  // shell 名だった時は pane 配下の子孫を辿り、**当該 harness の CLI プロセスが実在する時だけ**配達する。
+  // 「子孫がゼロかどうか」では足りない——agent CLI が死んでも、CLI が起こした背景ターミナル等の
+  // 子孫が pane shell の下に生き残り、防御をすり抜けて room 本文が bash で実行された
+  // （実被弾 2026-08-29: codex 死亡後の pane へ broadcast が配達され `command not found` が走った）。
   const fg = await run('tmux', tmuxArgv(['display-message', '-p', '-t', observation.target, '#{pane_current_command}'], { socket: observation.socket }))
   const fgCommand = String(fg.stdout ?? '').trim()
   if (['bash', 'zsh', 'sh', 'dash', 'fish', 'tcsh', 'csh', 'ksh'].includes(fgCommand)) {
+    const harness = memberHarness(member)
     const panePidOut = await run('tmux', tmuxArgv(['display-message', '-p', '-t', observation.target, '#{pane_pid}'], { socket: observation.socket }))
     const panePid = Number(String(panePidOut.stdout ?? '').trim())
-    let descendants = 0
-    if (Number.isSafeInteger(panePid) && panePid > 0) {
-      const psOut = await run('/bin/ps', ['-axo', 'pid=,ppid='], { env: { ...process.env, LC_ALL: 'C' } })
+    let harnessAlive = false
+    if (Number.isSafeInteger(panePid) && panePid > 0 && typeof harness === 'string' && harness) {
+      const psOut = await run('/bin/ps', ['-axo', 'pid=,ppid=,command='], { env: { ...process.env, LC_ALL: 'C' } })
       const children = new Map()
+      const commands = new Map()
       for (const line of String(psOut.stdout ?? '').split('\n')) {
-        const [pid, ppid] = line.trim().split(/\s+/u).map(Number)
-        if (!Number.isSafeInteger(pid) || !Number.isSafeInteger(ppid)) continue
+        const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/u)
+        if (!m) continue
+        const pid = Number(m[1]); const ppid = Number(m[2])
         if (!children.has(ppid)) children.set(ppid, [])
         children.get(ppid).push(pid)
+        commands.set(pid, m[3])
       }
       const queue = [...(children.get(panePid) ?? [])]
       while (queue.length) {
         const pid = queue.pop()
-        descendants += 1
+        const argv0 = String(commands.get(pid) ?? '').split(/\s+/u, 1)[0]
+        const base = argv0.split('/').pop()
+        if (base === harness || (harness === 'claude' && base === 'node' && String(commands.get(pid) ?? '').includes('claude'))) {
+          harnessAlive = true
+          break
+        }
         queue.push(...(children.get(pid) ?? []))
       }
     }
-    if (descendants === 0) {
-      log(`SEAT_TUI_GONE: ${seat} の pane は子孫プロセスの無い素の shell（${fgCommand}）＝agent CLI が終了済み。`
+    if (!harnessAlive) {
+      log(`SEAT_TUI_GONE: ${seat} の pane（前面 ${fgCommand}）の子孫に ${memberHarness(member) ?? '?'} CLI が見つからない＝agent 終了済み。`
         + 'shell へのコマンド実行を防ぐため配達しない。席を立て直すか leave-seat で畳むこと')
       const error = new Error(`SEAT_TUI_GONE: ${seat}`)
       error.code = 'SEAT_TUI_GONE'
