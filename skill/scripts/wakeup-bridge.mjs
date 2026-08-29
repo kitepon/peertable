@@ -354,8 +354,16 @@ function composerSquashed(screen) {
   for (let i = lines.length - 1; i >= 0; i--) {
     if (/[›❯]/u.test(lines[i])) { start = i; break }
   }
-  const region = start >= 0 ? lines.slice(start) : lines.slice(-14)
-  return region.join('').replace(/\s+/gu, '')
+  if (start < 0) return lines.slice(-14).join('').replace(/\s+/gu, '')
+  // マーカー行から**直後の空行まで**だけが composer。末尾まで含めると、Codex がターン間に
+  // composer の下へ描く受理済み・キュー済みの本文（空行を挟んで表示される）を「残存」と
+  // 誤検知する（実被弾 2026-08-29: 受理済み配達を failed 固定し、空 Enter を打ち続けた）。
+  // 折返しの composer 続行行は空行を挟まず続くので、この区切りで取りこぼさない。
+  let end = lines.length
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i].trim() === '') { end = i; break }
+  }
+  return lines.slice(start, end).join('').replace(/\s+/gu, '')
 }
 
 const deferredBusy = new Set()
