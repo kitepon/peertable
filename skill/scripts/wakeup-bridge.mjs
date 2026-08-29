@@ -415,11 +415,23 @@ async function wake(seat, msgs) {
   // Codexの入力欄は本文とEnterを同じtmux commandで送ると、初回turn完了後に
   // 本文が入力欄へ残ることがある。再試行時の半入力も含め、正規のsubmitを分離する。
   // 最後のEnterまで成功しない限りwakeは成功扱いにせず、flushSeatのreceiptも確定しない。
-  await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'C-u'], { socket: observation.socket }))
-  await sleep(100)
-  await run('tmux', tmuxArgv(['send-keys', '-l', '-t', observation.target, text], { socket: observation.socket }))
-  await sleep(750)
-  await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
+  // **前周期の本文が入力欄に残っている時は再打鍵しない**——C-u は複数行composerの1行しか
+  // 消せず、周期ごとの全文再打鍵が本文を多重に蓄積させた（実被弾 2026-08-29: 約1時間の
+  // STUCKループで入力欄が多重本文＋制御文字で汚染され、配達不能が固定化した）。
+  const preMarker = text.replace(/\s+/gu, '').slice(-24)
+  const prePane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
+  const preLoaded = preMarker.length >= 8
+    && String(prePane.stdout ?? '').split('\n').slice(-14).join('').replace(/\s+/gu, '').includes(preMarker)
+  if (preLoaded) {
+    log(`入力欄に前周期の本文が残存: ${seat}。再打鍵せず送信だけ再試行する`)
+    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
+  } else {
+    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'C-u'], { socket: observation.socket }))
+    await sleep(100)
+    await run('tmux', tmuxArgv(['send-keys', '-l', '-t', observation.target, text], { socket: observation.socket }))
+    await sleep(750)
+    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
+  }
   // 送信検証。Codex v0.148 は長文入力後に「Create a plan?」popup が出て Enter を呑むことがあり、
   // 本文が入力欄に残ったまま席が沈黙する（2026-08-22 実測: 2席が無音停止し、人が画面を見るまで
   // 誰も気づけなかった）。打鍵成功＝配達成功とみなさず、画面で送信成立を確認する。
@@ -458,9 +470,16 @@ async function wake(seat, msgs) {
       await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
       continue
     }
-    log(`配達が送信されていない（popup／入力詰まり）: ${seat}。Escape→Enter で再送信する`)
-    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Escape'], { socket: observation.socket }))
-    await sleep(300)
+    // Escape は popup が無い時に composer へリテラル ESC として混入し、本文を恒久汚染する
+    // （実被弾 2026-08-29: `^[` が本文中へ入り submit 不能が固定化）。popup 解除は
+    // 「esc dismiss」表示がある時だけ撃ち、それ以外は Enter だけ打ち直す。
+    if (tailJoined.includes('esc dismiss')) {
+      log(`配達が送信されていない（popup表示中）: ${seat}。Escape→Enter で再送信する`)
+      await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Escape'], { socket: observation.socket }))
+      await sleep(300)
+    } else {
+      log(`配達が送信されていない（入力詰まり）: ${seat}。Enter を打ち直す`)
+    }
     await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
   }
   log(`TUIへ入れた: ${seat} ← ${msgs.length} 件（最新 seq ${last.seq}）`)
