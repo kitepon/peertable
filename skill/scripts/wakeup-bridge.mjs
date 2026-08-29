@@ -166,7 +166,37 @@ async function beatBridge() {
 }
 let receiptSupported = null
 const postedReceipts = new Map() // `${seq}:${recipient}` -> `${result}:${reason}`（同内容の再送を抑える）
+// 配達失敗は台帳（pull）に書くだけでは親に届かない（実被弾 2026-08-29: 裁定DMのSTUCKが
+// 1時間誰にも知られず放置された。オーナー裁定「配達失敗だけ届ければいい」）。
+// failed / seat_unavailable の初回だけ、親宛DMを1通送る——親宛DMは parent-watch が起こすので
+// 既存の通知経路にそのまま乗り、この bridge 自身は親へ配達しないため再帰しない。
+const notifiedFailures = new Set() // `${seq}:${recipient}`（delivered への回復で解除し、再failで再通知）
+async function notifyParentOfFailure(seq, recipient, result, reason) {
+  if (!parentName) return
+  const key = `${seq}:${recipient}`
+  if (result === 'delivered') {
+    notifiedFailures.delete(key)
+    return
+  }
+  // not_a_delivery_target は「そもそもTUI配達対象でない」平常応答であって失敗ではない
+  if (reason === 'not_a_delivery_target') return
+  if (notifiedFailures.has(key)) return
+  try {
+    const res = await fetch(`${url}/api/${encodeURIComponent(room)}/messages`, {
+      method: 'POST', headers: writeHeaders,
+      body: JSON.stringify({
+        from: 'wakeup', to: parentName,
+        body: `[配達失敗] seq=${seq} 宛先=${recipient} 状態=${result}${reason ? ` 理由=${reason}` : ''}。台帳とwakeup-bridge.logを確認し、席の復旧または再送を判断すること`,
+      }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    notifiedFailures.add(key)
+  } catch (error) {
+    log(`DELIVERY_FAILURE_NOTIFY_FAILED ${JSON.stringify({ seq, recipient, detail: error.message.split('\n')[0] })}`)
+  }
+}
 async function postReceipt(seq, recipient, result, reason = null) {
+  await notifyParentOfFailure(seq, recipient, result, reason)
   if (receiptSupported === false) return
   const key = `${seq}:${recipient}`
   const value = `${result}:${reason ?? ''}`
