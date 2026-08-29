@@ -1,5 +1,5 @@
 #!/bin/bash
-# 円卓runtimeを一回の呼出しで現行Peertable版へ収束させる。
+# 円卓runtimeを一回の呼出しで現行Peertable版へ収束させる正規入口。
 set -euo pipefail
 
 proj="${1:-}"
