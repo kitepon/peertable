@@ -313,6 +313,22 @@ function advanceLastSeq() {
 }
 
 const deferredBusy = new Set()
+async function passKnownCodexDialog(member) {
+  if (memberHarness(member) !== 'codex') return false
+  if (!isWakeupBridgeTarget(member, targetOpts)) return false
+  const observation = resolveSeatObservation(member, null)
+  if (observation === null) return false
+  const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
+  const dialog = keysForCodexPane(String(pane.stdout ?? ''))
+  if (!dialog) return false
+  for (const key of dialog.keys) {
+    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, key], { socket: observation.socket }))
+    await sleep(150)
+  }
+  log(`Codex ${dialog.kind} を通した: ${member.name}`)
+  return true
+}
+
 async function wake(seat, msgs) {
   const last = msgs[msgs.length - 1]
   const text = msgs.map(formatWakeNotice).join(' || ')
@@ -365,18 +381,9 @@ async function wake(seat, msgs) {
       throw error
     }
   }
+  if (await passKnownCodexDialog(member)) return 'deferred'
   const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
   const screen = String(pane.stdout ?? '')
-  if (memberHarness(member) === 'codex') {
-    const dialog = keysForCodexPane(screen)
-    if (dialog) {
-      for (const key of dialog.keys) {
-        await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, key], { socket: observation.socket }))
-      }
-      log(`Codex ${dialog.kind} を通した: ${seat}`)
-      return 'deferred'
-    }
-  }
   if (memberHarness(member) === 'grok') {
     const tail = screen.split('\n').slice(-14).join('\n')
     if (shouldDeferGrokWake(memberHarness(member), tail)) {
@@ -560,6 +567,25 @@ async function flushSeat(seat) {
 setInterval(() => {
   for (const [seat, queue] of pending) {
     if (queue.size > 0) flushSeat(seat).catch(error => log(`WAKEUP_BRIDGE_FLUSH_FAILED: ${error.message}`))
+  }
+}, 2000)
+
+// CodexのMCP/command approvalはroom発言の配達時だけでなく、席自身の最初のtool実行でも
+// 遅れて現れる。pending DMが無い時も既知dialogだけを処理し続け、ランプがblockedのまま
+// 放置される状態を作らない。未知dialogはkeysForCodexPaneがnullを返すため触らない。
+let dialogSweepRunning = false
+setInterval(async () => {
+  if (dialogSweepRunning) return
+  dialogSweepRunning = true
+  try {
+    for (const member of members.values()) {
+      if (member.status_effective === 'dead') continue
+      try { await passKnownCodexDialog(member) } catch (error) {
+        log(`CODEX_DIALOG_SWEEP_FAILED: ${member.name} ${error.message}`)
+      }
+    }
+  } finally {
+    dialogSweepRunning = false
   }
 }, 2000)
 

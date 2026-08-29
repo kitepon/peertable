@@ -201,6 +201,10 @@ function main() {
   const common = [
     ['.team/CLAUDE.md', 'skill/templates/charter.md', 0o644],
     ['.team/roles/parent.md', 'skill/templates/parent.md', 0o644],
+    ['.team/scripts/alarm-set.sh', 'skill/scripts/alarm-set.sh', 0o755],
+    ['.team/scripts/alarm-write.mjs', 'skill/scripts/alarm-write.mjs', 0o755],
+    ['.team/scripts/alarm-condition.mjs', 'skill/scripts/alarm-condition.mjs', 0o755],
+    ['.team/scripts/pull-attach-input.mjs', 'skill/scripts/pull-attach-input.mjs', 0o755],
   ]
   const modeSpecific = state.mode === 'lattice'
     ? [

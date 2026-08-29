@@ -13,7 +13,7 @@ import { findModelsDoc, resolveSeatIdentity } from '../skill/scripts/resolve-sea
 
 // client.mjs 側のハードコード版数。package.json の version と一致していることを
 // diagnostics の version_consistency が見る（2 つの版数源の drift 検出。決定45）
-const MCP_VERSION = '0.8.23'
+const MCP_VERSION = '0.8.25'
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const USAGE = `usage:
@@ -406,6 +406,15 @@ async function runDiagnostics(asJson) {
       'scripts/wakeup-bridge.mjs',
       'scripts/wakeup-delivery.mjs',
       'scripts/seat-status-bridge.mjs',
+      'scripts/ensure-bridge.sh',
+      'scripts/ensure-project-runtime.sh',
+      'scripts/runtime-digest.mjs',
+      'scripts/alarm-bridge.mjs',
+      'scripts/alarm-set.sh',
+      'scripts/alarm-write.mjs',
+      'scripts/alarm-condition.mjs',
+      'scripts/agent-pane-status.mjs',
+      'scripts/codex-dialog.mjs',
       // 円卓開始ゲートと既存 room の正規 resume 入口（決定104・105）。欠けると親の依頼確定と再稼働が手作業へ戻る
       'scripts/kickoff-gate.mjs',
       'scripts/resume.sh',

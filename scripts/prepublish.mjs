@@ -13,5 +13,6 @@ const run = (args) => {
   })
   if (result.status) process.exit(result.status ?? 1)
 }
+run(['--test', join(root, 'skill/scripts/runtime-contract.test.mjs')])
 run([join(root, 'scripts/verify-release-commit.mjs')])
 run([join(root, 'room/client.mjs'), 'diagnostics'])

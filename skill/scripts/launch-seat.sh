@@ -98,11 +98,10 @@ brief_file=""
 brief_max_bytes=65536
 brief_completed=false
 brief_dispatched=false
+brief_sent=false
+brief_event_cursor=""
 seat_created=false
 rollback_done=false
-# ready を観測できないだけの不確実性は、投入後の真失敗と分ける。これは
-# Aiterm から手動 dispatch できる空席として残し、席数へ成功着任とは数えない。
-brief_not_ready=false
 sock=""
 sess=""
 url=""
@@ -177,7 +176,7 @@ on_exit() {
   local rollback_rc
   trap - EXIT
   cleanup_brief
-  if [ "$seat_created" = true ] && [ "$brief_completed" != true ] && [ "$brief_not_ready" != true ] && [ "$rollback_done" != true ]; then
+  if [ "$seat_created" = true ] && [ "$brief_completed" != true ] && [ "$rollback_done" != true ]; then
     rollback_done=true
     if rollback_brief "$exit_rc"; then
       :
@@ -213,6 +212,10 @@ if [ -n "$brief" ] && [ "$brief_dispatched" != true ]; then
     exit 2
   fi
 fi
+
+# 既存卓も正規着座入口の一回で現行generated assetへ収束させる。alarm輸送helperや
+# member規約の更新を利用側の事前resume順序へ委ねない。
+"$peertable_script_dir/upgrade-team-assets.sh" "$proj"
 
 # **画面の文字列は「model が使えること」を意味しない。** 2026-08-11 実測: fable-5 の席は
 # Claude の channels バナーが出たので下の着席判定を通ったが、その後の入力は全て
@@ -435,9 +438,14 @@ print('dispatched' if cursor is not None and residue is not True
 PY
 )
   case "$brief_receipt_state" in
-    dispatched) brief_dispatched=true ;;
+    dispatched)
+      brief_dispatched=true
+      brief_sent=true
+      brief_event_cursor=$(python3 -c 'import json,sys;print(json.loads(sys.argv[1]).get("event_cursor", ""))' "$launch_receipt")
+      ;;
     residue)
       brief_in_composer=true
+      brief_event_cursor=$(python3 -c 'import json,sys;print(json.loads(sys.argv[1]).get("event_cursor", ""))' "$launch_receipt")
       echo "SEAT_BRIEF_SUBMIT_RESIDUE: brief は入力欄に残り submit が落ちた。着席確認後に submit し直す" >&2
       ;;
     *)
@@ -590,6 +598,11 @@ if [ "$room_ready" != true ]; then
   exit 1
 fi
 echo "room ready: ${room}/${name}"
+
+# ここから先のdialog処理・稼働状態・DM配送に必要なruntimeは、利用側へ順序を
+# 委ねず正規着座入口が現行Peertable版へ収束させる。
+PEERTABLE_CREDENTIAL_FILE="$credential_file" "$peertable_script_dir/ensure-project-runtime.sh" "$proj"
+
 if [ "$harness" = codex ]; then
   # member 登録後の最初の tool 呼び出しで MCP Allow が出る。出ている間だけ通し、沈黙5秒で抜ける。
   codex_post_ready_deadline=$((SECONDS + 90))
@@ -609,37 +622,16 @@ if [ "$harness" = codex ]; then
   done
 fi
 if [ "$brief_dispatched" = true ]; then
-  brief_completed=true
   echo "briefed: ${sess}（Aiterm launch prompt）"
 fi
 
 if [ -n "$brief" ] && [ "$brief_dispatched" != true ]; then
   if [ "$brief_in_composer" != true ]; then
-    brief_ready_deadline=$((SECONDS + 90))
-    brief_ready_streak=0
-    brief_ready=false
-    while [ $SECONDS -lt "$brief_ready_deadline" ]; do
-      brief_ready_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
-      if [ "$harness" = codex ] && pass_codex_pane "$brief_ready_screen"; then
-        brief_ready_streak=0
-        sleep 1
-        continue
-      fi
-      if [ "$harness" != codex ] || printf '%s\n' "$brief_ready_screen" | node -e '
-        let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{const l=s.split(/\r?\n/).slice(-24);const p=l.some(x=>x.trim()==="›"||x.trimStart().startsWith("› "));const f=l.some(x=>/gpt-/.test(x)&&x.includes("·"));process.exit(p&&f?0:1)})'; then
-        brief_ready_streak=$((brief_ready_streak + 1))
-        if [ "$brief_ready_streak" -ge 11 ]; then brief_ready=true; break; fi
-      else
-        brief_ready_streak=0
-      fi
-      sleep 1
-    done
-    if [ "$brief_ready" != true ]; then
-      echo "LAUNCH_BRIEF_NOT_READY: Aiterm dispatch前に入力promptの安定を観測できない" >&2
-      exit 1
-    fi
-    if node "$peertable_script_dir/aiterm-send.mjs" "$sess" "$brief_file" >/dev/null; then
-      brief_completed=true
+    # TUIの入力可能判定とsubmitはAitermの公開 pty_send が所有する。ここで独自の
+    # prompt連続観測を重ねると、正常なTUI描画差だけでdispatch前に席を落とす。
+    if brief_send_receipt=$(node "$peertable_script_dir/aiterm-send.mjs" "$sess" "$brief_file"); then
+      brief_sent=true
+      brief_event_cursor=$(python3 -c 'import json,sys;print(json.loads(sys.argv[1]).get("event_cursor", ""))' "$brief_send_receipt")
       echo "briefed: $sess（Aiterm pty_send）"
     else
       echo "LAUNCH_BRIEF_SEND_FAILED: Aiterm pty_sendでbriefをdispatchできない" >&2
@@ -666,14 +658,15 @@ if [ -n "$brief" ] && [ "$brief_dispatched" != true ]; then
     sleep 1
   done
   if [ "$brief_ready" != true ]; then
-    brief_not_ready=true
-    echo "LAUNCH_BRIEF_NOT_READY: brief を受け付ける入力 prompt を観測できない（brief未投入・空席を保持。Aiterm手動dispatch対象）" >&2
+    tmux_at capture-pane -t "$sess" -p >"$proj/.team/${name}-pane-on-fail.txt" 2>/dev/null || true
+    echo "LAUNCH_BRIEF_NOT_READY: brief を受け付ける入力promptを観測できない" >&2
+    echo "pane saved: $proj/.team/${name}-pane-on-fail.txt" >&2
+    exit 1
   else
     # prompt の描画とキー入力受理の境界を分ける。Codex のTUIが入力欄を
     # mountした直後に paste と Enter を同一tickで受けると、Enterだけ落ちる。
     sleep 1
 
-  brief_before=$(tmux_at capture-pane -S -1000 -t "$sess" -p 2>/dev/null || true)
   # submit_residue の席は本文が composer に残っている。貼り直すと二重になるので Enter だけ打つ。
   if [ "$brief_in_composer" != true ]; then
     brief_buffer="peertable-brief-${name}-$$"
@@ -693,28 +686,46 @@ if [ -n "$brief" ] && [ "$brief_dispatched" != true ]; then
     exit 1
   fi
 
-  # 入力欄へ置けた事実だけでは着任成功としない。既存の席状態判定と同じ live marker が、
-  # brief 投入後に画面へ現れたことを観測する。高速な fake/CLI の残像を拾わないよう、投入前の
-  # 画面と異なることも同時に要求する。dispatch は Aiterm の手動送信と同じく、この1回だけ行う。
-  brief_deadline=$((SECONDS + 30))
-  brief_turn_started=false
-  while [ $SECONDS -lt "$brief_deadline" ]; do
-    brief_screen=$(tmux_at capture-pane -S -1000 -t "$sess" -p 2>/dev/null || true)
-    case "$brief_screen" in
-      *"esc to interrupt"*)
-        if [ "$brief_screen" != "$brief_before" ]; then brief_turn_started=true; break; fi
-        ;;
-    esac
-    sleep 1
-  done
-  if [ "$brief_turn_started" != true ]; then
-    echo "LAUNCH_BRIEF_TURN_NOT_STARTED: brief 投入後の turn 開始を観測できない（席は着席済み）" >&2
-    exit 1
-  fi
-  brief_completed=true
+  brief_sent=true
   echo "briefed: $sess"
   fi
 fi
+fi
+
+# 「promptを渡した」ではなく、全harness共通で実ターンが始まったことを成功条件にする。
+# 1秒未満で完了するturnはAitermの完了正本で拾い、通常turnは現在paneのbusyランプで拾う。
+if [ -n "$brief" ] && [ "$brief_sent" = true ]; then
+  command -v aiterm-wait >/dev/null 2>&1 || { echo "LAUNCH_AITERM_WAIT_MISSING: 実ターン開始を確認できない" >&2; exit 1; }
+  brief_active_deadline=$((SECONDS + 60))
+  brief_turn_observed=false
+  while [ $SECONDS -lt "$brief_active_deadline" ]; do
+    brief_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
+    if [ "$harness" = codex ] && pass_codex_pane "$brief_screen"; then
+      sleep 1
+      continue
+    fi
+    brief_pane_status=$(printf '%s' "$brief_screen" | node "$peertable_script_dir/agent-pane-status.mjs")
+    if [ "$brief_pane_status" = busy ]; then
+      brief_turn_observed=true
+      break
+    fi
+    if [ -n "$brief_event_cursor" ]; then
+      wait_receipt=$(aiterm-wait --session "$sess" --cursor "$brief_event_cursor" --timeout 0 2>/dev/null || true)
+      if printf '%s' "$wait_receipt" | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{try{process.exit(JSON.parse(s).outcome==="done"?0:1)}catch{process.exit(1)}})'; then
+        brief_turn_observed=true
+        break
+      fi
+    fi
+    sleep 1
+  done
+  if [ "$brief_turn_observed" != true ]; then
+    tmux_at capture-pane -t "$sess" -p >"$proj/.team/${name}-pane-on-fail.txt" 2>/dev/null || true
+    echo "LAUNCH_BRIEF_TURN_NOT_STARTED: Aiterm dispatch後に${harness}の実ターン開始も完了も観測できない" >&2
+    echo "pane saved: $proj/.team/${name}-pane-on-fail.txt" >&2
+    exit 1
+  fi
+  brief_completed=true
+  echo "active: $sess（実ターン開始を観測）"
 fi
 
 # 席の本人性（pid / 起動時刻 / argv digest）を room 台帳の member 行へ登録する。
@@ -783,28 +794,5 @@ else
   echo "SEAT_LEDGER_INCOMPLETE: 台帳の member 行に素性または本人性が欠けている（席は着席済み。doctor で確認）" >&2
 fi
 
-PEERTABLE_CREDENTIAL_FILE="$credential_file" "$(dirname "$0")/ensure-bridge.sh" "$proj" alarm   || echo "alarm-bridge の起動確認に失敗した（席は着席済み）" >&2
-if PEERTABLE_CREDENTIAL_FILE="$credential_file" "$(dirname "$0")/ensure-bridge.sh" "$proj" seat-status; then
-  echo "seat-status-bridge: 起動確認済み"
-else
-  echo "seat-status-bridge の起動確認に失敗した（席は着席済み）" >&2
-fi
-
-# Claude 席の新着は room client の notifications/claude/channel。TUI 配達は channels を持たない
-# Codex / Grok 席だけ。Claude に立てると channel と二重配達になる。
-if [ "$harness" = codex ] || [ "$harness" = grok ]; then
-  if PEERTABLE_CREDENTIAL_FILE="$credential_file" "$(dirname "$0")/ensure-bridge.sh" "$proj" wakeup; then
-    echo "wakeup-bridge: TUI配達 起動確認済み"
-  else
-    echo "SEAT_WAKEUP_BRIDGE_NOT_READY: Codex／Grok席の TUI 配達を準備できない" >&2
-    exit 1
-  fi
-fi
-
 if [ -z "$brief" ]; then brief_completed=true; fi
 credential_persist=true
-if [ "$brief_not_ready" = true ]; then
-  # 空席の後段セットアップ（identity / metadata / bridge）まで済ませたうえで、
-  # 呼び出し側にはready未確認を非0で返す。席はAiterm手動dispatchへ引き継ぐ。
-  exit 1
-fi

@@ -202,6 +202,14 @@ export const BLOCKED_MARKERS = [
 
 export { isGrokPrivacyBanner }
 
+// 承認画面や接続失敗は折返し・キュー表示で14行より上へ押し出される。現在のturnを
+// 覆いながら、古いscrollback全体を状態に混ぜない固定窓として32行を読む。
+export const PANE_STATUS_TAIL_LINES = 32
+
+export function paneStatusTail(pane) {
+  return String(pane ?? '').split('\n').slice(-PANE_STATUS_TAIL_LINES).join('\n')
+}
+
 /**
  * pane 末尾の生文字列から画面状態を判定する。判定順は busy → blocked → idle
  * （承認プロンプト表示中は `esc to interrupt` が消えるので busy を先に見る）。

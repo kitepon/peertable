@@ -21,6 +21,8 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 
 import { resolvePostToken } from './seat-usage.mjs'
+import { resolveLatticeExecutable } from './seat-usage.mjs'
+import { latticeTaskAvailable } from './alarm-condition.mjs'
 import { observePidCommand } from './seat-identity.mjs'
 import { updateBridgeProgress } from './bridge-record-live.mjs'
 
@@ -53,6 +55,7 @@ if (flag === '--stop') process.exit(0)
 
 const setup = JSON.parse(readFileSync(join(team, 'setup-state.json'), 'utf8'))
 const { room, server_url: url } = setup
+const lattice = setup.lattice_cli ? resolveLatticeExecutable(setup.lattice_cli) : null
 const token = resolvePostToken(process.env)
 if (!token) { console.error('ALARM_BRIDGE_TOKEN_MISSING: 書込トークンが無い'); process.exit(1) }
 mkdirSync(alarmsDir, { recursive: true })
@@ -86,23 +89,37 @@ async function tick() {
     if (Date.now() < due) continue
     let reg
     try { reg = JSON.parse(readFileSync(file, 'utf8')) } catch { continue } // 書込途中は次周へ
-    if (typeof reg.seat !== 'string' || typeof reg.script !== 'string' || !reg.seat || !reg.script) {
-      log(`ALARM_REGISTRATION_INVALID: ${entry}（seat/script が無い）を撤去する`)
+    const typed = reg.condition?.type === 'lattice_task_ready'
+    const legacy = typeof reg.script === 'string' && reg.script.length > 0
+    if (typeof reg.seat !== 'string' || !reg.seat || (!typed && !legacy)) {
+      log(`ALARM_REGISTRATION_INVALID: ${entry}（seat/condition が無い）を撤去する`)
       try { unlinkSync(file) } catch {}
       continue
     }
     nextDue.set(file, Date.now() + Math.max(2, Number(reg.interval_s) || 10) * 1000)
     let met = false
     let firedOutput = ''
-    try {
-      const { stdout, stderr } = await run('bash', ['-c', reg.script], { timeout: 30_000, maxBuffer: 1024 * 1024 })
-      met = true
-      // 発火の証拠を残す: fail-open型の条件は「なぜ成立したか」が出力にしか現れない
-      // （実被弾 2026-08-26: statusの一過性失敗で即発火したが、何が失敗したか記録が無く未解明）
-      firedOutput = `${stdout ?? ''}${stderr ?? ''}`.trim().slice(0, 300)
-    } catch (e) {
-      // exit 非0 = 条件未成立（正常）。timeout/spawn 失敗はログへ（成立と区別し、握りつぶさない）
-      if (e.killed || e.code === 'ENOENT') log(`条件スクリプトの実行失敗（${entry}）: ${e.message}`)
+    if (typed) {
+      if (!lattice) {
+        log(`ALARM_CONDITION_EVALUATION_FAILED: ${entry} lattice_cli がsetup-stateに無い`)
+      } else {
+        try {
+          const { stdout } = await run(lattice.command, lattice.argv, { timeout: 30_000, maxBuffer: 1024 * 1024, cwd: proj })
+          const status = JSON.parse(stdout)
+          met = latticeTaskAvailable(status, reg.condition.task_id, reg.condition.plan_key ?? '')
+        } catch (e) {
+          log(`ALARM_CONDITION_EVALUATION_FAILED: ${entry} ${e.message.split('\n')[0]}`)
+        }
+      }
+    } else {
+      try {
+        const { stdout, stderr } = await run('bash', ['-c', reg.script], { timeout: 30_000, maxBuffer: 1024 * 1024 })
+        met = true
+        firedOutput = `${stdout ?? ''}${stderr ?? ''}`.trim().slice(0, 300)
+      } catch (e) {
+        // exit 非0 = 条件未成立（正常）。timeout/spawn 失敗はログへ（成立と区別し、握りつぶさない）
+        if (e.killed || e.code === 'ENOENT') log(`条件スクリプトの実行失敗（${entry}）: ${e.message}`)
+      }
     }
     if (!met) continue
     try {

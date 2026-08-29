@@ -28,9 +28,14 @@ export function buildWindowsBridgeLaunch({
     const value = env[name]
     if (value) statements.push(`$env:${name} = ${quotePowerShell(value)}`)
   }
+  statements.push('$utf8 = [System.Text.UTF8Encoding]::new($false)')
+  statements.push('[Console]::InputEncoding = $utf8')
+  statements.push('[Console]::OutputEncoding = $utf8')
+  statements.push('$OutputEncoding = $utf8')
   const command = [node, script, project, ...args].map(quotePowerShell).join(' ')
-  statements.push(`& ${command} *>> ${quotePowerShell(log)}`)
-  statements.push('exit $LASTEXITCODE')
+  statements.push(`& ${command} 2>&1 | Out-File -FilePath ${quotePowerShell(log)} -Append -Encoding utf8`)
+  statements.push('$bridgeExit = $LASTEXITCODE')
+  statements.push('exit $bridgeExit')
   const encoded = Buffer.from(statements.join('; '), 'utf16le').toString('base64')
   const argv = ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded]
   return {

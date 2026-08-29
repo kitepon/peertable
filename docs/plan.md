@@ -5,7 +5,7 @@
 親（オーケストレーター）に最終判断が集中しない、メンバー並列型のマルチエージェント作業システム。
 
 作成日: 2026-08-08
-状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows着席の残穴は決定90。着席の役割必須と02_models機械解決は決定91（`0.4.12`）。ターン終了の自己DMは決定92（`0.4.13`）。親番犬は決定93〜94、Claude channelは決定95、役割・settings・missionは決定96。member台帳・run-bridge退役・hold廃止は決定97〜99（`0.5.0`）。実効状態・配送receipt・開始gate・resumeは決定101〜105（`0.7.0`）。既存卓MCP upgradeは決定106（`0.7.1`）。発言script・job帰属・harness死亡・ランプ・目覚ましは決定107〜112（`0.8.9`〜`0.8.13`）。常駐生存・socket消失・親番犬静音は決定113〜115（`0.8.16`〜`0.8.17`）。Windows bridge／doctor／進捗生存／Claude consent／Aiterm dispatch／dialog LF／Windows親poll終了は決定116〜121（`0.8.18`〜`0.8.23`・2026-08-29）。
+状態: 設計確定 / V0〜V3 通過・V4 封印（決定41）/ スキル化完了 / GitHub・npm 公開済み。Grok 4.6正規席を含む`0.4.0`出荷完了（決定84・85）。Grok起床とbroadcast本文は決定86。配送修正は`0.4.1`（決定87）。Windows psmux 着席は`0.4.2`（決定88）。parent-watch の DEP0190 回避は`0.4.3`。着座メンバー一覧の素性行に role を出すのは`0.4.10`（決定89）。Windows着席の残穴は決定90。着席の役割必須と02_models機械解決は決定91（`0.4.12`）。ターン終了の自己DMは決定92（`0.4.13`）。親番犬は決定93〜94、Claude channelは決定95、役割・settings・missionは決定96。member台帳・run-bridge退役・hold廃止は決定97〜99（`0.5.0`）。実効状態・配送receipt・開始gate・resumeは決定101〜105（`0.7.0`）。既存卓MCP upgradeは決定106（`0.7.1`）。発言script・job帰属・harness死亡・ランプ・目覚ましは決定107〜112（`0.8.9`〜`0.8.13`）。常駐生存・socket消失・親番犬静音は決定113〜115（`0.8.16`〜`0.8.17`）。Windows bridge／doctor／進捗生存／Claude consent／Aiterm dispatch／dialog LF／Windows親poll／単一runtime入口／UTF-8 alarmは決定116〜124（`0.8.18`〜`0.8.25`・2026-08-29）。
 リポジトリ: github.com/kitepon/peertable（**公開済み 2026-08-08・MIT・public**）/ npm: **peertable@0.7.1**（2026-08-25）。Claude 席は `notifications/claude/channel`。Codex / Grok は同じ経路で席 TUI へ新着を入れる。親の再着卓投稿も `post-message.mjs` の UTF-8（Windows python stdout の cp932 で本文を壊さない）。工程クローズは監査担当の `done.sh`（feat SHA が origin/main の祖先でなければ script が着地する。親は着地しない）。mission の更新は席の `set-mission.sh`（chip と `[mission]` 1行。再起動しない）。Fable ツール実行中の稼働チップは経過時間行と `/btw` 固定句で判定する。Grok 作業中は `Waiting for response` / `[stop]`。privacy バナーは `GROK_PRIVACY_NOTICE_ROLLOUT=0`
 工場: dotagents 開発工場の管理対象（**自作コア11製品の1つ**・wire v7 の固定15製品目）。統合契約は dotagents 側が所有し、本 repo の source・state・skill 配布・release は Peertable が所有し続ける
 
@@ -1752,3 +1752,9 @@ LiveTRのWindows席でboothとroomの2件選択画面が出たが、launcherは�
 **決定120: dialog key列はNode helperがLFで直接出力する。** Windows Pythonの`print()`をGit Bashの`read`へ渡すとCRLFの`\r`がキー名に残り、`Enter\r`が未知キー文字列としてCodex終了後のshellへ`ter\r`を入力した。Claude/Codexの両helperに`--keys`を持たせ、stdout byte列にCRが無いことをWindows focused testで固定する。MacのLF経路は同じ出力になる。patch `0.8.23`。
 
 **決定121: Codex親の`parent-watch --poll`はHTTP catch-up後に自然終了する。** Windows Node 24でfetch直後の`process.exit(0)`がlibuv closing assertionを起こした。poll分岐だけを通常return相当へ変え、follow／nextの長寿命経路は不変。LiveTR実roomのcatch-upでrc=0・stderr 0を確認。patch `0.8.23`。
+
+**決定122: Codex席はbrief dispatch後の初回turnでも既知approval UIを処理する。** command approvalはroom ready／brief dispatchの後、最初のtool実行で遅れて現れる。dispatch前だけを監視すると正式着任直後にblockedになるため、初回turnの20秒だけ`pass_codex_pane`を継続し、既知のdon't-ask-againだけを選ぶ。未知UIは通さない。patch `0.8.24`。
+
+**決定123: setup／launch／resumeは円卓runtimeを一回の入口で現行版へ収束させる。** alarm／seat-status／wakeupの順序、旧版停止、再起動、ready確認を利用AIへ委ねない。launchはAiterm dispatch前の独自prompt連続判定を廃止し、全harnessでdispatch後の実ターン開始または完了を成功条件にする。Grok通信失敗はbusyでなくblocked、Windows bridge logはUTF-8固定。決定122の20秒固定を廃止する。patch `0.8.25`。
+
+**決定124: alarm本文はUTF-8 stdinで輸送し、Codex既知dialogは現在画面だけで処理する。** Windows Git BashからPython argvへ渡した日本語noteがroom保存前に壊れたため、NUL区切りUTF-8 stdinをNode writerが保存する。既存卓のalarm helper更新もlaunch自身が行う。wakeupのdialog巡回は現在のbusy／idle composerをscrollback上の古いapprovalより優先し、実作業中の席へDown／Enterを送らない。patch `0.8.25`。

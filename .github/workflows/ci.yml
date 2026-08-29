@@ -25,5 +25,6 @@ jobs:
       full-command: >-
         node --check room/server.mjs &&
         node --check room/client.mjs &&
+        node --test skill/scripts/runtime-contract.test.mjs &&
         for file in skill/scripts/*.sh; do bash -n "$file"; done &&
         PEERTABLE_URL= node room/client.mjs diagnostics

@@ -27,7 +27,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { STOP_DECLARATION, attributeJobSession, combineSeatLamp, isPaneHarnessMissing, hasActiveDescendant, subtreeCpuSeconds, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, attributeJobSession, combineSeatLamp, isPaneHarnessMissing, hasActiveDescendant, subtreeCpuSeconds, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, paneStatusTail, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
 import { updateBridgeProgress } from './bridge-record-live.mjs'
 
 const args = process.argv.slice(2)
@@ -111,7 +111,7 @@ function readSeat(member, previous, observedAt) {
   }
   const pane = tmux(target.socket, 'capture-pane', '-t', target.target, '-p')
   if (pane === null) return { status: 'dead', busySince: null, paneTokenHint: null }
-  const tail = pane.split('\n').slice(-14).join('\n')
+  const tail = paneStatusTail(pane)
   const tentativeStatus = classifyPaneTail(tail)
   // pane 自体は生きたまま中の CLI プロセスだけが停止する局面（Lattice pull run の accept hold 等）を
   // 拾う。画面の残像だけでは idle に誤判定するため、idle と読めた時だけ実プロセスの stat を見る。

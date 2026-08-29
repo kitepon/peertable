@@ -150,15 +150,8 @@ done < <(node -e '
 ' "$seats_file")
 rm -f "$seats_file"
 
-# Phase C: bridge の再起動
-for kind in alarm seat-status wakeup; do
-  if "$script_dir/ensure-bridge.sh" "$proj" "$kind"; then
-    echo "[実施] ${kind}-bridge: ready"
-  else
-    echo "[未実施] ${kind}-bridge: 起動を確認できなかった（ログ $proj/.team/${kind}-bridge.log）" >&2
-    exit 1
-  fi
-done
+# Phase C: runtime を一回の入口で現行版へ収束
+"$script_dir/ensure-project-runtime.sh" "$proj"
 
 # Phase D: fresh heartbeat の読み戻しと probe DM の配送 receipt 確認
 RESUME_PROJ="$proj" RESUME_PROBE="$probe" RESUME_SCRIPT_DIR="$script_dir" node --input-type=module <<'NODE'

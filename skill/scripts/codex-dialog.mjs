@@ -10,19 +10,28 @@ export const COMMAND_APPROVAL_DONT_ASK = "don't ask again"
 
 export function keysForCodexPane(screen) {
   const text = String(screen ?? '')
-  if (text.includes(MCP_ALLOW_NEEDLE) && text.includes(MCP_ALWAYS_ALLOW)) {
+  const lines = text.split(/\r?\n/u).slice(-24)
+  const tail = lines.join('\n')
+  // scrollbackに残った古いdialogより、現在のbusy表示／通常composerを優先する。
+  // active dialog自身の選択肢行（`› 1.`）は通常composerとして数えない。
+  const busy = /esc to interrupt/iu.test(tail)
+  const idleComposer = lines.some(line => /^\s*›(?:\s*$|\s+(?!\d+\.))/u.test(line))
+    && lines.some(line => /gpt-[\w.-]+/iu.test(line) && line.includes('·'))
+  if (busy || idleComposer) return null
+  const dialogText = tail
+  if (dialogText.includes(MCP_ALLOW_NEEDLE) && dialogText.includes(MCP_ALWAYS_ALLOW)) {
     return { kind: 'mcp-allow', keys: ['Down', 'Down', 'Enter'] }
   }
-  if (text.includes(COMMAND_APPROVAL_NEEDLE) && text.toLowerCase().includes(COMMAND_APPROVAL_DONT_ASK)) {
+  if (dialogText.includes(COMMAND_APPROVAL_NEEDLE) && dialogText.toLowerCase().includes(COMMAND_APPROVAL_DONT_ASK)) {
     return { kind: 'command-approval', keys: ['Down', 'Enter'] }
   }
-  if (text.includes('Hooks need review')) {
+  if (dialogText.includes('Hooks need review')) {
     return { kind: 'hooks', keys: ['Down', 'Enter'] }
   }
-  if (text.includes('Update now')) {
+  if (dialogText.includes('Update now')) {
     return { kind: 'update', keys: ['Down', 'Enter'] }
   }
-  if (text.includes('Yes, continue') && text.includes('Do you trust the contents of this directory')) {
+  if (dialogText.includes('Yes, continue') && dialogText.includes('Do you trust the contents of this directory')) {
     return { kind: 'trust', keys: ['Enter'] }
   }
   return null

@@ -4,6 +4,10 @@ set -euo pipefail
 
 proj="$1"; name="$2"; shift 2
 case "$name" in seat-status) script="seat-status-bridge.mjs" ;; wakeup) script="wakeup-bridge.mjs" ;; alarm) script="alarm-bridge.mjs" ;; run) echo "ENSURE_BRIDGE_RETIRED: run-bridge は退役した（2026-08-22）。介入は席が自分の Lattice コマンド応答で受け取る" >&2; exit 1 ;; *) echo "usage: ensure-bridge.sh <project> <seat-status|wakeup|alarm> [args...]" >&2; exit 1 ;; esac
+scripts_dir=$(cd "$(dirname "$0")" && pwd -P)
+repo=$(cd "$scripts_dir/../.." && pwd -P)
+peertable_version=$(node -p "require(process.argv[1]).version" "$repo/package.json")
+peertable_runtime_digest=$(node "$scripts_dir/runtime-digest.mjs")
 team="$proj/.team"; record="$team/$name-bridge.json"; log="$team/$name-bridge.log"
 force=false
 if [ "${1:-}" = "--force" ]; then force=true; shift; fi
@@ -17,7 +21,16 @@ if [ $# -eq 0 ] && [ -f "$record" ]; then
   fi
 fi
 if [ -f "$record" ]; then
-  if node "$(dirname "$0")/bridge-record-live.mjs" "$record"; then exit 0; fi
+  if node "$scripts_dir/bridge-record-live.mjs" "$record"; then
+    record_version=$(node -e 'const x=require(process.argv[1]);process.stdout.write(x.peertable_version||"")' "$record")
+    record_digest=$(node -e 'const x=require(process.argv[1]);process.stdout.write(x.peertable_runtime_digest||"")' "$record")
+    if [ "$record_version" = "$peertable_version" ] && [ "$record_digest" = "$peertable_runtime_digest" ]; then exit 0; fi
+    echo "${name}-bridge: Peertable ${record_version:-unknown} → ${peertable_version} の現行runtimeへ自動更新する" >&2
+    node "$scripts_dir/$script" "$proj" --stop || {
+      echo "${name}-bridge: 旧版bridgeを停止できないため更新を中止する" >&2
+      exit 1
+    }
+  fi
   if ! "$force" && grep -q 'WRITE_DENIED' "$log" 2>/dev/null; then echo "${name}-bridge: 前回はWRITE_DENIEDで終了。--forceを指定すること" >&2; exit 1; fi
 fi
 # shellcheck disable=SC1091
@@ -49,8 +62,8 @@ if [ "$(node -p 'process.platform')" = "win32" ]; then
   # psmuxが起動する正規shellはPowerShell 7。POSIXの`env`とMSYS pathを文字列のまま
   # 渡すとnodeへ到達する前に終了するため、Windows nodeに各pathをargvとして変換させ、
   # PowerShell EncodedCommandを一箇所で組み立てる。
-  win_command=$(node "$(dirname "$0")/platform/windows/build-bridge-command.mjs" \
-    "$(dirname "$0")/$script" "$proj" "$log" "$@")
+  win_command=$(node "$scripts_dir/platform/windows/build-bridge-command.mjs" \
+    "$scripts_dir/$script" "$proj" "$log" "$@")
   tmux_at new-session -d -s "$session" "$win_command"
 else
   tmux_at new-session -d -s "$session" "env${env_prefix} node $(dirname "$0")/$script $(printf '%q ' "$proj" "$@") >> $(printf '%q' "$log") 2>&1"
@@ -60,10 +73,10 @@ for _ in $(seq 1 30); do
     # **末尾は本物の改行にする。** `"\\n"` と書くと JS がリテラルの `\`+`n` を足し、
     # record が JSON として壊れる——`--stop` も次回起動も `JSON.parse` で落ちて、
     # 「止められない・建て直せない常駐」ができる（2026-08-11 実測）。一時 file→rename で原子的に。
-    node -e 'const fs=require("fs");const p=process.argv[1],a=process.argv.slice(2);
+    node -e 'const fs=require("fs");const p=process.argv[1],version=process.argv[2],digest=process.argv[3],a=process.argv.slice(4);
       const t=`${p}.${process.pid}.tmp`;
-      fs.writeFileSync(t,JSON.stringify({...JSON.parse(fs.readFileSync(p,"utf8")),args:a})+"\n");
-      fs.renameSync(t,p)' "$record" "$@"
+      fs.writeFileSync(t,JSON.stringify({...JSON.parse(fs.readFileSync(p,"utf8")),peertable_version:version,peertable_runtime_digest:digest,args:a})+"\n");
+      fs.renameSync(t,p)' "$record" "$peertable_version" "$peertable_runtime_digest" "$@"
     exit 0
   fi
   sleep .5
