@@ -356,23 +356,41 @@ async function wake(seat, msgs) {
   const ttyOut = await run('tmux', tmuxArgv(['display-message', '-p', '-t', observation.target, '#{pane_tty}'], { socket: observation.socket }))
   const paneTty = String(ttyOut.stdout ?? '').trim().replace(/^\/dev\//u, '')
   const SHELLS = ['bash', 'zsh', 'sh', 'dash', 'fish', 'tcsh', 'csh', 'ksh']
-  let foregroundIsAgent = false
-  let foregroundLabel = '(不明)'
-  if (paneTty) {
-    const psOut = await run('/bin/ps', ['-t', paneTty, '-o', 'stat=,command='], { env: { ...process.env, LC_ALL: 'C' } })
-    for (const line of String(psOut.stdout ?? '').split('\n')) {
-      const m = line.trim().match(/^(\S+)\s+(.*)$/u)
-      if (!m || !m[1].includes('+')) continue
-      const base = String(m[2]).split(/\s+/u, 1)[0].split('/').pop()
-      if (SHELLS.includes(base)) {
-        foregroundLabel = base
-        continue
+  const ttyState = async () => {
+    let foreground = false
+    let stopped = false
+    let label = '(不明)'
+    if (paneTty) {
+      const psOut = await run('/bin/ps', ['-t', paneTty, '-o', 'stat=,command='], { env: { ...process.env, LC_ALL: 'C' } })
+      for (const line of String(psOut.stdout ?? '').split('\n')) {
+        const m = line.trim().match(/^(\S+)\s+(.*)$/u)
+        if (!m) continue
+        const base = String(m[2]).split(/\s+/u, 1)[0].split('/').pop()
+        if (SHELLS.includes(base)) {
+          if (m[1].includes('+')) label = base
+          continue
+        }
+        if (m[1].includes('+')) foreground = true
+        if (m[1].startsWith('T')) stopped = true
       }
-      foregroundIsAgent = true
-      break
     }
+    return { foreground, stopped, label }
   }
-  if (!foregroundIsAgent) {
+  let tty = await ttyState()
+  if (!tty.foreground && tty.stopped) {
+    // Codex CLI の job control 欠陥（openai/codex#37088 系）で TUI が SIGTSTP/SIGTTIN 停止し、
+    // 打鍵が shell へ落ちる形が反復した（実被弾 2026-08-29 に2席×複数回）。配達の前提を
+    // 自動で回復する: pane の前面 shell へ `fg` を送って停止 job を前面へ戻し、成立を再観測する。
+    log(`SEAT_TUI_STOPPED: ${seat} の agent が停止(T)状態。fg で前面へ蘇生を試みる`)
+    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'C-u'], { socket: observation.socket }))
+    await run('tmux', tmuxArgv(['send-keys', '-l', '-t', observation.target, 'fg'], { socket: observation.socket }))
+    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
+    await sleep(2000)
+    tty = await ttyState()
+    if (tty.foreground) log(`SEAT_TUI_RESUMED: ${seat} の agent を前面へ復帰させた`)
+  }
+  if (!tty.foreground) {
+    const foregroundLabel = tty.label
     log(`SEAT_TUI_GONE: ${seat} の pane tty 前面が agent CLI でない（前面: ${foregroundLabel}）＝`
       + '打鍵は shell に落ちる（agent 死亡・SIGTSTP 停止・背面化）。'
       + 'shell へのコマンド実行を防ぐため配達しない。席を立て直すか leave-seat で畳むこと')
