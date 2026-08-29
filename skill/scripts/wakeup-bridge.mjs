@@ -342,6 +342,22 @@ function advanceLastSeq() {
   if (advanced) saveDeliveryState()
 }
 
+// 「入力欄に本文が残っているか」の照合範囲。画面末尾全体で照合すると、配達済みの本文が
+// TUI の会話履歴として画面下部に表示され続ける形（Grok が常時、Codex も直後）を「残存」と
+// 誤検知し、成功した配達を failed 扱いで再試行し続ける（実被弾 2026-08-29: idle の Grok 席へ
+// 空 Enter を打ち続け、receipt が failed で固定された）。入力欄は画面の最下部に居るので、
+// **最後の composer マーカー行（Codex ›・Grok ❯）から末尾まで**だけを照合する。
+// マーカーが見えない画面では従来どおり末尾14行で照合する（狭めすぎて偽成功を作らない）。
+function composerSquashed(screen) {
+  const lines = screen.split('\n')
+  let start = -1
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (/[›❯]/u.test(lines[i])) { start = i; break }
+  }
+  const region = start >= 0 ? lines.slice(start) : lines.slice(-14)
+  return region.join('').replace(/\s+/gu, '')
+}
+
 const deferredBusy = new Set()
 async function passKnownCodexDialog(member) {
   if (memberHarness(member) !== 'codex') return false
@@ -451,7 +467,7 @@ async function wake(seat, msgs) {
   const preMarker = text.replace(/\s+/gu, '').slice(-24)
   const prePane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
   const preLoaded = preMarker.length >= 8
-    && String(prePane.stdout ?? '').split('\n').slice(-14).join('').replace(/\s+/gu, '').includes(preMarker)
+    && composerSquashed(String(prePane.stdout ?? '')).includes(preMarker)
   if (preLoaded) {
     log(`入力欄に前周期の本文が残存: ${seat}。再打鍵せず送信だけ再試行する`)
     await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
@@ -481,8 +497,9 @@ async function wake(seat, msgs) {
     const after = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
     const tailLines = String(after.stdout ?? '').split('\n').slice(-14)
     const tailJoined = tailLines.join(' ')
-    // 折返しはcapture上で行分割されるだけで空白は挟まらないため、空白除去で復元して照合する
-    const tailSquashed = tailLines.join('').replace(/\s+/gu, '')
+    // 折返しはcapture上で行分割されるだけで空白は挟まらないため、空白除去で復元して照合する。
+    // 照合は composer 領域だけ（composerSquashed の注記を参照）
+    const tailSquashed = composerSquashed(String(after.stdout ?? ''))
     const queuedOrRunning = tailJoined.includes('esc to interrupt') || tailJoined.includes('to queue message')
       || (isClaude && CLAUDE_ACCEPTED.test(tailJoined))
     const stuck = (!isClaude && tailJoined.includes('esc dismiss'))
