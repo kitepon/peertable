@@ -12,6 +12,7 @@ import { buildWindowsBridgeLaunch } from './platform/windows/build-bridge-comman
 import { paneStatusTail } from './seat-usage.mjs'
 import { classifyGrokPaneTail } from './vendors/grok/pane-status.mjs'
 import { latticeTaskAvailable } from './alarm-condition.mjs'
+import { boundedRecent, boundedUnread } from '../../room/message-bounds.mjs'
 
 test('Grokの通信失敗はWaiting表示が残ってもbusyにしない', () => {
   const tail = [
@@ -137,4 +138,21 @@ test('Grok席configはClaude/Cursor互換を止めroom以外のproject MCPを無
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
+})
+
+test('room logは20件・UTF-8 12KB以内で古い分を明示省略する', () => {
+  const messages = Array.from({ length: 30 }, (_, index) => ({ seq: index + 1, body: `本文${index + 1}`.repeat(300) }))
+  const result = boundedRecent(messages, message => `[${message.seq}] ${message.body}`, 50)
+  assert.ok(Buffer.byteLength(result.text, 'utf8') <= 12_100)
+  assert.ok(result.requested === 20)
+  assert.match(result.text, /古い \d+ 件を出力上限のため省略/u)
+  assert.match(result.text, /\[30\]/u)
+})
+
+test('room未読は返した位置までだけ進み残りを次回へ保つ', () => {
+  const messages = Array.from({ length: 6 }, (_, index) => ({ seq: index + 1, body: `未読${index + 1}`.repeat(500) }))
+  const first = boundedUnread(messages, () => true, message => `[${message.seq}] ${message.body}`, 4000)
+  assert.ok(first.omitted > 0)
+  assert.ok(first.consumedSeq < 6)
+  assert.match(first.text, /read_unreadを再実行/u)
 })

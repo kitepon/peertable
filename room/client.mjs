@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isIdleSelfWake } from '../skill/scripts/wakeup-delivery.mjs'
 import { findModelsDoc, resolveSeatIdentity } from '../skill/scripts/resolve-seat-placement.mjs'
+import { boundedRecent, boundedUnread } from './message-bounds.mjs'
 
 // client.mjs 側のハードコード版数。package.json の version と一致していることを
 // diagnostics の version_consistency が見る（2 つの版数源の drift 検出。決定45）
@@ -108,7 +109,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
       },
     },
     { name: 'read_unread', description: 'room全体宛と自分宛の未読メッセージを読む。読んだ位置は記憶される', inputSchema: { type: 'object', properties: {} } },
-    { name: 'read_log', description: 'room ログの直近 count 件を読む（既定 50。全宛先を含む）', inputSchema: { type: 'object', properties: { count: { type: 'number' } } } },
+    { name: 'read_log', description: 'roomログの直近count件を読む（既定20・最大20・UTF-8 12KB上限。全宛先を含む）', inputSchema: { type: 'object', properties: { count: { type: 'number' } } } },
     { name: 'members', description: 'room に居るメンバーの一覧（名前・役割・設定・使命・実効稼働状態）と bridge 健全性。状態が unknown の席と bridge 障害はここで分かる', inputSchema: { type: 'object', properties: {} } },
     { name: 'delivery_status', description: '発言 seq の宛先別配達状態を照会する。delivered / pending / seat_unavailable / bridge_unavailable / failed。room_saved は配達成功ではない', inputSchema: { type: 'object', properties: { seq: { type: 'number' } }, required: ['seq'] } },
   ],
@@ -183,14 +184,14 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
     }
     case 'read_unread': {
       const { messages } = await (await fetch(api(`messages?since=${cursor}`))).json()
-      if (messages.length) { cursor = messages[messages.length - 1].seq; ackSeq = cursor }
-      const mine = messages.filter(relevant)
+      const unread = boundedUnread(messages, relevant, fmt)
+      if (unread.consumedSeq !== null) { cursor = unread.consumedSeq; ackSeq = cursor }
       const roster = await rosterText()
-      return text(mine.length ? `${roster}\n${mine.map(fmt).join('\n')}` : `${roster}\n未読なし`)
+      return text(unread.text ? `${roster}\n${unread.text}` : `${roster}\n未読なし`)
     }
     case 'read_log': {
       const { messages } = await (await fetch(api('messages'))).json()
-      return text(messages.slice(-(args.count ?? 50)).map(fmt).join('\n') || '（ログなし）')
+      return text(boundedRecent(messages, fmt, args.count).text || '（ログなし）')
     }
     case 'members': {
       const { members, bridges } = await (await fetch(api('members'))).json()

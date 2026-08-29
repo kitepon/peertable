@@ -35,6 +35,7 @@
   "files": [
     "room/server.mjs",
     "room/client.mjs",
+    "room/message-bounds.mjs",
     "room/Dockerfile",
     "skill/",
     "!skill/**/__pycache__/**",
