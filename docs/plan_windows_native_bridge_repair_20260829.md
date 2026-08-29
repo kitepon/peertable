@@ -1,7 +1,7 @@
 # Windows native bridge 起動修理
 
 - 日付: 2026-08-29
-- 状態: 実装・実機確認完了、0.8.19 release準備中
+- 状態: 完了（0.8.19公開・global install・LiveTR実卓smoke合格）
 - 発見元: LiveTR の Peertable setup（Windows 11 native / psmux / PowerShell 7）
 
 ## 目的
