@@ -42,5 +42,9 @@ if (isMain) {
   if (process.argv.includes('--ready-ok')) {
     process.exit(blocksCodexReady(screen) ? 2 : 0)
   }
+  if (process.argv.includes('--keys')) {
+    if (action) process.stdout.write(`${action.keys.join('\n')}\n`)
+    process.exit(0)
+  }
   process.stdout.write(`${JSON.stringify(action)}\n`)
 }

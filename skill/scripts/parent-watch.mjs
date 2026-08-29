@@ -330,9 +330,7 @@ async function catchUp() {
 // 長寿命なのはbackground taskのloopだけで、端末sessionやNode processは常駐させない。
 if (mode === '--poll') {
   await catchUp()
-  process.exit(0)
-}
-
+} else {
 const nextWindowMs = Number(process.env.PEERTABLE_PARENT_WATCH_WINDOW_MS ?? 55_000)
 if (mode === '--next' && (!Number.isFinite(nextWindowMs) || nextWindowMs < 100)) {
   console.error('PARENT_WATCH_WINDOW_INVALID')
@@ -410,4 +408,5 @@ for (;;) {
     if (mode === '--next' && Date.now() >= deadline) process.exit(0)
     await sleep(Math.min(2000, Math.max(1, deadline - Date.now())))
   }
+}
 }

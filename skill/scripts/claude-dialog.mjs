@@ -19,5 +19,8 @@ const isMain = Boolean(process.argv[1]) && resolve(process.argv[1]) === fileURLT
 if (isMain) {
   const chunks = []
   for await (const chunk of process.stdin) chunks.push(chunk)
-  process.stdout.write(`${JSON.stringify(keysForClaudeMcpPane(Buffer.concat(chunks).toString('utf8')))}\n`)
+  const action = keysForClaudeMcpPane(Buffer.concat(chunks).toString('utf8'))
+  if (process.argv.includes('--keys')) {
+    if (action) process.stdout.write(`${action.keys.join('\n')}\n`)
+  } else process.stdout.write(`${JSON.stringify(action)}\n`)
 }

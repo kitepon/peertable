@@ -476,31 +476,29 @@ claude_trust_accepted=false
 codex_dialog_helper="$peertable_script_dir/codex-dialog.mjs"
 claude_dialog_helper="$peertable_script_dir/claude-dialog.mjs"
 pass_codex_pane() {
-  local json key
-  json=$(printf '%s' "$1" | node "$codex_dialog_helper" || true)
-  [ -n "$json" ] && [ "$json" != "null" ] || return 1
+  local keys key
+  keys=$(printf '%s' "$1" | node "$codex_dialog_helper" --keys || true)
+  [ -n "$keys" ] || return 1
+  sleep .3
   while IFS= read -r key; do
     [ -n "$key" ] || continue
     tmux_at send-keys -t "$sess" "$key" || return 1
     sleep .3
-  done < <(python3 -c 'import json,sys
-a=json.loads(sys.stdin.read() or "null")
-print("\n".join(a.get("keys") or []) if isinstance(a, dict) else "")' <<<"$json")
+    sleep .3
+  done <<<"$keys"
   return 0
 }
 codex_pane_blocks_ready() {
   printf '%s' "$1" | node "$codex_dialog_helper" --ready-ok
 }
 pass_claude_mcp_pane() {
-  local json key
-  json=$(printf '%s' "$1" | node "$claude_dialog_helper" || true)
-  [ -n "$json" ] && [ "$json" != "null" ] || return 1
+  local keys key
+  keys=$(printf '%s' "$1" | node "$claude_dialog_helper" --keys || true)
+  [ -n "$keys" ] || return 1
   while IFS= read -r key; do
     [ -n "$key" ] || continue
     tmux_at send-keys -t "$sess" "$key" || return 1
-  done < <(python3 -c 'import json,sys
-a=json.loads(sys.stdin.read() or "null")
-print("\n".join(a.get("keys") or []) if isinstance(a, dict) else "")' <<<"$json")
+  done <<<"$keys"
   return 0
 }
 while [ $SECONDS -lt "$room_ready_deadline" ]; do
@@ -617,6 +615,29 @@ fi
 
 if [ -n "$brief" ] && [ "$brief_dispatched" != true ]; then
   if [ "$brief_in_composer" != true ]; then
+    brief_ready_deadline=$((SECONDS + 90))
+    brief_ready_streak=0
+    brief_ready=false
+    while [ $SECONDS -lt "$brief_ready_deadline" ]; do
+      brief_ready_screen=$(tmux_at capture-pane -t "$sess" -p 2>/dev/null || true)
+      if [ "$harness" = codex ] && pass_codex_pane "$brief_ready_screen"; then
+        brief_ready_streak=0
+        sleep 1
+        continue
+      fi
+      if [ "$harness" != codex ] || printf '%s\n' "$brief_ready_screen" | node -e '
+        let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{const l=s.split(/\r?\n/).slice(-24);const p=l.some(x=>x.trim()==="›"||x.trimStart().startsWith("› "));const f=l.some(x=>/gpt-/.test(x)&&x.includes("·"));process.exit(p&&f?0:1)})'; then
+        brief_ready_streak=$((brief_ready_streak + 1))
+        if [ "$brief_ready_streak" -ge 11 ]; then brief_ready=true; break; fi
+      else
+        brief_ready_streak=0
+      fi
+      sleep 1
+    done
+    if [ "$brief_ready" != true ]; then
+      echo "LAUNCH_BRIEF_NOT_READY: Aiterm dispatch前に入力promptの安定を観測できない" >&2
+      exit 1
+    fi
     if node "$peertable_script_dir/aiterm-send.mjs" "$sess" "$brief_file" >/dev/null; then
       brief_completed=true
       echo "briefed: $sess（Aiterm pty_send）"
