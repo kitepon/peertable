@@ -347,50 +347,38 @@ async function wake(seat, msgs) {
   // shell へ room の本文を send-keys すると、本文がそのまま shell コマンドとして実行される
   // （実被弾 2026-08-22: codex 終了後の bash へ配達され `command not found` が走った。
   // 本文次第では席の権限で任意コマンドになる）。配達は止め、毎周期 typed log で叫ぶ。
-  // **pane_current_command は「bash の下で agent CLI が走る」形を bash と報告することがある**
-  // （実被弾 2026-08-22: 生きている codex 席が bash 判定になり配達が全停止、席が起きなかった）。
-  // shell 名だった時は pane 配下の子孫を辿り、**当該 harness の CLI プロセスが実在する時だけ**配達する。
-  // 「子孫がゼロかどうか」では足りない——agent CLI が死んでも、CLI が起こした背景ターミナル等の
-  // 子孫が pane shell の下に生き残り、防御をすり抜けて room 本文が bash で実行された
-  // （実被弾 2026-08-29: codex 死亡後の pane へ broadcast が配達され `command not found` が走った）。
-  const fg = await run('tmux', tmuxArgv(['display-message', '-p', '-t', observation.target, '#{pane_current_command}'], { socket: observation.socket }))
-  const fgCommand = String(fg.stdout ?? '').trim()
-  if (['bash', 'zsh', 'sh', 'dash', 'fish', 'tcsh', 'csh', 'ksh'].includes(fgCommand)) {
-    const harness = memberHarness(member)
-    const panePidOut = await run('tmux', tmuxArgv(['display-message', '-p', '-t', observation.target, '#{pane_pid}'], { socket: observation.socket }))
-    const panePid = Number(String(panePidOut.stdout ?? '').trim())
-    let harnessAlive = false
-    if (Number.isSafeInteger(panePid) && panePid > 0 && typeof harness === 'string' && harness) {
-      const psOut = await run('/bin/ps', ['-axo', 'pid=,ppid=,command='], { env: { ...process.env, LC_ALL: 'C' } })
-      const children = new Map()
-      const commands = new Map()
-      for (const line of String(psOut.stdout ?? '').split('\n')) {
-        const m = line.trim().match(/^(\d+)\s+(\d+)\s+(.*)$/u)
-        if (!m) continue
-        const pid = Number(m[1]); const ppid = Number(m[2])
-        if (!children.has(ppid)) children.set(ppid, [])
-        children.get(ppid).push(pid)
-        commands.set(pid, m[3])
+  // **打鍵が届く先は pane tty の前面プロセスグループだけ**なので、配達可否はそれで判定する。
+  // 「前面コマンド名がshellか」（実被弾 2026-08-22: bash 配下で生きる codex を誤遮断）でも、
+  // 「pane 子孫に agent CLI が実在するか」（実被弾 2026-08-29: SIGTSTP で停止した codex は
+  // 実在するが打鍵は bash が受け、room 本文がコマンド実行された）でも足りない。
+  // ps の STAT `+` は tty の前面プロセスグループを OS が直接教える印であり、
+  // 死亡・停止（T）・背面化のすべてを一つの条件で塞ぐ。
+  const ttyOut = await run('tmux', tmuxArgv(['display-message', '-p', '-t', observation.target, '#{pane_tty}'], { socket: observation.socket }))
+  const paneTty = String(ttyOut.stdout ?? '').trim().replace(/^\/dev\//u, '')
+  const SHELLS = ['bash', 'zsh', 'sh', 'dash', 'fish', 'tcsh', 'csh', 'ksh']
+  let foregroundIsAgent = false
+  let foregroundLabel = '(不明)'
+  if (paneTty) {
+    const psOut = await run('/bin/ps', ['-t', paneTty, '-o', 'stat=,command='], { env: { ...process.env, LC_ALL: 'C' } })
+    for (const line of String(psOut.stdout ?? '').split('\n')) {
+      const m = line.trim().match(/^(\S+)\s+(.*)$/u)
+      if (!m || !m[1].includes('+')) continue
+      const base = String(m[2]).split(/\s+/u, 1)[0].split('/').pop()
+      if (SHELLS.includes(base)) {
+        foregroundLabel = base
+        continue
       }
-      const queue = [...(children.get(panePid) ?? [])]
-      while (queue.length) {
-        const pid = queue.pop()
-        const argv0 = String(commands.get(pid) ?? '').split(/\s+/u, 1)[0]
-        const base = argv0.split('/').pop()
-        if (base === harness || (harness === 'claude' && base === 'node' && String(commands.get(pid) ?? '').includes('claude'))) {
-          harnessAlive = true
-          break
-        }
-        queue.push(...(children.get(pid) ?? []))
-      }
+      foregroundIsAgent = true
+      break
     }
-    if (!harnessAlive) {
-      log(`SEAT_TUI_GONE: ${seat} の pane（前面 ${fgCommand}）の子孫に ${memberHarness(member) ?? '?'} CLI が見つからない＝agent 終了済み。`
-        + 'shell へのコマンド実行を防ぐため配達しない。席を立て直すか leave-seat で畳むこと')
-      const error = new Error(`SEAT_TUI_GONE: ${seat}`)
-      error.code = 'SEAT_TUI_GONE'
-      throw error
-    }
+  }
+  if (!foregroundIsAgent) {
+    log(`SEAT_TUI_GONE: ${seat} の pane tty 前面が agent CLI でない（前面: ${foregroundLabel}）＝`
+      + '打鍵は shell に落ちる（agent 死亡・SIGTSTP 停止・背面化）。'
+      + 'shell へのコマンド実行を防ぐため配達しない。席を立て直すか leave-seat で畳むこと')
+    const error = new Error(`SEAT_TUI_GONE: ${seat}`)
+    error.code = 'SEAT_TUI_GONE'
+    throw error
   }
   if (await passKnownCodexDialog(member)) return 'deferred'
   const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
