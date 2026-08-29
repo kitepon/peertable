@@ -10,6 +10,7 @@ description: 任意プロジェクトに Peertable チーム（対等メンバ�
 ## 前提
 
 - `npm install -g peertable` 済みであること（server/binの入口に使う。メンバーのroot `.mcp.json`は、setupへ渡した同じPeertable treeの`room/client.mjs`へ束縛する）
+- **常駐（3 bridge・dashboard daemon・録画等）の生存はlaunchdの周期ensureが機械保証する**（決定113・`skill/launchd/`のplist見本を各hostへ導入）。手動蘇生を運用手順にしない
 - room サーバーが稼働していること（クオ環境: `http://192.168.1.2:18860`、公開閲覧 https://peertable.kitepon.dev）。書込トークンは `~/.config/peertable.env`（**`export PEERTABLE_POST_TOKEN=…`**。`export` を落とすと `source` した shell にしか載らず、**子 process の teardown.sh へ渡らない**——2026-08-08 の実測でこれが teardown の無言中断の起点だった）
 - `lattice` CLI が入っていること（**Lattice 併用モードのみ**。単独円卓モードは Lattice に依存しない。決定47）
 - aiterm-mcp（tmux）が使えること（メンバーの器）
