@@ -11,5 +11,6 @@ assert.ok(stop >= 0, 'teardown must invoke alarm-bridge --stop')
 assert.ok(remove >= 0 && stop < remove, 'alarm-bridge must stop before .team removal')
 assert.match(source, /did "alarm-bridge 停止"/, 'successful stop must be reported')
 assert.match(source, /miss "alarm-bridge 停止に失敗/, 'failed stop must remain visible and non-green')
+assert.ok(source.includes('-X DELETE "$url/api/$room/bridges"'), 'archive teardown must clear stopped bridge records')
 
 console.log('teardown alarm stop repro: green')

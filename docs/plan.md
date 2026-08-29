@@ -1775,4 +1775,4 @@ LiveTRのWindows席でboothとroomの2件選択画面が出たが、launcherは�
 
 ## 68. teardownはalarm-bridgeを停止してから生成物を消す（2026-08-29・決定130）
 
-**決定130: teardownの常駐停止対象はwakeup／seat-status／alarmの3bridgeすべて。** Windowsではalarm-bridgeが`alarm-bridge.log`を開いたまま残り、`.team`の再帰削除が`Device or resource busy`で停止した。`teardown.sh`は`alarm-bridge.json`がある時に公開`alarm-bridge.mjs <project> --stop`を呼び、成功・失敗を既存の段別報告へ出してから`.team`削除へ進む。patch `0.8.31`。
+**決定130: teardownの常駐停止対象はwakeup／seat-status／alarmの3bridgeすべて。** Windowsではalarm-bridgeが`alarm-bridge.log`を開いたまま残り、`.team`の再帰削除が`Device or resource busy`で停止した。`teardown.sh`は`alarm-bridge.json`がある時に公開`alarm-bridge.mjs <project> --stop`を呼び、成功・失敗を既存の段別報告へ出してから`.team`削除へ進む。archive解散では停止後に`DELETE /api/<room>/bridges`でbridge台帳も消し、参加者0の部屋へ停止警告を残さない。patch `0.8.31`。

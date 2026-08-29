@@ -304,6 +304,14 @@ urllib.request.urlopen(req, timeout=10).read()
     done <<<"$member_lines"
     did "メンバー登録の解除（${n}名）— **部屋と過去ログは残す**（${url}/${room}）"
   fi
+  if [ -n "${PEERTABLE_POST_TOKEN:-}" ]; then
+    bridge_code=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE "$url/api/$room/bridges" -H "X-Peertable-Token: $PEERTABLE_POST_TOKEN" || true)
+    if [ "$bridge_code" = 200 ]; then
+      did "停止済みbridge台帳の解除（archive roomを未登録表示へ戻す）"
+    else
+      miss "停止済みbridge台帳の解除に失敗（HTTP ${bridge_code:-000}）"
+    fi
+  fi
 # room 削除は --purge だけ。トークンを要する唯一の段で、ここだけが外部サービスへの依存境界
 elif [ "$log_saved" = no ]; then
   miss "room 削除 $room — ログを保全できていないので消さない（保全より先に消すと会話は二度と戻らない）"

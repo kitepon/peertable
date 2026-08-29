@@ -181,4 +181,5 @@ test('teardownはalarm-bridgeを停止してから.teamを削除する', () => {
   assert.ok(remove >= 0 && stop < remove)
   assert.ok(source.includes('did "alarm-bridge 停止"'))
   assert.ok(source.includes('miss "alarm-bridge 停止に失敗'))
+  assert.ok(source.includes('-X DELETE "$url/api/$room/bridges"'))
 })

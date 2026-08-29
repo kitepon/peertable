@@ -127,6 +127,13 @@ try {
   const ui = await (await fetch(`http://127.0.0.1:${port}/${ROOM}`)).text()
   check('UI が status_effective を読む', ui.includes('m.status_effective'))
   check('UI に独自の鮮度計算が残っていない', !ui.includes('STATUS_STALE_MS'))
+
+  // 8) 解散時は停止済みbridge台帳を消し、archive roomへ恒久的な停止警告を残さない
+  const cleared = await fetch(`${base}/bridges`, { method: 'DELETE', headers })
+  check('bridge台帳の解散用DELETEが成功する', cleared.status === 200)
+  ;({ bridges } = await (await fetch(`${base}/members`)).json())
+  check('削除後はbridge未登録へ戻る', bridges.seat_status.state === 'status_bridge_unreported'
+    && bridges.wakeup.state === 'wakeup_bridge_unreported')
 } finally {
   server.kill('SIGTERM')
   await Promise.race([once(server, 'exit'), sleep(1000)])

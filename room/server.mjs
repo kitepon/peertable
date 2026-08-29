@@ -477,6 +477,13 @@ http.createServer(async (req, res) => {
       authFailures.delete(`${room.name}/${kind}`)
       return json(res, 200, { ok: true })
     }
+    // archive teardown はroomと会話ログを残すため、停止済みbridge台帳だけを消す。
+    // 消さないと空のarchive roomへstatus_bridge_down警告が恒久表示される。
+    if (req.method === 'DELETE' && rest === 'bridges') {
+      db.prepare('DELETE FROM bridges WHERE room = ?').run(room.name)
+      for (const kind of BRIDGE_KINDS) authFailures.delete(`${room.name}/${kind}`)
+      return json(res, 200, { ok: true })
+    }
     // 配送 receipt（決定102）。書き手は wakeup-bridge だけ。同じ (seq, recipient) は最新で上書き
     // （seat_unavailable → 再試行成功 delivered の遷移を残すため）
     if (req.method === 'POST' && rest === 'deliveries') {
