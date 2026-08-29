@@ -18,7 +18,10 @@ export function keysForCodexPane(screen) {
   const idleComposer = lines.some(line => /^\s*›(?:\s*$|\s+(?!\d+\.))/u.test(line))
     && lines.some(line => /gpt-[\w.-]+/iu.test(line) && line.includes('·'))
   if (busy || idleComposer) return null
-  const dialogText = tail
+  // 長いcommand approvalは質問行が24行より上へ押し出される。現在の選択footerが末尾に
+  // 在る時だけ全画面を読み、footerが無い通常画面では古いscrollbackを拾わない。
+  const activeDialogFooter = /Press enter to confirm or esc to cancel|enter to submit \| esc to cancel/iu.test(tail)
+  const dialogText = activeDialogFooter ? text : tail
   if (dialogText.includes(MCP_ALLOW_NEEDLE) && dialogText.includes(MCP_ALWAYS_ALLOW)) {
     return { kind: 'mcp-allow', keys: ['Down', 'Down', 'Enter'] }
   }

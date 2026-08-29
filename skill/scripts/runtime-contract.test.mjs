@@ -52,6 +52,16 @@ test('Codexの現在busy／idle composerはscrollbackの古い許可文より優
   assert.equal(keysForCodexPane([...stale, '› Ask Codex to do anything', 'gpt-5.6-terra high · ~/work'].join('\n')), null)
 })
 
+test('Codexの長い承認文は現在footerがあれば24行を越えても検出する', () => {
+  const screen = [
+    'Would you like to run the following command?',
+    "2. Yes, and don't ask again for commands that start with Get-Process",
+    ...Array(28).fill('wrapped command line'),
+    'Press enter to confirm or esc to cancel',
+  ].join('\n')
+  assert.deepEqual(keysForCodexPane(screen), { kind: 'command-approval', keys: ['Down', 'Enter'] })
+})
+
 test('着座はAiterm dispatch前に独自prompt連続判定を重ねない', () => {
   const source = readFileSync(new URL('./launch-seat.sh', import.meta.url), 'utf8')
   const activeBranch = source.slice(
