@@ -1,6 +1,6 @@
 {
   "name": "peertable",
-  "version": "0.8.36",
+  "version": "0.8.37",
   "description": "A round table of peer agents. No orchestrator at the head. Turn Claude Code, Codex, and Grok sessions into a team of equal, long-lived peers.",
   "type": "module",
   "license": "MIT",

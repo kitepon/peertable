@@ -226,6 +226,7 @@ setInterval(beatBridge, 5_000) // 送信自体は BEAT_MS で間引く。失敗�
 // 席ごとに未配達を溜めて、2秒ごとにまとめて1回起こす（連投で席を何度も起こさない）。
 // pending は room message の宛先名から作る。起動引数や harness は候補集合を決めない。
 const pending = new Map() // name -> Map<seq, message>
+const stuckStreaks = new Map() // name -> { key: 'seq,seq', count }（DELIVERY_STUCK連続数。5回で打ち切り）
 const deliveryStates = new Map() // seq -> { message, targets, delivered }
 let seats = []
 let members = new Map()
@@ -557,7 +558,16 @@ async function wake(seat, msgs) {
         || (marker.length >= 8 && tailSquashed.includes(marker) && !queuedOrRunning))
     if (!stuck) break
     if (attempt === 2) {
-      log(`DELIVERY_STUCK: ${seat} の入力欄に本文が残ったまま送信できない（popup／入力詰まり）。受領を確定せず次周期に再試行する`)
+      // 蓄積戦争の禁止: 次周期は束ねる本文が変わり得て残存照合が外れ、全文再打鍵が
+      // composer を多重本文で埋める（実被弾 2026-08-29 に2回）。STUCKで周期を明け渡す前に
+      // composer を行数分の C-u で空にし、次周期が常に「空の入力欄へ1部だけ」から始まる
+      // 構造にする。
+      const wipePane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
+      const wipeLines = Math.min(120, String(wipePane.stdout ?? '').split('\n').length + 10)
+      for (let i = 0; i < wipeLines; i++) {
+        await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'C-u'], { socket: observation.socket }))
+      }
+      log(`DELIVERY_STUCK: ${seat} の入力欄に本文が残ったまま送信できない（popup／入力詰まり）。入力欄を掃除し、受領を確定せず次周期に再試行する`)
       const error = new Error(`DELIVERY_STUCK: ${seat}`)
       error.code = 'DELIVERY_STUCK'
       throw error
@@ -693,6 +703,22 @@ async function flushSeat(seat) {
     // 再試行が成立すれば同じ (seq, recipient) を delivered で上書きする
     const result = ['SEAT_TUI_GONE', 'MEMBER_MISSING', 'DESCRIPTOR_MISSING'].includes(code) ? 'seat_unavailable' : 'failed'
     for (const msg of msgs) await postReceipt(msg.seq, seat, result, code)
+    // 同一集合のSTUCKが5周期続いたら再試行を打ち切る。failed receiptと親宛[配達失敗]DMは
+    // 既に出ており、無限の打鍵再試行は席のcomposerを汚し続けるだけで誰も救わない。
+    if (code === 'DELIVERY_STUCK') {
+      const key = msgs.map((msg) => msg.seq).join(',')
+      const prev = stuckStreaks.get(seat)
+      const count = prev?.key === key ? prev.count + 1 : 1
+      stuckStreaks.set(seat, { key, count })
+      if (count >= 5) {
+        const queue = pending.get(seat)
+        if (queue) for (const msg of msgs) queue.delete(msg.seq)
+        stuckStreaks.delete(seat)
+        log(`DELIVERY_ABANDONED: ${seat} への seq ${key} は5周期連続STUCKのため再試行を打ち切る（receipt=failed・親へ通知済み）`)
+      }
+    } else {
+      stuckStreaks.delete(seat)
+    }
   } finally {
     flushing.delete(seat)
   }
