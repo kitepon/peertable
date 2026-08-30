@@ -37,8 +37,8 @@ def main(argv):
     lines = [
         f"# 円卓ログ — room `{room}`（全{len(messages)}発言）",
         "",
-        "teardown（archive モード）が書き出した正史。room サーバー側は削除済みなので、"
-        "この文書が唯一の記録である。",
+        "teardown（archive モード）が、解散の区切りを投稿する前までの room ログを書き出した控え。"
+        "room と過去ログの原本はサーバー側に残り、次の卓も同じ room で続く。",
         "",
         "---",
         "",

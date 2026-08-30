@@ -198,3 +198,31 @@ test('teardownはalarm-bridgeを停止してから.teamを削除する', () => {
   assert.ok(source.includes('miss "alarm-bridge 停止に失敗'))
   assert.ok(source.includes('-X DELETE "$url/api/$room/bridges"'))
 })
+
+test('archive room logは解散区切り前の控えであり原本をroomに残すと明記する', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'peertable-archive-room-log-'))
+  const out = join(dir, 'room-log.md')
+  const script = fileURLToPath(new URL('./archive-room-log.py', import.meta.url))
+  const fixture = JSON.stringify({
+    messages: [{ seq: 1, from: 'bell', to_names: ['all'], ts: '2026-08-30T00:00:00Z', body: '完了' }],
+  })
+  const python = [
+    'import importlib.util, json, sys',
+    'spec = importlib.util.spec_from_file_location("archive_room_log", sys.argv[1])',
+    'module = importlib.util.module_from_spec(spec)',
+    'spec.loader.exec_module(module)',
+    'fixture = json.loads(sys.argv[3])',
+    'module.fetch = lambda _url, _path: fixture',
+    'raise SystemExit(module.main(["https://room.example", "factory", sys.argv[2]]))',
+  ].join('; ')
+  try {
+    const result = spawnSync('python3', ['-c', python, script, out, fixture], { encoding: 'utf8' })
+    assert.equal(result.status, 0, result.stderr)
+    const log = readFileSync(out, 'utf8')
+    assert.match(log, /解散の区切りを投稿する前までの room ログを書き出した控え/u)
+    assert.match(log, /room と過去ログの原本はサーバー側に残り、次の卓も同じ room で続く/u)
+    assert.doesNotMatch(log, /削除済み|唯一の記録/u)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
