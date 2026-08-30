@@ -598,9 +598,9 @@ const UI = room => `<!doctype html><html lang="ja"><head><meta charset="utf-8"><
 .bridgewarn:empty{display:none}
 .chip.has-meta{cursor:pointer}
 /* 稼働状態の点。報告が途絶えたら unknown（中空）へ落として、古い状態を出し続けない */
-.chip .nm{display:inline-flex;align-items:center;gap:5px}
-.chip .state-label{font-size:10px;font-weight:700;color:var(--dim);white-space:nowrap}
-.chip .activity{display:block;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);font-size:10px;font-weight:500}
+.chip .id{display:inline-grid;grid-template-columns:min-content}
+.chip .nm{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.chip .activity{display:block;width:0;min-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);font-size:10px;font-weight:500}
 .chip .st{flex:none;display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dim)}
 .chip .st.busy{background:var(--busy)}
 .chip .st.idle{background:var(--idle)}
@@ -610,7 +610,7 @@ const UI = room => `<!doctype html><html lang="ja"><head><meta charset="utf-8"><
 .metapop{position:fixed;z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.18);max-width:70vw}
 .metapop .metaname{font-weight:600;margin-bottom:2px}
 .metapop .metaline{color:var(--dim)}
-.chip{position:relative;flex:none;display:flex;align-items:center;gap:7px;min-width:150px;max-width:230px;padding:6px 11px 6px 6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:12px;font-weight:600}
+.chip{position:relative;flex:none;display:flex;align-items:center;gap:7px;padding:6px 11px 6px 6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:12px;font-weight:600}
 .chip .av{width:22px;height:22px;font-size:11px;flex:none}
 .chip .id{display:flex;flex-direction:column;gap:1px;min-width:0;line-height:1.25}
 .chip.recent{border-color:hsl(var(--h) var(--sat) var(--edge))}
@@ -840,11 +840,10 @@ async function refreshMembers(){
     const id=el('span','id')
     const nameRow=el('span','nm',m.name)
     nameRow.appendChild(el('span','st '+(st??'unknown')))
-    nameRow.appendChild(el('span','state-label',stateText))
     id.appendChild(nameRow)
-    id.appendChild(el('span','activity',m.activity_text??'現在作業未取得'))
+    id.appendChild(el('span','activity',rolesText||'役割未設定'))
     c.appendChild(id)
-    c.setAttribute('aria-label',m.name+'、'+stateText+'、'+(m.activity_text??'現在作業未取得'))
+    c.setAttribute('aria-label',m.name+'、'+stateText+'、'+(rolesText||'役割未設定'))
     // タップ環境には hover が無いので、押した時に同じ内容を出す（ホバーは title が担う）
     if(meta.length){c.classList.add('has-meta');c.addEventListener('click',ev=>{ev.stopPropagation();showMeta(c,m,meta)})}
     membersEl.appendChild(c)
