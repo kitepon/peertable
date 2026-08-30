@@ -311,6 +311,17 @@ urllib.request.urlopen(req, timeout=10).read()
     else
       miss "停止済みbridge台帳の解除に失敗（HTTP ${bridge_code:-000}）"
     fi
+    # 解散した room を公開一覧（/api/rooms・トップページ主一覧）から外す。外さないと公開面が
+    # 過去卓で埋まり、公開トップの live 窓が死卓を選び続ける（2026-08-30 実測）。
+    # 次の setup の member 登録が自動で解除するので、復活に手作業は要らない
+    arch_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$url/api/$room/archive" -H "X-Peertable-Token: $PEERTABLE_POST_TOKEN" || true)
+    if [ "$arch_code" = 200 ]; then
+      did "room を公開一覧から archive（個別ページとログは残る）"
+    elif [ "$arch_code" = 404 ]; then
+      skip "room の archive（server が archive を持たない版・公開一覧に残る）"
+    else
+      miss "room の archive に失敗（HTTP ${arch_code:-000}）"
+    fi
   fi
 # room 削除は --purge だけ。トークンを要する唯一の段で、ここだけが外部サービスへの依存境界
 elif [ "$log_saved" = no ]; then

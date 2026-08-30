@@ -179,7 +179,7 @@ async function notifyParentOfFailure(seq, recipient, result, reason) {
   if (!parentName) return
   const key = `${seq}:${recipient}`
   if (result === 'delivered') {
-    notifiedFailures.delete(key)
+    if (notifiedFailures.delete(key)) saveDeliveryState()
     failureStreaks.delete(key)
     return
   }
@@ -202,6 +202,7 @@ async function notifyParentOfFailure(seq, recipient, result, reason) {
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     notifiedFailures.add(key)
+    saveDeliveryState()
   } catch (error) {
     log(`DELIVERY_FAILURE_NOTIFY_FAILED ${JSON.stringify({ seq, recipient, detail: error.message.split('\n')[0] })}`)
   }
@@ -234,7 +235,10 @@ setInterval(beatBridge, 5_000) // 送信自体は BEAT_MS で間引く。失敗�
 // 席ごとに未配達を溜めて、2秒ごとにまとめて1回起こす（連投で席を何度も起こさない）。
 // pending は room message の宛先名から作る。起動引数や harness は候補集合を決めない。
 const pending = new Map() // name -> Map<seq, message>
-const stuckStreaks = new Map() // name -> { key: 'seq,seq', count }（DELIVERY_STUCK連続数。5回で打ち切り）
+const stuckStreaks = new Map() // name -> { key: 'seq,seq', code, count }（連続失敗数。STUCK=5・席不在=150周期で打ち切り）
+// 席不在系の打ち切り周期（150周期≈5分）。上書きは experiments の再現 harness が待ち時間短縮に使うだけ
+const goneAbandonCycles = Number(process.env.PEERTABLE_GONE_ABANDON_CYCLES) > 0
+  ? Number(process.env.PEERTABLE_GONE_ABANDON_CYCLES) : 150
 const deliveryStates = new Map() // seq -> { message, targets, delivered }
 let seats = []
 let members = new Map()
@@ -300,14 +304,15 @@ function markReady() {
 function loadDeliveryState() {
   try {
     const saved = JSON.parse(readFileSync(deliveryStatePath, 'utf8'))
-    if (saved.room !== room || saved.server_url !== url) return { primed: false, lastSeq: 0, delivered: new Set() }
+    if (saved.room !== room || saved.server_url !== url) return { primed: false, lastSeq: 0, delivered: new Set(), notified: new Set() }
     return {
       primed: saved.primed === true,
       lastSeq: Number.isSafeInteger(saved.last_seq) && saved.last_seq >= 0 ? saved.last_seq : 0,
       delivered: new Set(Array.isArray(saved.delivered) ? saved.delivered.filter(key => typeof key === 'string') : []),
+      notified: new Set(Array.isArray(saved.notified) ? saved.notified.filter(key => typeof key === 'string') : []),
     }
   } catch {
-    return { primed: false, lastSeq: 0, delivered: new Set() }
+    return { primed: false, lastSeq: 0, delivered: new Set(), notified: new Set() }
   }
 }
 
@@ -315,6 +320,10 @@ const deliveryState = loadDeliveryState()
 let lastSeq = deliveryState.lastSeq
 const delivered = deliveryState.delivered
 let primed = deliveryState.primed
+// 通知済み集合を耐再起動にする。メモリだけだと bridge が再起動するたび同じ [配達失敗] DM を
+// room へ再投稿する（2026-08-30 実測: 13回の再起動で同一通知が13重複し、公開feedの末尾78件が
+// 全部配達失敗になった）
+for (const key of deliveryState.notified) notifiedFailures.add(key)
 function saveDeliveryState() {
   const temp = `${deliveryStatePath}.${process.pid}.tmp`
   writeFileSync(temp, JSON.stringify({
@@ -323,6 +332,7 @@ function saveDeliveryState() {
     primed,
     last_seq: lastSeq,
     delivered: [...delivered].slice(-10_000),
+    notified: [...notifiedFailures].slice(-10_000),
   }) + '\n')
   renameSync(temp, deliveryStatePath)
 }
@@ -723,18 +733,31 @@ async function flushSeat(seat) {
     // 再試行が成立すれば同じ (seq, recipient) を delivered で上書きする
     const result = ['SEAT_TUI_GONE', 'MEMBER_MISSING', 'DESCRIPTOR_MISSING'].includes(code) ? 'seat_unavailable' : 'failed'
     for (const msg of msgs) await postReceipt(msg.seq, seat, result, code)
-    // 同一集合のSTUCKが5周期続いたら再試行を打ち切る。failed receiptと親宛[配達失敗]DMは
-    // 既に出ており、無限の打鍵再試行は席のcomposerを汚し続けるだけで誰も救わない。
-    if (code === 'DELIVERY_STUCK') {
+    // 同一集合の失敗が続いたら再試行を打ち切る。STUCK は5周期（composer汚染を止める）、
+    // 席不在系は150周期≈5分（席の再起動・立て直しは待ち、卓ごと死んだ席だけを見切る）。
+    // 打ち切りは delivered 台帳へ耐再起動で記録する——記録しないと lastSeq が前進せず、
+    // bridge の再起動ごとに同じ seq の再試行が蘇る（2026-08-30 実測: 席全滅の卓で
+    // seq 2件が18時間・3.7万行の SEAT_TUI_GONE を刻み続けた）。failed receipt と
+    // 親宛[配達失敗]DMは既に出ており、無限再試行は誰も救わない。
+    const abandonAfter = code === 'DELIVERY_STUCK' ? 5
+      : ['SEAT_TUI_GONE', 'MEMBER_MISSING', 'DESCRIPTOR_MISSING'].includes(code) ? goneAbandonCycles
+      : null
+    if (abandonAfter !== null) {
       const key = msgs.map((msg) => msg.seq).join(',')
       const prev = stuckStreaks.get(seat)
-      const count = prev?.key === key ? prev.count + 1 : 1
-      stuckStreaks.set(seat, { key, count })
-      if (count >= 5) {
+      const count = prev?.key === key && prev.code === code ? prev.count + 1 : 1
+      stuckStreaks.set(seat, { key, code, count })
+      if (count >= abandonAfter) {
         const queue = pending.get(seat)
-        if (queue) for (const msg of msgs) queue.delete(msg.seq)
+        for (const msg of msgs) {
+          if (queue) queue.delete(msg.seq)
+          deliveryStates.get(msg.seq)?.delivered.add(seat)
+          delivered.add(deliveryKey(msg.seq, seat))
+        }
         stuckStreaks.delete(seat)
-        log(`DELIVERY_ABANDONED: ${seat} への seq ${key} は5周期連続STUCKのため再試行を打ち切る（receipt=failed・親へ通知済み）`)
+        saveDeliveryState()
+        advanceLastSeq()
+        log(`DELIVERY_ABANDONED: ${seat} への seq ${key} は${count}周期連続${code}のため再試行を打ち切る（receipt=${result}・親へ通知済み・再起動後も再試行しない）`)
       }
     } else {
       stuckStreaks.delete(seat)

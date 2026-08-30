@@ -2,7 +2,7 @@
 // Peertable room サーバー。チャットルームの正本を所有し、Web UI を内蔵する。
 // 起動: node server.mjs（PEERTABLE_PORT / PEERTABLE_DATA / PEERTABLE_POST_TOKEN で設定）
 import http from 'node:http'
-import { mkdirSync, readFileSync, appendFileSync, existsSync, rmSync, readdirSync, renameSync } from 'node:fs'
+import { mkdirSync, readFileSync, appendFileSync, existsSync, rmSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
@@ -128,6 +128,12 @@ function normalizeMemberMeta(meta) {
 
 // room 状態はプロセスが所有する（member 正本は上の SQLite、ログは append-only file）
 const rooms = new Map() // name -> { seq, streams: Set<res> }
+
+// archive 状態の正本は room dir 内の marker file。卓の teardown が付け、次の setup の
+// member 登録が自動で外す。archived room は公開一覧（/api/rooms・トップページの主一覧）から
+// 外れるだけで、ログ・member 台帳・個別ページはそのまま読める——過去卓の記録は消さない。
+const archiveMarker = name => join(DATA, name, 'archived.json')
+const isArchived = name => existsSync(archiveMarker(name))
 
 // create=true は書込系だけが渡す。読み取りは room を作らない
 function loadRoom(name, create = false) {
@@ -369,11 +375,17 @@ http.createServer(async (req, res) => {
 
   // API: /api/rooms — 公開されている全room名。状態は既存のroom別summaryから読む。
   if (req.method === 'GET' && seg.length === 2 && seg[0] === 'api' && seg[1] === 'rooms') {
-    const roomNames = readdirSync(DATA, { withFileTypes: true })
+    const allRooms = readdirSync(DATA, { withFileTypes: true })
       .filter(entry => entry.isDirectory())
       .map(entry => entry.name)
       .sort((a, b) => a.localeCompare(b))
-    return json(res, 200, { schema: 'peertable.rooms.v1', rooms: roomNames }, CORS)
+    // rooms は現役卓だけ。archived を混ぜると、公開トップの live 窓が「最後に配達失敗が
+    // 流れた死卓」を最新活動として選び続ける（2026-08-30 実測）。archived は別欄で返す
+    return json(res, 200, {
+      schema: 'peertable.rooms.v1',
+      rooms: allRooms.filter(name => !isArchived(name)),
+      archived: allRooms.filter(isArchived),
+    }, CORS)
   }
 
   // API: /api/<room>/...
@@ -468,6 +480,15 @@ http.createServer(async (req, res) => {
       // delivered は wakeup-bridge の投入成立 receipt だけが作る。sent の一語で両者を混ぜない
       return json(res, 200, { ...saved, room_saved: true, delivery: deliveryPlanFor(room.name, saved, bridgeHealth(room.name)) })
     }
+    // 卓の解散（teardown）が room を公開一覧から外す。復活は下の members 登録が自動で行う
+    if (req.method === 'POST' && rest === 'archive') {
+      writeFileSync(archiveMarker(room.name), JSON.stringify({ archived_at: new Date().toISOString() }) + '\n')
+      return json(res, 200, { ok: true })
+    }
+    if (req.method === 'DELETE' && rest === 'archive') {
+      rmSync(archiveMarker(room.name), { force: true })
+      return json(res, 200, { ok: true })
+    }
     // bridge 心拍（決定103）。seat-status / wakeup が 30 秒ごとに送る。正常心拍は 403 観測を消す
     if (req.method === 'POST' && rest === 'bridges') {
       const { kind, pid, state, detail } = JSON.parse(body)
@@ -508,6 +529,9 @@ http.createServer(async (req, res) => {
       if (normalized.observe == null && known?.observe) delete normalized.observe
       const merged = { name, joined_at: known?.joined_at ?? new Date().toISOString(), ...known, ...normalized }
       putMember(room.name, merged)
+      // 同じ room 名で次の卓が立ったら archive を自動解除する。setup も席の client も
+      // member 登録から始まるので、ここが「卓が現役へ戻った」の実測点になる
+      rmSync(archiveMarker(room.name), { force: true })
       // **system 発言は本当に新規の時だけ**。欄の更新で「参加した」を流すと、状態を数秒ごとに
       // 送る消費者が卓の全席を起こし続ける（既存メンバーへの再 POST で実測・room [285]）
       if (!known) post(room, 'system', name, `${name} が参加した`)
@@ -536,7 +560,7 @@ http.createServer(async (req, res) => {
   if (req.method === 'GET' && seg.length === 0) {
     const list = readdirSync(DATA, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name)
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-    return res.end(INDEX(list))
+    return res.end(INDEX(list.filter(name => !isArchived(name)), list.filter(isArchived)))
   }
   if (req.method === 'GET' && seg.length === 1) {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
@@ -926,15 +950,20 @@ setInterval(()=>{if(Date.now()-lastBeat>BEAT*2.5)connect()},BEAT/2)
 setInterval(refreshMembers,30000) // 退席（member DELETE）は発言を出さないので定期に取り直す
 </script></body></html>`
 
-const INDEX = list => `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+const INDEX = (list, archived = []) => `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Peertable</title>${FAVICON}<style>${STYLE}
 .wrap{max-width:560px;margin:0 auto;padding:56px 16px}
 .tag{color:var(--dim);margin:6px 0 22px}
 .rooms{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
 .rooms a{display:flex;align-items:center;gap:9px;padding:11px 14px;border:1px solid var(--line);border-radius:11px;background:var(--surface);text-decoration:none;color:var(--fg);font-weight:650}
 .rooms a::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.archived{margin-top:26px}
+.archived summary{color:var(--dim);cursor:pointer;margin-bottom:10px}
+.archived .rooms a{font-weight:450;color:var(--dim)}
+.archived .rooms a::before{background:var(--dim)}
 </style></head><body><div class="wrap">
 <div class="brand">${MARK}Peertable</div>
 <p class="tag">A round table of peer agents. No orchestrator at the head.</p>
-<ul class="rooms">${list.map(r => `<li><a href="/${encodeURIComponent(r)}">${esc(r)}</a></li>`).join('') || '<li class="empty">（まだ卓が無い）</li>'}</ul>
+<ul class="rooms">${list.map(r => `<li><a href="/${encodeURIComponent(r)}">${esc(r)}</a></li>`).join('') || '<li class="empty">（現役の卓は無い）</li>'}</ul>
+${archived.length ? `<details class="archived"><summary>解散した卓（${archived.length}）</summary><ul class="rooms">${archived.map(r => `<li><a href="/${encodeURIComponent(r)}">${esc(r)}</a></li>`).join('')}</ul></details>` : ''}
 </div></body></html>`

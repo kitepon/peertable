@@ -4,7 +4,7 @@
   "display_name": "peertable",
   "external_pane": {
     "title": "円卓",
-    "url": "https://peertable.kitepon.dev/peertable-autonomy-runtime-20260811",
-    "probe_url": "https://peertable.kitepon.dev/api/peertable-autonomy-runtime-20260811/members"
+    "url": "https://peertable.kitepon.dev/peertable",
+    "probe_url": "https://peertable.kitepon.dev/api/peertable/members"
   }
 }

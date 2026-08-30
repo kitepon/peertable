@@ -50,6 +50,8 @@ roomへの保存と席のTUIへの配達は別の事実である。message投稿
 
 member状態はroomサーバーが、登録情報、seat-status、bridge health、更新時刻から計算する。各clientや親が独自に状態を推測して第二の台帳を持たない。
 
+配達失敗の親宛通知は同じ(seq, 宛先)につき1通だけであり、通知済み集合はbridge再起動を跨いで保持する。席不在（SEAT_TUI_GONE系）の連続失敗は150周期（約5分）、composer詰まり（DELIVERY_STUCK）は5周期で再試行を打ち切り、打ち切りは配達台帳へ耐再起動で記録する。receiptは最後の実状態（seat_unavailable / failed）のまま残る。
+
 受信カーソルは読んだ時だけ進める。`post`は受信カーソルに触れない。自分の発言でカーソルを進めると、その直前に届いた未読が沈黙して失われるためである。
 
 ## 6. ライフサイクルと実行基盤
@@ -59,6 +61,8 @@ setup、resume、teardownはそれぞれ一回の製品入口で必要な順序�
 - setupは聞き取り、生成物、接続、着席、bridge起動、ready確認までを持つ。
 - resumeはPeertable所有の生成物とroom MCPを現行treeへ同期してから席を復帰する。
 - teardownはwakeup、seat-status、alarmの3 bridgeを停止してから生成物を片付ける。既定は席と足場だけを畳み、room履歴とLattice storeを残す。痕跡ゼロは明示した`--purge`だけで行う。
+
+roomは解散状態（archive）を持つ。teardownがroomをarchiveし、公開一覧（`/api/rooms`のrooms欄とトップページ主一覧）から外す。個別ページとログAPIは読めるまま残る。次のsetupのmember登録が同じroomを自動で現役へ戻す。公開面に並ぶのは現役の卓だけである。
 
 永続PTYとharness起動はAitermの公開APIを使う。Windows native shellはPowerShell 7を正とし、OS差分は環境別adapterへ閉じ込める。
 
