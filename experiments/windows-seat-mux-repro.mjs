@@ -36,22 +36,38 @@ assert.deepEqual(resolveLatticeExecutable('/opt/lattice', { platform: 'linux' })
   command: '/opt/lattice',
   argv: ['todo', 'status', '--json'],
 })
-const comspec = process.env.ComSpec || 'cmd.exe'
+const pwsh = 'C:/Program Files/PowerShell/7/pwsh.exe'
 assert.deepEqual(
-  resolveLatticeExecutable('C:/npm/lattice', { platform: 'win32', exists: (p) => p === 'C:/npm/lattice.cmd' }),
-  { command: comspec, argv: ['/d', '/c', 'C:/npm/lattice.cmd', 'todo', 'status', '--json'] },
+  resolveLatticeExecutable('C:/npm/lattice', { platform: 'win32', exists: (p) => p === 'C:/npm/lattice.ps1' }),
+  {
+    command: 'pwsh.exe',
+    argv: ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', 'C:/npm/lattice.ps1', 'todo', 'status', '--json'],
+  },
 )
 assert.deepEqual(
-  resolveLatticeExecutable('C:/npm/lattice.cmd', { platform: 'win32', exists: () => false }),
-  { command: comspec, argv: ['/d', '/c', 'C:/npm/lattice.cmd', 'todo', 'status', '--json'] },
+  resolveLatticeExecutable('C:/npm/lattice.cmd', {
+    platform: 'win32',
+    exists: p => p === 'C:/npm/lattice.ps1',
+  }),
+  {
+    command: 'pwsh.exe',
+    argv: ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', 'C:/npm/lattice.ps1', 'todo', 'status', '--json'],
+  },
 )
 assert.deepEqual(
   resolveLatticeInvocation('C:/npm/lattice', ['status', '--json'], {
     platform: 'win32',
-    exists: p => p === 'C:/npm/lattice.cmd',
-    comspec,
+    exists: p => p === 'C:/npm/lattice.ps1',
+    pwsh,
   }),
-  { command: comspec, argv: ['/d', '/c', 'C:/npm/lattice.cmd', 'status', '--json'] },
+  {
+    command: pwsh,
+    argv: ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', 'C:/npm/lattice.ps1', 'status', '--json'],
+  },
+)
+assert.throws(
+  () => resolveLatticeExecutable('C:/npm/lattice.cmd', { platform: 'win32', exists: () => false }),
+  error => error?.code === 'PEERTABLE_WINDOWS_PWSH_SHIM_REQUIRED',
 )
 
 const liveNs = aitermPsmuxNamespace(process.env)
@@ -60,4 +76,4 @@ if (process.platform === 'win32') {
   assert.equal(liveNs, `aiterm-${createHash('sha1').update(liveDir).digest('hex').slice(0, 12)}`)
 }
 
-console.log('windows seat mux repro: 12/12 green')
+console.log('windows seat mux repro: 13/13 green')

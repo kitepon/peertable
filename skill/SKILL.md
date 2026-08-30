@@ -5,7 +5,7 @@ description: 任意プロジェクトに Peertable チーム（対等メンバ�
 
 # Peertable — setup / teardown
 
-正典は peertable リポジトリの docs/plan.md（設計・決定履歴）。本スキルは手順書である。
+製品境界と設計の正典は peertable リポジトリの docs/current-design.md。本スキルはsetup / resume / teardownの手順正本である。
 
 ## 前提
 
@@ -50,7 +50,7 @@ script は内部で Aiterm の公開 `claude_agent` / `codex_agent` / `grok_agen
 
 手順は **聞き取り → script → 着任指示** の3段である。scripts が機械部分を全部持つので、AI が手で tmux を組み立てることはしない。
 
-1. **聞き取り**: 対象プロジェクトのパス / **工程正本（`Lattice 併用`＝既定 / `単独`）** / メンバー数と**役割**（dotagents `docs/02_models.md` の役割名そのもの。未指定・未知は着席しない。model×effort は `launch-seat.sh` が順位表1位から機械解決する——呼び出し側が model / harness / effort を渡して正本を迂回しない。決定49改・決定91）/ 初期タスク群（何を作るか）/ room 名（既定: プロジェクトのディレクトリ名）/ **公開URL基底**（Lattice 併用のみ。外部ペインに書く URL。クオ環境は `https://peertable.kitepon.dev`。未指定なら room サーバーの URL がそのまま入る＝LAN URL は Lattice を外から見た時に開けない）
+1. **聞き取り**: 対象プロジェクトのパス / **工程正本（`Lattice 併用`＝既定 / `単独`）** / メンバー数と**役割**（同梱 `02_models.snapshot.md` の役割名そのもの。未指定・未知は着席しない。model×effort は `launch-seat.sh` が同梱順位表1位から機械解決する。隣接dotagentsは暗黙に読まず、外部表は明示opt-inだけ。呼び出し側が model / harness / effort を渡して正本を迂回しない。決定49改・決定91）/ 初期タスク群（何を作るか）/ room 名（既定: プロジェクトのディレクトリ名）/ **公開URL基底**（Lattice 併用のみ。外部ペインに書く URL。クオ環境は `https://peertable.kitepon.dev`。未指定なら room サーバーの URL がそのまま入る＝LAN URL は Lattice を外から見た時に開けない）
    - **メンバー数の既定**: Lattice 併用なら plan compile 結果の幅（`max_frontier_width`）に合わせる（実測: 幅3→3人、第2 campaign で幅4→4人目追加）。frontier より多い席は最初から遊ぶ。単独モードには frontier が無いので既定の根拠も無く、聞き取りで決める
    - **運用中のworker席数の標準は「ready＋activeな実装ToDo数」（決定68）**: 監査専任席はworker数、reclaim、scale-down候補へ含めず、最終試験結果を待って監査を担う。claimできるToDoが無いworker席は仕事を発明せず、最終手段として親だけへ待機DMする
    - **モードの選び分け**: タスク間に依存があり並列境界の機械保証が要るなら Lattice 併用。依存の無い小規模作業で、対象プロジェクトに Lattice を持ち込みたくないなら単独。単独で失うのは task 間スケジューリングの機械保証だけで、円卓の核（room・憲章・宣言による協力）は変わらない（決定47）
@@ -124,7 +124,7 @@ script は内部で Aiterm の公開 `claude_agent` / `codex_agent` / `grok_agen
 - **席と spool は接触しない。** 席が触るのは room と worktree だけで、`.lattice/` の直読み・直書き禁止の契約はそのまま
 - **席の作法の正本は `templates/member.md` の「Lattice の実行層へ自分の着手を載せる」節**（intake→intervention 判定→attach→作業→監査担当が `done.sh`→intake 席が accept の順・1席1 intake・禁止操作・検証の回し方・成果の正本）。ここに二重化しない
 - **席は自分の pid を装置へ渡す（attach）。** その pid は room 台帳の member 行（`launch-seat.sh` が着席直後に登録する本人性欄）が持ち、席は `pull-attach-input.mjs` で読むだけで attach input になる（席file は 2026-08-22 廃止・member に帰属する情報の正本は台帳だけ）。**raw argv を保存しない**——token値をargvから除いた後も、将来の引数を無条件に複製しない。持つのはdigestだけ。Lattice の再観測は `/bin/ps -o command=`。pid/lstart が一致して digest だけ違うときは親が `skill/scripts/refresh-seat-identity.mjs <project> <name>` で揃える。席は台帳の本人性欄を書き換えない
-- **run-bridge は退役した（2026-08-22・オーナー裁定）。** 介入（hold）は席が自分の Lattice コマンド応答（intake / attach / accept / `run intake intervention`）で受け取る——これが唯一の経路である。装置の介入を DM で先回り通知する中継は、凍った席には届かず、届いた席を退席させ、死んだ席の shell へ打鍵する事故だけを生んだので廃止した。ブリッジは wakeup と seat-status の2本だけ
+- **run-bridge は退役した（2026-08-22・オーナー裁定）。** 介入（hold）は席が自分の Lattice コマンド応答（intake / attach / accept / `run intake intervention`）で受け取る——これが唯一の経路である。装置の介入を DM で先回り通知する中継は、凍った席には届かず、届いた席を退席させ、死んだ席の shell へ打鍵する事故だけを生んだので廃止した。現行の常駐bridgeは wakeup、seat-status、alarm の3本であり、Lattice介入の中継は持たない
 
 運用側が踏みやすい所（実測で確認した挙動）:
 

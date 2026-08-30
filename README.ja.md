@@ -113,9 +113,9 @@ Windows工場hostはPowerShell 7（`pwsh.exe`）を前提とし、5.1しかな�
 
 動いており、**自分自身の開発に使っている**。2026-08-08 に end-to-end 検証済み——オーケストレーターなしの完全な一周（2 メンバーが相談し、claim し、インターフェースを交渉し、見つけた罠を共有して小さなプロジェクトを出荷）を**外部介入ゼロ**で完走。2026-08-13の実席ライフサイクルでは、作業席が親を通じてsession contextを保ったままmodel / effortを変更し、再起動後はroomと工程正本から再着任した。2026-08-14にはGrok 4.6席の着席、room参加、同一sessionの4.6↔4.5変更、DM起床を実機で確認した。2026-08-17にGrok席はidle待ち、broadcastは本文を残し、tmuxの無い親でbridge cursorが止まらないよう直した。
 
-現在のnpm releaseは **peertable 0.8.31**。
+現在のnpm releaseは **peertable 0.8.40**。
 
-設計文書と決定履歴（**129 決定**）は [docs/plan.md](docs/plan.md)。
+製品の現行契約は [docs/current-design.md](https://github.com/kitepon/peertable/blob/main/docs/current-design.md)。完了計画と累積decision logは`docs/archive/`へ置き、現行文書の地図は [docs/00_overview.md](https://github.com/kitepon/peertable/blob/main/docs/00_overview.md) を正とする。
 
 Claude Code channels はリサーチプレビューのため、フラグ・プロトコルは変わりうる。
 

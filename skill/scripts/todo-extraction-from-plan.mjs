@@ -3,7 +3,7 @@
 //
 // 背景: main plan の migrate 時に narrative_ref へ #L 行番号を持たせなかったため、
 // `lattice todo split` が `predecessor_source_inventory_unavailable` で機構的に失敗した
-// （実測 2026-08-11。docs/plan_peertable-autonomy-runtime-fx-20260811.md f4）。`todo revise` は
+// （実測 2026-08-11。docs/archive/plan_peertable-autonomy-runtime-fx-20260811.md f4）。`todo revise` は
 // 使えるが desired_plan 全体・source_cutover_batch を要求する重量級 API で、発見者が親裁定なしに
 // 選べる手段ではない。このツールは「計画 Markdown に `### <task_id> <title>` 見出しで task を書く
 // →本ツールで extraction.json を自動生成→`lattice todo migrate` で新規 companion plan として起票」

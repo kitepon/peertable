@@ -82,14 +82,7 @@ ssh main-server "cd ~/peertable/deploy && docker compose up -d room"
 
 **戻り先が無い状態で切り替えない。** 入れ替え前に必ず `docker images` を見る。古いタグは容量を圧迫しない限り消さない。
 
-**2026-08-09 時点の戻り先**（image-pull 型へ移す前の状態・実測）:
-
-```
-peertable-room:local   3 hours ago   232MB   ← 稼働中。これが最初のロールバック先
-volume peertable_room-data                    ← 会話ログ。image を入れ替えても触らない
-```
-
-`local` タグは build 型時代の最後の image。**日付-短sha へ移った後も、これが「移行前へ戻す」唯一の道**なので消さない。
+戻り先は日付や文書中の固定タグから選ばず、切替直前に実機で確認した稼働image tagを記録して使う。会話ログの`peertable_room-data` volumeはimage rollbackの対象にせず、そのまま保持する。旧imageが無い場合は切替を始めない。
 
 ## 検証用に room サーバーを立てる時の注意
 

@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL('..', import.meta.url))
 const read = (relative) => readFile(`${root}/${relative}`, 'utf8')
 
 const [plan, charter, member, standalone, parent, skill] = await Promise.all([
-  read('docs/plan.md'),
+  read('docs/current-design.md'),
   read('skill/templates/charter.md'),
   read('skill/templates/member.md'),
   read('skill/templates/member-standalone.md'),
@@ -23,7 +23,7 @@ const latticeRule = (text) => {
     && normalized.includes('修正工程も追加しない')
 }
 
-assert.match(plan, /後続工程で発見した不具合は現在の担当者が直す（決定82/)
+assert.match(plan, /後続工程で発見した不具合は、現在の担当者が現在の工程を成立させる修正として直す/)
 assert.equal(latticeRule(plan), true)
 assert.equal(latticeRule(charter), true)
 assert.equal(latticeRule(member), true)

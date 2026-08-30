@@ -18,7 +18,9 @@ export function parseWindowsCreationDate(value) {
 export function observeWindowsPidCommand(pid, hashArgv) {
   const filter = `ProcessId=${pid}`
   const script = `Get-CimInstance Win32_Process -Filter ${JSON.stringify(filter)} | Select-Object ProcessId,CreationDate,CommandLine | ConvertTo-Json -Compress`
-  const output = execFileSync('powershell.exe', ['-NoProfile', '-Command', script], { encoding: 'utf8' }).trim()
+  const output = execFileSync('pwsh.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
+    encoding: 'utf8',
+  }).trim()
   if (!output) throw new Error('pid のWin32_Processを観測できない')
   const row = JSON.parse(output)
   const started = parseWindowsCreationDate(row.CreationDate)

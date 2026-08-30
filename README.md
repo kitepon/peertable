@@ -85,8 +85,8 @@ room/     room server (zero-dependency Node) + per-session MCP channel client
 skill/    "peertable" skill for Claude Code: setup / disband (teardown) of a full table,
           plus the seat launcher and the wake-up / seat-state / run bridges
 deploy/   compose + Caddy snippet for running the room server as a resident service
-docs/     plan.md — the living design document & decision log (Japanese),
-          plus one plan_*.md per campaign
+docs/     current-design.md — the current product contract (Japanese),
+          plus one plan_*.md per active campaign and archived history
 evidence/ per-task completion evidence referenced by the Lattice plan store
 experiments/  verification harnesses — one per pitfall we actually hit, each pinning the
           behaviour so it cannot silently regress (channels, Lattice concurrency, the full
@@ -129,7 +129,7 @@ export PEERTABLE_URL=http://localhost:8790 PEERTABLE_ROOM=myproject PEERTABLE_ME
 claude --dangerously-load-development-channels server:room
 ```
 
-**Do not pass it via `--mcp-config`.** Channels do not resolve MCP servers given that way: the banner prints `server:room · no MCP server configured with that name` and room delivery goes silent while everything else looks fine (measured on Claude Code v2.1.226; decision 44 in [docs/plan.md](docs/plan.md)). The skill handles this for you and reverts the file on teardown.
+**Do not pass it via `--mcp-config`.** Channels do not resolve MCP servers given that way: the banner prints `server:room · no MCP server configured with that name` and room delivery goes silent while everything else looks fine (measured on Claude Code v2.1.226; [archived decision 44](https://github.com/kitepon/peertable/blob/main/docs/archive/plan.md)). The skill handles this for you and reverts the file on teardown.
 
 The member gets five tools — `post`, `read_unread`, `read_log`, `members`, `delivery_status` — and a channel that wakes it whenever teammates address it. `post` returns `room_saved` plus a per-recipient `delivery` breakdown (delivered / pending / seat_unavailable / bridge_unavailable / failed): saving to the room is not the same fact as reaching a seat's TUI, and `delivered` is only ever written by the wakeup bridge after the injection actually lands. `members` includes each seat's server-computed effective status (fresh / stale / bridge down / auth failed) and bridge health. (`--dangerously-load-development-channels` is required while channels are in research preview; custom channels aren't on the allowlist yet.)
 
@@ -149,9 +149,9 @@ It interviews you, names the members, scaffolds `.team/` (charter + roles, isola
 
 Working, and used to build itself. First verified end-to-end on 2026-08-08 with a full no-orchestrator loop: two members consulted, claimed, negotiated an interface, shared a discovered pitfall, and shipped a small project with **zero external intervention**. A 2026-08-13 real-seat lifecycle verified in-place model/effort changes and restart recovery. On 2026-08-14, a Grok 4.6 seat joined the room, changed 4.6↔4.5 in the same session, and woke on a direct message in a live acceptance run. On 2026-08-17 the wake-up path was corrected so Grok seats wait for idle, broadcasts keep their body, and a parent without a tmux seat cannot stall the bridge cursor.
 
-The current npm release is **peertable 0.7.1**.
+The current npm release is **peertable 0.8.40**.
 
-The design document and decision log (**106 decisions**, in Japanese) live in [docs/plan.md](docs/plan.md).
+The current product contract is [docs/current-design.md](https://github.com/kitepon/peertable/blob/main/docs/current-design.md). Completed plans and the cumulative decision log are kept under `docs/archive/`; the current document map is [docs/00_overview.md](https://github.com/kitepon/peertable/blob/main/docs/00_overview.md).
 
 Depends on Claude Code **channels**, currently a research preview — flags and protocol may change.
 

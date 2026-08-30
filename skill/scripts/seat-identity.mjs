@@ -59,7 +59,9 @@ function posixIdentity(pid) {
 
 function winQuery(filter) {
   const script = `Get-CimInstance Win32_Process -Filter ${JSON.stringify(filter)} | Select-Object ProcessId,ParentProcessId,CreationDate,CommandLine | ConvertTo-Json -Compress`
-  const out = execFileSync('powershell.exe', ['-NoProfile', '-Command', script], { encoding: 'utf8' }).trim()
+  const out = execFileSync('pwsh.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
+    encoding: 'utf8',
+  }).trim()
   if (!out) return []
   const parsed = JSON.parse(out)
   return Array.isArray(parsed) ? parsed : [parsed]

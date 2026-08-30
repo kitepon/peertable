@@ -102,7 +102,7 @@ export function tmuxArgv(extraArgs = [], { socket, env = process.env, platform =
 
 /**
  * npm の extensionless shim は Windows の execFile で ENOENT。
- * 隣の .cmd を cmd.exe /c で起動する（shell:true は DEP0190 かつ引数連結）。
+ * 同じnpm binにある .ps1 shimをPowerShell 7で起動し、cmd.exeへfallbackしない。
  */
 export function resolveLatticeExecutable(cli, { platform = process.platform, exists = existsSync } = {}) {
   if (typeof cli !== 'string' || !cli) return { command: cli, argv: ['todo', 'status', '--json'] }
@@ -113,9 +113,9 @@ export function resolveLatticeExecutable(cli, { platform = process.platform, exi
 export function resolveLatticeInvocation(cli, argv, {
   platform = process.platform,
   exists = existsSync,
-  comspec = process.env.ComSpec || 'cmd.exe',
+  pwsh = 'pwsh.exe',
 } = {}) {
-  return resolveWindowsCommand(cli, argv, { platform, exists, comspec })
+  return resolveWindowsCommand(cli, argv, { platform, exists, pwsh })
 }
 
 /** member の自己申告を優先し、無い既存 member だけ旧 session 名へ互換フォールバックする。 */

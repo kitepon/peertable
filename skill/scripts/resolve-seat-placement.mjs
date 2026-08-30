@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// 02_models.md の役割→1位〜3位から、着席可能な harness / model / effort を解決する。
-// 具体モデル名はここに持たない。台帳と順位表をその場で読む。
+// 同梱snapshotの役割→1位〜3位から、着席可能な harness / model / effort を解決する。
+// 外部文書を読むのは呼出側が明示した時だけ。隣接repoの有無で製品挙動を変えない。
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -23,8 +23,6 @@ const fail = (code, message) => {
 export function findModelsDoc({ env = process.env, exists = existsSync, scriptDir = here } = {}) {
   if (env.PEERTABLE_MODELS_DOC) return resolve(env.PEERTABLE_MODELS_DOC)
   if (env.DOTAGENTS_ROOT) return join(resolve(env.DOTAGENTS_ROOT), 'docs/02_models.md')
-  const sibling = resolve(scriptDir, '../../../dotagents/docs/02_models.md')
-  if (exists(sibling)) return sibling
   const bundled = join(scriptDir, '../02_models.snapshot.md')
   if (exists(bundled)) return bundled
   return null
@@ -270,7 +268,7 @@ if (isMain) {
   if (!roles) roles = positional[0] ?? ''
   const doc = findModelsDoc()
   if (!doc) {
-    fail('SEAT_MODELS_DOC_MISSING', '02_models.md が見つからない（PEERTABLE_MODELS_DOC または DOTAGENTS_ROOT を渡す）')
+    fail('SEAT_MODELS_DOC_MISSING', '同梱の02_models.snapshot.mdが見つからない')
   }
   if (!existsSync(doc)) {
     fail('SEAT_MODELS_DOC_MISSING', `02_models.md が無い: ${doc}`)

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import {
-  resolveSeatPlacement, resolveSeatIdentity,
+  findModelsDoc, resolveSeatPlacement, resolveSeatIdentity,
 } from '../skill/scripts/resolve-seat-placement.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -22,6 +22,21 @@ check('launch-seat は --roles を usage に持つ', launch.includes('--roles'))
 check('launch-seat は三者上書き経路を持たない', !launch.includes('SEAT_PLACEMENT_OVERRIDE'))
 check('launch-seat は 02_models 解決器を呼ぶ', launch.includes('resolve-seat-placement.mjs'))
 
+const placementScriptDir = join(root, 'skill/scripts')
+const bundledModels = join(root, 'skill/02_models.snapshot.md')
+const defaultDoc = findModelsDoc({ env: {}, exists: () => true, scriptDir: placementScriptDir })
+check('隣接dotagentsが存在しても既定は同梱snapshot', defaultDoc === bundledModels, defaultDoc)
+const explicitDoc = findModelsDoc({
+  env: { PEERTABLE_MODELS_DOC: join(root, 'experiments/fixtures/02_models.md') },
+  exists: () => true,
+  scriptDir: placementScriptDir,
+})
+check('PEERTABLE_MODELS_DOCの明示時だけ外部表を使う', explicitDoc === join(root, 'experiments/fixtures/02_models.md'), explicitDoc)
+const explicitRootDoc = findModelsDoc({
+  env: { DOTAGENTS_ROOT: '/tmp/explicit-dotagents' }, exists: () => true, scriptDir: placementScriptDir,
+})
+check('DOTAGENTS_ROOTの明示時だけ外部dotagentsを使う', explicitRootDoc === '/tmp/explicit-dotagents/docs/02_models.md', explicitRootDoc)
+
 const empty = resolveSeatIdentity({ roles: '', markdown: fixture })
 check('空の roles を拒否する', empty.error === 'SEAT_ROLE_REQUIRED', empty.error)
 
@@ -33,13 +48,13 @@ check('旧 auditor を未知役割として拒否する', auditor.error === 'SEA
 
 const impl = resolveSeatIdentity({ roles: '実装', markdown: fixture })
 check('実装は省略時 Terra×high を settings へ書く',
-  impl.settings?.vendor === 'codex' && impl.settings?.model === 'gpt-5.6-terra' && impl.settings?.effort === 'high'
+  impl.settings?.harness === 'codex' && impl.settings?.model === 'gpt-5.6-terra' && impl.settings?.effort === 'high'
     && impl.roles?.[0] === '実装',
   JSON.stringify(impl))
 
 const consult = resolveSeatIdentity({ roles: '相談', markdown: fixture })
 check('相談の省略は着席不能1位を落として Grok 2位',
-  consult.settings?.vendor === 'grok' && consult.settings?.model === 'grok-4.6' && consult.settings?.effort === 'medium',
+  consult.settings?.harness === 'grok' && consult.settings?.model === 'grok-4.6' && consult.settings?.effort === 'medium',
   JSON.stringify(consult))
 
 const parentSeat = resolveSeatIdentity({ roles: '統括', markdown: fixture })
@@ -64,9 +79,9 @@ check('表外でも指定 model は通す',
   outside.settings?.model === 'gpt-5.6-sol' && outside.settings?.effort === 'medium',
   JSON.stringify(outside))
 
-const custom = resolveSeatIdentity({ roles: '実装', model: 'not-in-table-xyz', vendor: 'codex', markdown: fixture })
-check('台帳に無い model は vendor 付きなら通す',
-  custom.settings?.model === 'not-in-table-xyz' && custom.settings?.vendor === 'codex',
+const custom = resolveSeatIdentity({ roles: '実装', model: 'not-in-table-xyz', harness: 'codex', markdown: fixture })
+check('台帳に無い model は harness 付きなら通す',
+  custom.settings?.model === 'not-in-table-xyz' && custom.settings?.harness === 'codex',
   JSON.stringify(custom))
 
 const first = resolveSeatPlacement('実装', fixture)
@@ -79,6 +94,15 @@ check('launch-seat は roles 無しで usage を出して落ちる',
 
 const env = { ...process.env, PEERTABLE_MODELS_DOC: join(root, 'experiments/fixtures/02_models.md') }
 const resolveBin = join(root, 'skill/scripts/resolve-seat-placement.mjs')
+const bundledEnv = { ...process.env }
+delete bundledEnv.PEERTABLE_MODELS_DOC
+delete bundledEnv.DOTAGENTS_ROOT
+const viaBundled = spawnSync(process.execPath, [resolveBin, '--roles', '実装'], { encoding: 'utf8', env: bundledEnv })
+const bundledResult = viaBundled.status === 0 ? JSON.parse(viaBundled.stdout) : null
+check('CLI既定は同梱snapshotを使う',
+  bundledResult?.settings.model === 'gpt-5.6-terra' && resolve(bundledResult.source) === bundledModels,
+  viaBundled.stderr || viaBundled.stdout)
+
 const viaCli = spawnSync(process.execPath, [resolveBin, '--roles', '実装'], { encoding: 'utf8', env })
 check('CLI が fixture から 実装 を解決する',
   viaCli.status === 0 && JSON.parse(viaCli.stdout).settings.model === 'gpt-5.6-terra', viaCli.stderr)
@@ -89,8 +113,9 @@ check('CLI は roles 無しで SEAT_ROLE_REQUIRED',
 
 const server = await readFile(join(root, 'room/server.mjs'), 'utf8')
 check('server は役割不足の 400 を足していない', !/SEAT_ROLE_REQUIRED/.test(server))
-check('チップに roles/settings/mission を出す',
-  server.includes("el('span','roles'") && server.includes("el('span','settings'") && server.includes("el('span','mission'"))
+check('チップに roles/model×effort/mission を出す',
+  server.includes('Array.isArray(m.roles)') && server.includes('[m.model,m.effort]')
+    && server.includes('[rolesText,settingsText,m.mission]'))
 
 const client = await readFile(join(root, 'room/client.mjs'), 'utf8')
 check('MCP members は memberLine を返す', client.includes('members.map(memberLine)'))
