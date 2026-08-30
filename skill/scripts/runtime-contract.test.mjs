@@ -94,6 +94,21 @@ test('bridge更新は版数だけでなくruntime source digestへ束縛する',
   assert.ok(source.includes('peertable_runtime_digest'))
 })
 
+test('bridge起動は書込トークンをコマンドラインへ載せない', () => {
+  const ensure = readFileSync(new URL('./ensure-bridge.sh', import.meta.url), 'utf8')
+  // env_prefix の転送対象に生トークンを含めない（tmux session コマンドと ps に平文で残る・2026-08-30 実測）
+  assert.ok(!ensure.includes('PEERTABLE_TMUX_SOCKET PEERTABLE_POST_TOKEN'))
+  assert.ok(ensure.includes('bridge.token'))
+  const launch = buildWindowsBridgeLaunch({
+    script: 'bridge.mjs', project: 'C:\\work', log: 'C:\\work\\bridge.log',
+    env: { PEERTABLE_POST_TOKEN: 'secret-raw-token', PEERTABLE_CREDENTIAL_FILE: 'C:\\work\\.team\\credentials\\bridge.token' },
+  })
+  const encodedAt = launch.argv.indexOf('-EncodedCommand')
+  const decoded = Buffer.from(launch.argv[encodedAt + 1], 'base64').toString('utf16le')
+  assert.ok(!decoded.includes('secret-raw-token'))
+  assert.ok(decoded.includes('bridge.token'))
+})
+
 test('Windows bridgeはUTF-8を明示してログへ書く', () => {
   const launch = buildWindowsBridgeLaunch({ script: 'bridge.mjs', project: 'C:\\work', log: 'C:\\work\\bridge.log' })
   const encodedAt = launch.argv.indexOf('-EncodedCommand')

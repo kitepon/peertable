@@ -2,9 +2,10 @@
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// PEERTABLE_POST_TOKEN は渡さない——EncodedCommand は base64 なだけで process 一覧から
+// 復元できる。秘密値は ensure-bridge.sh が credential file へ落とし、ここへはパスだけが来る
 const FORWARDED_ENV = [
   'PEERTABLE_TMUX_SOCKET',
-  'PEERTABLE_POST_TOKEN',
   'PEERTABLE_CREDENTIAL_FILE',
   'PEERTABLE_URL',
   'PEERTABLE_PARENT_NAME',

@@ -53,8 +53,19 @@ fi
 # **手渡された env を常駐へ渡す。** 新しい session が継ぐのは tmux *server* の環境であって
 # 呼び出し元 client の環境ではないので、素で起こすと `PEERTABLE_TMUX_SOCKET` の手渡しが黙って消え、
 # 常駐が別の socket（本番の既定）を観測しにいく（2026-08-11 実測）。決定73 と同じ形の裏返しである。
+# **秘密値はコマンドラインへ載せない。** `env PEERTABLE_POST_TOKEN=… node …` の形は
+# tmux のsession起動コマンドと ps の両方に平文で残る（2026-08-30 実測）。トークンは
+# 0600 の credential file へ落とし、常駐へはそのパスだけを渡す（bridge 側の
+# resolvePostToken が PEERTABLE_CREDENTIAL_FILE → ~/.config/peertable.env の順で読む）
+if [ -n "${PEERTABLE_POST_TOKEN:-}" ] && [ -z "${PEERTABLE_CREDENTIAL_FILE:-}" ]; then
+  cred_dir="$proj/.team/credentials"
+  mkdir -p "$cred_dir" && chmod 700 "$cred_dir"
+  ( umask 177; printf '%s\n' "$PEERTABLE_POST_TOKEN" > "$cred_dir/bridge.token" )
+  PEERTABLE_CREDENTIAL_FILE="$cred_dir/bridge.token"
+  export PEERTABLE_CREDENTIAL_FILE
+fi
 env_prefix=""
-for v in PEERTABLE_TMUX_SOCKET PEERTABLE_POST_TOKEN PEERTABLE_CREDENTIAL_FILE PEERTABLE_URL PEERTABLE_PARENT_NAME; do
+for v in PEERTABLE_TMUX_SOCKET PEERTABLE_CREDENTIAL_FILE PEERTABLE_URL PEERTABLE_PARENT_NAME; do
   eval "val=\${$v:-}"
   [ -n "$val" ] && env_prefix="$env_prefix $v=$(printf '%q' "$val")"
 done
