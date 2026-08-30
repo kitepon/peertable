@@ -174,15 +174,23 @@ const postedReceipts = new Map() // `${seq}:${recipient}` -> `${result}:${reason
 // failed / seat_unavailable の初回だけ、親宛DMを1通送る——親宛DMは parent-watch が起こすので
 // 既存の通知経路にそのまま乗り、この bridge 自身は親へ配達しないため再帰しない。
 const notifiedFailures = new Set() // `${seq}:${recipient}`（delivered への回復で解除し、再failで再通知）
+const failureStreaks = new Map() // `${seq}:${recipient}` -> 連続失敗数
 async function notifyParentOfFailure(seq, recipient, result, reason) {
   if (!parentName) return
   const key = `${seq}:${recipient}`
   if (result === 'delivered') {
     notifiedFailures.delete(key)
+    failureStreaks.delete(key)
     return
   }
   // not_a_delivery_target は「そもそもTUI配達対象でない」平常応答であって失敗ではない
   if (reason === 'not_a_delivery_target') return
+  // 1回目の失敗は通知しない。数秒後の再試行で自己回復する一過性（paste競合等）が
+  // 毎回親を起こしてノイズになった（実被弾 2026-08-30）。実害のある失敗は次周期で
+  // 2回目に達するので、検知は数秒遅れるだけで漏れない。
+  const streak = (failureStreaks.get(key) ?? 0) + 1
+  failureStreaks.set(key, streak)
+  if (streak < 2) return
   if (notifiedFailures.has(key)) return
   try {
     const res = await fetch(`${url}/api/${encodeURIComponent(room)}/messages`, {
