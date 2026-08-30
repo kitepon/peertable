@@ -71,12 +71,11 @@ import json,sys
 try: d=json.load(sys.stdin)
 except Exception: print(0); raise SystemExit
 print(len(d.get('next_ready',[]))+len(d.get('active_set',[]))+len(d.get('audit_pending',[])))" 2>/dev/null)
-  if [ "${work:-0}" -gt 0 ]; then
-    date -u +%FT%TZ > "$lock"
-    echo "$(date -u +%FT%TZ) 席消失を検知（$proj:$dead / 残工程 $work）。resumeで自動蘇生する"
-    (cd "$proj" && bash "$scripts/resume.sh" "$proj" >> "$proj/.team/seat-revive.log" 2>&1) \
-      || echo "$(date -u +%FT%TZ) 自動蘇生に失敗: $proj（seat-revive.log参照）"
-  else
-    echo "$(date -u +%FT%TZ) 席消失を検知したが残工程ゼロのため起こさない（$proj:$dead）"
-  fi
+  # 工程ゼロでも起こす（オーナー裁定 2026-08-30「席全滅で待機でもないのは何もログ取れない」）。
+  # 空の卓は障害の再現条件と席側の証人（pane log・rollout）を失う。蘇生コストは席あたり
+  # 待機宣言1ターンで、観測体制の維持が勝る。
+  date -u +%FT%TZ > "$lock"
+  echo "$(date -u +%FT%TZ) 席消失を検知（$proj:$dead / 残工程 ${work:-0}）。resumeで自動蘇生する"
+  (cd "$proj" && bash "$scripts/resume.sh" "$proj" >> "$proj/.team/seat-revive.log" 2>&1) \
+    || echo "$(date -u +%FT%TZ) 自動蘇生に失敗: $proj（seat-revive.log参照）"
 done
