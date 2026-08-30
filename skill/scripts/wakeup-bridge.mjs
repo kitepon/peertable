@@ -23,6 +23,7 @@ import { resolvePostToken, resolveSeatObservation, tmuxArgv } from './seat-usage
 import { keysForCodexPane } from './codex-dialog.mjs'
 import { BROADCAST_RECIPIENT, formatWakeNotice, isIdleSelfWake, isWakeupBridgeTarget, memberHarness, shouldDeferGrokWake } from './wakeup-delivery.mjs'
 import { bridgeRecordLive } from './bridge-record-live.mjs'
+import { seatPasteArgs } from './seat-input.mjs'
 
 const run = promisify(execFile)
 const [proj, ...rest] = process.argv.slice(2)
@@ -513,13 +514,11 @@ async function wake(seat, msgs) {
     writeFileSync(pasteFile, text)
     try {
       await run('tmux', tmuxArgv(['load-buffer', '-b', pasteBuf, pasteFile], { socket: observation.socket }))
-      // bracketed paste（-p）はCodexの素打ち破損対策に必須だが、Grok TUIは非対応で
-      // 終端コード ^[[201~ がリテラルとして composer へ混入し submit 不能になる
-      // （実被弾 2026-08-30）。paste自体の原子性は -p なしでも保たれる。
-      const pasteArgs = memberHarness(member) === 'grok'
-        ? ['paste-buffer', '-d', '-b', pasteBuf, '-t', observation.target]
-        : ['paste-buffer', '-p', '-d', '-b', pasteBuf, '-t', observation.target]
-      await run('tmux', tmuxArgv(pasteArgs, { socket: observation.socket }))
+      // 貼り方の方言（-pの要否等）は seat-input.mjs の方言表だけが知る。ここでは判断しない。
+      await run('tmux', tmuxArgv(
+        seatPasteArgs(memberHarness(member), pasteBuf, observation.target),
+        { socket: observation.socket },
+      ))
     } finally {
       try { unlinkSync(pasteFile) } catch { /* 一時fileの掃除失敗は配達判定に影響しない */ }
     }
