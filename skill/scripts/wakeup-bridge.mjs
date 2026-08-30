@@ -513,7 +513,13 @@ async function wake(seat, msgs) {
     writeFileSync(pasteFile, text)
     try {
       await run('tmux', tmuxArgv(['load-buffer', '-b', pasteBuf, pasteFile], { socket: observation.socket }))
-      await run('tmux', tmuxArgv(['paste-buffer', '-p', '-d', '-b', pasteBuf, '-t', observation.target], { socket: observation.socket }))
+      // bracketed paste（-p）はCodexの素打ち破損対策に必須だが、Grok TUIは非対応で
+      // 終端コード ^[[201~ がリテラルとして composer へ混入し submit 不能になる
+      // （実被弾 2026-08-30）。paste自体の原子性は -p なしでも保たれる。
+      const pasteArgs = memberHarness(member) === 'grok'
+        ? ['paste-buffer', '-d', '-b', pasteBuf, '-t', observation.target]
+        : ['paste-buffer', '-p', '-d', '-b', pasteBuf, '-t', observation.target]
+      await run('tmux', tmuxArgv(pasteArgs, { socket: observation.socket }))
     } finally {
       try { unlinkSync(pasteFile) } catch { /* 一時fileの掃除失敗は配達判定に影響しない */ }
     }
