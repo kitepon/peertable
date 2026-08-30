@@ -272,7 +272,18 @@ async function nudgeIfDropped(name, busySince) {
 // to:"all" は失効させない——親の待機宣言運用（起きても返信不要）と両立させるため。
 const PATROL_INTERVAL_MS = 30_000
 const PATROL_NAG_INTERVAL_MS = 300_000 // 条件が続く席へは5分間隔で再吠えする（1回きりにしない）
+// 通報先の親名は parent-watch の記録から読む（wakeup-bridge と同じ解決規則）
+const parentName = (() => {
+  if (process.env.PEERTABLE_PARENT_NAME) return process.env.PEERTABLE_PARENT_NAME
+  try {
+    const watch = JSON.parse(readFileSync(join(proj, '.team', 'parent-watch.json'), 'utf8'))
+    return typeof watch.parent === 'string' ? watch.parent : null
+  } catch { return null }
+})()
+const PATROL_ESCALATE_AFTER = 3 // 連続催促がこの回数に達したら親へ縮退疑いを1回通報する
 const patrolLastNag = new Map() // seat -> epoch_ms
+const patrolNagStreak = new Map() // seat -> 連続催促数（催促条件が消えたらリセット）
+const patrolEscalated = new Set() // 同一縮退エピソードでの親通報は1回だけ
 const busyStartedAt = new Map() // seat -> epoch_ms（このbridgeプロセスが観測した最後のターン開始・pane基準）
 const paneLast = new Map() // seat -> 直前周期のpane生status（番犬系専用。表示合成とは分離）
 const paneJobCpuSeconds = new Map() // seat -> 前周期の非足場子孫の累積CPU秒
@@ -303,8 +314,32 @@ async function patrolClaims() {
     lastBusyStartAt: seat => busyStartedAt.get(seat) ?? null,
     now, lastNag: patrolLastNag, nagIntervalMs: PATROL_NAG_INTERVAL_MS,
   })
+  // 催促対象から外れた席は縮退エピソード終了とみなし、計数と通報記録を消す
+  const targetSeats = new Set(targets.map(t => t.seat))
+  for (const seat of [...patrolNagStreak.keys()]) {
+    if (!targetSeats.has(seat)) { patrolNagStreak.delete(seat); patrolEscalated.delete(seat) }
+  }
   for (const { seat, task } of targets) {
     patrolLastNag.set(seat, now)
+    const streak = (patrolNagStreak.get(seat) ?? 0) + 1
+    patrolNagStreak.set(seat, streak)
+    // 催促に空返事を続ける縮退（実被弾 2026-08-30: 「作業を続けます」と返すだけの席へ
+    // 1時間催促を繰り返し、誰にも知られず空転した）。3回で親へ1回だけ通報する。
+    // 親宛DMはparent-watchが即時に親を起こす
+    if (streak >= PATROL_ESCALATE_AFTER && !patrolEscalated.has(seat)) {
+      patrolEscalated.add(seat)
+      try {
+        await fetch(`${url}/api/${encodeURIComponent(room)}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Peertable-Token': token } : {}) },
+          body: JSON.stringify({ from: 'alarm', to: parentName ?? 'bell',
+            body: `[縮退疑い] ${seat} は工程 ${task} を保有したまま、継続催促${streak}回に停止宣言も進捗も返していない。空返事ループの可能性が高い。席の再起動を検討すること` }),
+        })
+        console.error(`seat-status-bridge: 縮退疑いを親へ通報した（${seat} / ${task} / 催促${streak}回）`)
+      } catch (e) {
+        console.error(`seat-status-bridge: 縮退通報に失敗: ${e.message}`)
+      }
+    }
     try {
       const res = await fetch(`${url}/api/${encodeURIComponent(room)}/messages`, {
         method: 'POST',
