@@ -461,11 +461,12 @@ export function subtreeCpuSeconds(psRows, rootPid, { includeChild = () => true, 
   return total
 }
 
-// ---- 親番犬の「起こす価値」判定（2026-08-29 オーナー裁定「番犬が必要な時だけ呼べ」）----
-// 選別は親のターン（有料）でなく機械（無料）が行う。起こすのは親の行動が要るものだけ。
-const ROUTINE_WAIT_DM = /^\s*\[待機\]/u
+// ---- 親番犬の「起こす価値」判定 ----
+// 2026-08-29裁定「番犬が必要な時だけ呼べ」で[待機]DMを沈黙させていたが、
+// 2026-08-30裁定「待機にお前が気付けないのが問題だ。待機宣言は届くようにしろ」で撤回。
+// 親宛DMは待機宣言を含めて全件起こす。room全体発言だけは従来どおり選別する。
 export function parentWatchShouldNotify(message, roomUpdate) {
   const body = String(message?.body ?? '')
   if (roomUpdate) return /全タスク完了|\[オーナー宛/u.test(body)
-  return !ROUTINE_WAIT_DM.test(body)
+  return true
 }
