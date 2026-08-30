@@ -7,6 +7,7 @@ import test from 'node:test'
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const caller = readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8')
 const reusable = readFileSync(path.join(root, '.github/workflows/product-full-ci.yml'), 'utf8')
+const manifest = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
 
 function walk(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -17,12 +18,19 @@ function walk(directory) {
 
 test('CI実行本体とMarkdown検査を製品repoが所有する', () => {
   assert.match(caller, /uses:\s+\.\/\.github\/workflows\/product-full-ci\.yml/u)
-  assert.match(caller, /documentation-command:\s*>-[\s\S]*scripts\/docs-contract\.test\.mjs/u)
+  assert.match(caller, /documentation-command:\s*>-[\s\S]*npm ci --ignore-scripts --no-audit --no-fund && npm run test:docs/u)
   assert.doesNotMatch(caller + reusable, /uses:\s+kitepon\/dotagents\//u)
   assert.match(reusable, /documentation-command:[\s\S]*required:\s+true/u)
   assert.doesNotMatch(reusable, /documentation-command:[\s\S]{0,180}default:\s*["']{2}/u)
   assert.match(reusable, /DOCUMENTATION_COMMAND:\s*\$\{\{ inputs\.documentation-command \}\}/u)
   assert.match(reusable, /if: steps\.changes\.outputs\.product_change == 'false'\n\s+shell: bash\n\s+run: \$\{\{ inputs\.documentation-command \}\}/u)
+})
+
+test('Markdown parserはCI用devDependencyだけに置く', () => {
+  for (const dependency of ['parse-srcset', 'parse5', 'remark-gfm', 'remark-parse', 'unified']) {
+    assert.equal(manifest.dependencies?.[dependency], undefined)
+    assert.ok(manifest.devDependencies?.[dependency])
+  }
 })
 
 test('外部actionは40桁commit SHAへ固定する', () => {

@@ -26,6 +26,7 @@
   ],
   "scripts": {
     "verify:release-commit": "node scripts/verify-release-commit.mjs",
+    "test:docs": "node --test scripts/docs-contract.test.mjs",
     "prepublishOnly": "node scripts/prepublish.mjs"
   },
   "bin": {
@@ -33,6 +34,7 @@
     "peertable-client": "room/client.mjs"
   },
   "files": [
+    ".github/og.png",
     "room/server.mjs",
     "room/client.mjs",
     "room/message-bounds.mjs",
@@ -46,5 +48,12 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "parse-srcset": "1.0.2",
+    "parse5": "^8.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5"
   }
 }

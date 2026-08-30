@@ -44,6 +44,6 @@ jobs:
       environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'all' }}
       dependency-command: npm ci
       documentation-command: >-
-        node --test scripts/docs-contract.test.mjs
+        npm ci --ignore-scripts --no-audit --no-fund && npm run test:docs
       full-command: >-
         node scripts/run-product-ci.mjs
