@@ -558,3 +558,22 @@ PY
 if [ "$pane_missing" = yes ]; then
   echo "外部ペインが未設置か読めない: 公開工程表に円卓が出ていない（差し直す: node <skill>/scripts/external-pane.mjs . <room> <public_base>）" >&2
 fi
+
+# クローズ掲示は done の機械的な後段である。席の記憶に頼らせると掲示が抜ける（2026-09-04 実測:
+# 監査担当が todo done を打った後 [クローズ] を room へ出さず、作業者が 2 分半後に代わりに掲示した）。
+# 「done したら掲示する」に判断は要らないので、done.sh が自分で room へ投げる（オーナー裁定 2026-09-04）。
+# 掲示に失敗した時は done が記録済みである事実を明示し、手で投稿すべき本文をそのまま出して非ゼロで終わる。
+close_notice="[クローズ] ${t}。次の工程に着手可"
+close_poster="$(npm root -g 2>/dev/null)/peertable/skill/scripts/post-message.mjs"
+if [ ! -f "$close_poster" ]; then
+  echo "ERROR: CLOSE_NOTICE_FAILED: post-message.mjs が見つからない（${close_poster}）。done は記録済み。手で room へ投稿すること: ${close_notice}" >&2
+  exit 1
+fi
+if [ -z "${PEERTABLE_MEMBER:-}" ]; then
+  echo "ERROR: CLOSE_NOTICE_FAILED: PEERTABLE_MEMBER が無く差出人を決められない。done は記録済み。手で room へ投稿すること: ${close_notice}" >&2
+  exit 1
+fi
+if ! node "$close_poster" "$PEERTABLE_MEMBER" all "$close_notice"; then
+  echo "ERROR: CLOSE_NOTICE_FAILED: room への掲示に失敗。done は記録済み。手で room へ投稿すること: ${close_notice}" >&2
+  exit 1
+fi

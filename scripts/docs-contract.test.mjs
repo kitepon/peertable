@@ -113,12 +113,15 @@ test('npm配布Markdownの相対リンクはtarball内で閉じる', (t) => {
     t.skip('npm packの実体確認はMarkdown-only Ubuntu jobとPOSIX full jobが担当する')
     return
   }
-  const packed = JSON.parse(execFileSync('npm', [
+  const packedJson = JSON.parse(execFileSync('npm', [
     'pack', '--dry-run', '--ignore-scripts', '--json',
   ], {
     cwd: root,
     encoding: 'utf8',
-  }))[0].files.map(entry => entry.path)
+  }))
+  // npm 12 は `npm pack --json` を package 名を key にした object で返す（npm 11 までは配列）。両方を受ける。
+  const packedEntry = Array.isArray(packedJson) ? packedJson[0] : Object.values(packedJson)[0]
+  const packed = packedEntry.files.map(entry => entry.path)
   const packedPaths = new Set(packed)
   const missing = []
 

@@ -220,7 +220,7 @@ witness をどう生成するかは**対象 project 側の作法に従う**（La
 - 親の権能は進行・督促・オーナーとの接点だけ。作業者や監査担当を代行しない
 - **作業者は自ら必要な試験と自己監査を行い、工程を次に進めてよい水準まで完成させる。** 完成したら証跡へ記したものと同じ最終的な試験内容と試験結果を監査担当へ渡し、自分では工程をクローズしない
 - **後続工程の着手後に先行工程由来の不具合が判明しても、先行工程をreopenせず、前担当者へ戻さず、修正工程も追加しない（決定82）。** 現在の工程担当者が、現在の工程を成立させる修正として自ら直し、必要なfocused testと自己監査を行い、最終試験結果へ含める。親自身が工程担当者である場合も同じである
-- **監査担当は提出された試験内容と試験結果が妥当か判断し、試験を再実行しない。** 妥当なら監査担当が`done.sh`で証跡と同じ本文をLatticeの`test_result`へ記録して工程をクローズし、具体的な工程を指示せず「次の工程に着手してください」とだけ通知する。判断は元PLAN・工程正本・受入条件に従い、個人の思想や計画外の改善を完了条件へ加えない
+- **監査担当は提出された試験内容と試験結果が妥当か判断し、試験を再実行しない。** 妥当なら監査担当が`done.sh`で証跡と同じ本文をLatticeの`test_result`へ記録して工程をクローズする。`[クローズ] <task_id>。次の工程に着手可` の掲示は `done.sh` が最後に自分で room（all）へ投げる（席は別送しない。`CLOSE_NOTICE_FAILED` の時だけ出力本文を手で投稿する。2026-09-04 実測: 席任せだと掲示が抜けた）。具体的な工程は指示しない。判断は元PLAN・工程正本・受入条件に従い、個人の思想や計画外の改善を完了条件へ加えない
 - **監査不合格ごとに `Luna → Terra → Sol`へ昇格し、各モデルの修正機会は1回だけとする。** model変更を実行するのは親だけで、作業者や監査担当が自分で席設定を変えない
   - **runの受入はcloseと着地を分けて読む**。`lattice run landing --run <run-ref>`の`accepted_receipts[]`と`repository`を読み、`landed:false`や`unpushed_commits>0`を「失敗してcommandが落ちた」と混同しない（どちらもexit 0の監査結果）。teardownも同じreportをブリッジ停止後・runtime撤去前に自動で出す。source treeを実測する時は`LATTICE_CLI=<そのtreeのbin/lattice.mjs>`をteardownへも渡し、古いglobal installへ黙ってfallbackしない
 - **親の再着卓**（context が要約された／セッションが替わった時。決定51 のメンバー版に対応する親版。2026-08-08 実測）: 卓は生きたまま親だけが記憶を失う局面なので、**復帰は記憶ではなく正本から取り直す**。順に:
@@ -241,7 +241,7 @@ witness をどう生成するかは**対象 project 側の作法に従う**（La
 
 - Lattice 書込には actor 環境変数 3 点が必須
 - `--parallel-frontier` が要るのは、**ready が複数あって誰も着手していない frontier の最初の start だけ**（無いと `PARALLEL_DISPATCH_REQUIRED / parallel_frontier_requires_declaration` で弾かれる）。ready が1件だけ、または既に誰かが着手している frontier へ後から乗る場合は素の `start` でよい。フラグが効くのは**取る task が `next_ready` に居る時だけ**で、他人が着手済みの task へ付けると `PARALLEL_DISPATCH_INVALID / parallel_frontier_not_applicable` になる——「フラグが使えない」ではなく「**その task はもう空いていない**」の意味である。記録があるのに対象工程が未宣言・失効なら `todo start` は `INDEPENDENCE_UNVERIFIED` で拒否する（Lattice ADR 0182）。記録が無い plan の start は従来どおり助言だけ
-- **`done.sh` は feat SHA が `origin/main` の祖先でなければ canonical main へ merge して push する。** 親は着地しない。続けて remaining の independence を compile してから戻る。lattice run receipt の未着地は別軸で、警告のまま
+- **`done.sh` は feat SHA が `origin/main` の祖先でなければ canonical main へ merge して push する。** 親は着地しない。続けて remaining の independence を compile し、最後に `[クローズ]` を room へ掲示してから戻る。lattice run receipt の未着地は別軸で、警告のまま
 - **independence compile は remaining A を含める。** 現在の ready だけを compile すると、次の frontier の start が拒否される。`next_ready` が witness に無い compile 自体も `INDEPENDENCE_READY_UNDECLARED` で拒否する。stale なら席が `.team/scripts/independence-refresh.sh` を打つ。campaign を起こす最初の compile は kickoff より前。H を最初の next_ready に並べると `MAX_TODOS=8` で compile できず、席は intake 待ちで止まる（2026-08-21 8B）。H は最初の frontier の外に置く。途中の stale 再 compile は席が打つ。
 - **部屋へ書いたことを配達成功としない。** `post` 応答の `room_saved` は保存だけの事実で、配達は宛先別 `delivery` が `delivered`（wakeup-bridge の TUI 投入成立 receipt）になった時だけ成立する（決定102）。照会は `GET /api/<room>/deliveries?seq=` か MCP `delivery_status`。席の稼働は server 生成の実効状態（`status_effective` / `status_reason`）だけで判定し、静的な member 一覧・経過時間で判定しない（決定101）。bridge の停止・403 は members 応答の `bridges`（`status_bridge_down` / `wakeup_bridge_down` / `bridge_auth_failed`）に出る（決定103）。
 - **mission が古くても親は書き換えない。** 工程が変わったら席が `set-mission.sh` を自分で打つ。チップと `[mission]` の1行が正本で、席の再起動はしない
