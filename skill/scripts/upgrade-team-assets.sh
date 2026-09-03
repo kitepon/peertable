@@ -8,7 +8,9 @@ if [ "$#" -ne 1 ]; then
   exit 2
 fi
 
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# skill dir は ~/.claude/skills/peertable のような symlink 経由で呼ばれるので、$0 を実体へ解決してから repo を求める
+# （解決しないと ../.. が ~/.claude/skills になり room-mcp-config.mjs を見失う。2026-09-04 実測）
+script_dir=$(CDPATH= cd -- "$(dirname -- "$(readlink -f -- "$0")")" && pwd)
 repo_dir=$(CDPATH= cd -- "$script_dir/../.." && pwd)
 
 node --input-type=module - "$1" "$repo_dir" <<'NODE'
