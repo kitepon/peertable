@@ -20,13 +20,18 @@ export function keysForCodexPane(screen) {
   if (busy || idleComposer) return null
   // 長いcommand approvalは質問行が24行より上へ押し出される。現在の選択footerが末尾に
   // 在る時だけ全画面を読み、footerが無い通常画面では古いscrollbackを拾わない。
-  const activeDialogFooter = /Press enter to confirm or esc to cancel|enter to submit \| esc to cancel/iu.test(tail)
+  const activeDialogFooter = /Press enter to confirm or esc to (?:cancel|go back)|enter to submit \| esc to cancel/iu.test(tail)
   const dialogText = activeDialogFooter ? text : tail
   if (dialogText.includes(MCP_ALLOW_NEEDLE) && dialogText.includes(MCP_ALWAYS_ALLOW)) {
     return { kind: 'mcp-allow', keys: ['Down', 'Down', 'Enter'] }
   }
   if (dialogText.includes(COMMAND_APPROVAL_NEEDLE) && dialogText.toLowerCase().includes(COMMAND_APPROVAL_DONT_ASK)) {
     return { kind: 'command-approval', keys: ['Down', 'Enter'] }
+  }
+  // Codex 0.153: 上限接近時に安いモデルへの切替を勧める modal。モデル配置は 02_models の順位表が決めるので
+  // 切り替えず「Keep current model (never show again)」（3 番目）を選ぶ（実測 2026-09-04: mio 席が入力不能に）。
+  if (dialogText.includes('Approaching rate limits') && dialogText.includes('Keep current model')) {
+    return { kind: 'rate-limit-model-switch', keys: ['Down', 'Down', 'Enter'] }
   }
   if (dialogText.includes('Hooks need review')) {
     return { kind: 'hooks', keys: ['Down', 'Enter'] }
