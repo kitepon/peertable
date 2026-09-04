@@ -441,7 +441,8 @@ async function wake(seat, msgs) {
     }
   } catch (e) {
     const detail = String(e?.stderr || e?.message || e).split('\n').filter(Boolean).join(' / ').slice(0, 240)
-    if (/入力受付状態になりません|AGENT_TUI_BACKGROUNDED|AGENT_TTY_COOKED/u.test(detail)) {
+    // 起動時 prompt の完了待ち（着席直後の Claude/Codex 席）も「今は受け取れない」であり、次周期に再試行する
+    if (/入力受付状態になりません|起動時 prompt の完了待ち|AGENT_TUI_BACKGROUNDED|AGENT_TTY_COOKED/u.test(detail)) {
       // 席は在るが今は受け取れない（実行中・ダイアログ・前面回復不能）。次周期に再試行する
       log(`配達できず次周期に再試行: ${seat} ← ${msgs.length} 件: ${detail}`)
       return 'deferred'
