@@ -14,7 +14,7 @@ import { boundedRecent, boundedUnread } from './message-bounds.mjs'
 
 // client.mjs 側のハードコード版数。package.json の version と一致していることを
 // diagnostics の version_consistency が見る（2 つの版数源の drift 検出。決定45）
-const MCP_VERSION = '0.8.53'
+const MCP_VERSION = '0.8.54'
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const USAGE = `usage:
