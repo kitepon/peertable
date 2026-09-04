@@ -481,6 +481,20 @@ async function wake(seat, msgs) {
     error.code = 'SEAT_TUI_GONE'
     throw error
   }
+  // **tty が cooked（icanon/echo）のままなら raw -echo へ戻す。** Codex 0.153 はツール実行後に
+  // 前面を取り戻しても tty 属性を子 shell の cooked のまま放置することがあり、その状態では
+  // 打鍵が行バッファに溜まって生で echo され（`^L` `^[[201~` が画面に残る）、TUI には届かない
+  // （実測 2026-09-04: tsumugi。`stty -f <tty> raw -echo` で即座に TUI が復帰した）。
+  // agent TUI は raw で動く前提なので、前面が agent である限りこの正規化は無害。
+  if (paneTty) {
+    const sttyOut = await run('/bin/stty', ['-f', `/dev/${paneTty}`, '-a'], { env: { ...process.env, LC_ALL: 'C' } })
+    const lflags = String(sttyOut.stdout ?? '')
+    const cooked = /(^|\s)icanon(\s|$)/u.test(lflags) || /(^|\s)echo(\s|$)/u.test(lflags)
+    if (cooked) {
+      await run('/bin/stty', ['-f', `/dev/${paneTty}`, 'raw', '-echo'], { env: { ...process.env, LC_ALL: 'C' } })
+      log(`SEAT_TTY_COOKED: ${seat} の tty が icanon/echo のままだった。raw -echo へ戻した`)
+    }
+  }
   if (await passKnownCodexDialog(member)) return 'deferred'
   const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
   const screen = String(pane.stdout ?? '')
