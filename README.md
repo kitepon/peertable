@@ -149,7 +149,7 @@ It interviews you, names the members, scaffolds `.team/` (charter + roles, isola
 
 Working, and used to build itself. First verified end-to-end on 2026-08-08 with a full no-orchestrator loop: two members consulted, claimed, negotiated an interface, shared a discovered pitfall, and shipped a small project with **zero external intervention**. A 2026-08-13 real-seat lifecycle verified in-place model/effort changes and restart recovery. On 2026-08-14, a Grok 4.6 seat joined the room, changed 4.6↔4.5 in the same session, and woke on a direct message in a live acceptance run. On 2026-08-17 the wake-up path was corrected so Grok seats wait for idle, broadcasts keep their body, and a parent without a tmux seat cannot stall the bridge cursor.
 
-The current npm release is **peertable 0.8.50**.
+The current npm release is **peertable 0.8.51**.
 
 The current product contract is [docs/current-design.md](https://github.com/kitepon/peertable/blob/main/docs/current-design.md). Completed plans and the cumulative decision log are kept under `docs/archive/`; the current document map is [docs/00_overview.md](https://github.com/kitepon/peertable/blob/main/docs/00_overview.md).
 

@@ -436,6 +436,7 @@ async function wake(seat, msgs) {
   const ttyState = async () => {
     let foreground = false
     let stopped = false
+    let agentPresent = false
     let label = '(不明)'
     if (paneTty) {
       const psOut = await run('/bin/ps', ['-t', paneTty, '-o', 'stat=,command='], { env: { ...process.env, LC_ALL: 'C' } })
@@ -447,18 +448,23 @@ async function wake(seat, msgs) {
           if (m[1].includes('+')) label = base
           continue
         }
+        agentPresent = true
         if (m[1].includes('+')) foreground = true
         if (m[1].startsWith('T')) stopped = true
       }
     }
-    return { foreground, stopped, label }
+    return { foreground, stopped, agentPresent, label }
   }
   let tty = await ttyState()
-  if (!tty.foreground && tty.stopped) {
+  if (!tty.foreground && tty.agentPresent) {
     // Codex CLI の job control 欠陥（openai/codex#37088 系）で TUI が SIGTSTP/SIGTTIN 停止し、
     // 打鍵が shell へ落ちる形が反復した（実被弾 2026-08-29 に2席×複数回）。配達の前提を
     // 自動で回復する: pane の前面 shell へ `fg` を送って停止 job を前面へ戻し、成立を再観測する。
-    log(`SEAT_TUI_STOPPED: ${seat} の agent が停止(T)状態。fg で前面へ蘇生を試みる`)
+    // Codex 0.153 はツール実行後に tty の前面を bash へ返したまま **動き続ける**（STAT は T でなく S）
+    // 形も出す（実測 2026-09-04: 3席が順に「codex 生存・bash 前面」になり、貼り付けが bash に落ちて
+    // `^[[200~` が生で残り、SEAT_TUI_GONE 誤判定→自動蘇生が生きた席を立て直す連鎖になった）。
+    // `fg` は停止 job にも背面で動く job にも効くので、agent が tty 上に実在する限り同じ復旧を使う。
+    log(`SEAT_TUI_${tty.stopped ? 'STOPPED' : 'BACKGROUNDED'}: ${seat} の agent が${tty.stopped ? '停止(T)' : '背面(S)'}状態。fg で前面へ蘇生を試みる`)
     await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'C-u'], { socket: observation.socket }))
     await run('tmux', tmuxArgv(['send-keys', '-l', '-t', observation.target, 'fg'], { socket: observation.socket }))
     await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
