@@ -7,6 +7,7 @@
 //   steer:    実行中ターンへ agent_steer（Codex 0.153 はキューへ積む）。idle なら delivery=idle が返る。
 // stdout に receipt JSON を1行。失敗は stderr に aiterm のエラー本文を出して非ゼロ。
 import { readFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
@@ -29,6 +30,14 @@ try {
     process.exit(1)
   }
   const receipt = result.structuredContent ?? JSON.parse(result.content?.[0]?.text ?? '{}')
+  // aiterm の契約: dispatch は投げっぱなしでよいが、完了（Stop）は receipt の wait_process で回収する。
+  // Claude 席は前の匿名 turn の Stop を回収しない限り次の dispatch が「Claude turn が未解決」で拒否される
+  // （実測 2026-09-04: 監査席への 2 通目以降が全部失敗し、監査提出が 10 分読まれなかった）。
+  // ここで wait_process を切り離して起動し、bridge は待たない。
+  const wp = receipt?.wait_process
+  if (wp && typeof wp.executable === 'string' && Array.isArray(wp.args)) {
+    spawn(wp.executable, wp.args, { detached: true, stdio: 'ignore', env: process.env }).unref()
+  }
   process.stdout.write(`${JSON.stringify(receipt)}\n`)
 } finally {
   await client.close()

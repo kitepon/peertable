@@ -31,10 +31,9 @@ export function formatWakeNotice(msg) {
 export function isWakeupBridgeTarget(member, options = {}) {
   if (!member || typeof member.name !== 'string' || member.name.length === 0) return false
   if (member.delivery?.kind === 'parent_watch') return false
-  // Claude 席は room client の `notifications/claude/channel` で起きる。TUI へ pty_send すると aiterm が
-  // 匿名 turn を予約し、Stop を回収しない限り次の配達が「Claude turn が未解決」で拒否される
-  // （実測 2026-09-04: 監査席 sakura への 2 通目以降が全部 DELIVERY_FAILED）。bridge の対象にしない。
-  if (memberHarness(member) === 'claude') return false
+  // Claude 席も bridge の対象にする。channel 通知だけでは idle の席が起きない実測がある
+  // （2026-09-04: 監査席が監査提出 #442 を 10 分読まなかった）。aiterm の dispatch は前の匿名 turn の
+  // Stop 回収が要るので、aiterm-deliver.mjs が receipt の wait_process を切り離して起動する。
   const parentName = options.parentName
   if (typeof parentName === 'string' && parentName.length > 0 && member.name === parentName) return false
   const observe = member.observe
