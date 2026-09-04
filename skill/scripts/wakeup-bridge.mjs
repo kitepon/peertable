@@ -14,16 +14,16 @@
 // 今のターンへ混ざらず入力キューへ積まれ、次の user ターンになる。Grok 席だけ idle を待つ。
 import { execFile } from 'node:child_process'
 import {
-  closeSync, existsSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync,
+  existsSync, readFileSync, renameSync,
   unlinkSync, writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { resolvePostToken, resolveSeatObservation, tmuxArgv } from './seat-usage.mjs'
+import { fileURLToPath } from 'node:url'
+import { classifyPaneTail, resolvePostToken, resolveSeatObservation, tmuxArgv } from './seat-usage.mjs'
 import { keysForCodexPane } from './codex-dialog.mjs'
 import { BROADCAST_RECIPIENT, formatWakeNotice, isIdleSelfWake, isWakeupBridgeTarget, memberHarness, shouldDeferGrokWake } from './wakeup-delivery.mjs'
 import { bridgeRecordLive } from './bridge-record-live.mjs'
-import { seatPasteArgs } from './seat-input.mjs'
 
 const run = promisify(execFile)
 const [proj, ...rest] = process.argv.slice(2)
@@ -365,30 +365,6 @@ function advanceLastSeq() {
   if (advanced) saveDeliveryState()
 }
 
-// 「入力欄に本文が残っているか」の照合範囲。画面末尾全体で照合すると、配達済みの本文が
-// TUI の会話履歴として画面下部に表示され続ける形（Grok が常時、Codex も直後）を「残存」と
-// 誤検知し、成功した配達を failed 扱いで再試行し続ける（実被弾 2026-08-29: idle の Grok 席へ
-// 空 Enter を打ち続け、receipt が failed で固定された）。入力欄は画面の最下部に居るので、
-// **最後の composer マーカー行（Codex ›・Grok ❯）から末尾まで**だけを照合する。
-// マーカーが見えない画面では従来どおり末尾14行で照合する（狭めすぎて偽成功を作らない）。
-function composerSquashed(screen) {
-  const lines = screen.split('\n')
-  let start = -1
-  for (let i = lines.length - 1; i >= 0; i--) {
-    if (/[›❯]/u.test(lines[i])) { start = i; break }
-  }
-  if (start < 0) return lines.slice(-14).join('').replace(/\s+/gu, '')
-  // マーカー行から**直後の空行まで**だけが composer。末尾まで含めると、Codex がターン間に
-  // composer の下へ描く受理済み・キュー済みの本文（空行を挟んで表示される）を「残存」と
-  // 誤検知する（実被弾 2026-08-29: 受理済み配達を failed 固定し、空 Enter を打ち続けた）。
-  // 折返しの composer 続行行は空行を挟まず続くので、この区切りで取りこぼさない。
-  let end = lines.length
-  for (let i = start + 1; i < lines.length; i++) {
-    if (lines[i].trim() === '') { end = i; break }
-  }
-  return lines.slice(start, end).join('').replace(/\s+/gu, '')
-}
-
 const deferredBusy = new Set()
 async function passKnownCodexDialog(member) {
   if (memberHarness(member) !== 'codex') return false
@@ -420,87 +396,17 @@ async function wake(seat, msgs) {
     error.code = code
     throw error
   }
-  // **agent CLI が死んで pane が素の shell に戻っていたら、1バイトも打たない。**
-  // shell へ room の本文を send-keys すると、本文がそのまま shell コマンドとして実行される
-  // （実被弾 2026-08-22: codex 終了後の bash へ配達され `command not found` が走った。
-  // 本文次第では席の権限で任意コマンドになる）。配達は止め、毎周期 typed log で叫ぶ。
-  // **打鍵が届く先は pane tty の前面プロセスグループだけ**なので、配達可否はそれで判定する。
-  // 「前面コマンド名がshellか」（実被弾 2026-08-22: bash 配下で生きる codex を誤遮断）でも、
-  // 「pane 子孫に agent CLI が実在するか」（実被弾 2026-08-29: SIGTSTP で停止した codex は
-  // 実在するが打鍵は bash が受け、room 本文がコマンド実行された）でも足りない。
-  // ps の STAT `+` は tty の前面プロセスグループを OS が直接教える印であり、
-  // 死亡・停止（T）・背面化のすべてを一つの条件で塞ぐ。
-  const ttyOut = await run('tmux', tmuxArgv(['display-message', '-p', '-t', observation.target, '#{pane_tty}'], { socket: observation.socket }))
-  const paneTty = String(ttyOut.stdout ?? '').trim().replace(/^\/dev\//u, '')
-  const SHELLS = ['bash', 'zsh', 'sh', 'dash', 'fish', 'tcsh', 'csh', 'ksh']
-  const ttyState = async () => {
-    let foreground = false
-    let stopped = false
-    let agentPresent = false
-    let label = '(不明)'
-    if (paneTty) {
-      const psOut = await run('/bin/ps', ['-t', paneTty, '-o', 'stat=,command='], { env: { ...process.env, LC_ALL: 'C' } })
-      for (const line of String(psOut.stdout ?? '').split('\n')) {
-        const m = line.trim().match(/^(\S+)\s+(.*)$/u)
-        if (!m) continue
-        const base = String(m[2]).split(/\s+/u, 1)[0].split('/').pop()
-        if (SHELLS.includes(base)) {
-          if (m[1].includes('+')) label = base
-          continue
-        }
-        agentPresent = true
-        if (m[1].includes('+')) foreground = true
-        if (m[1].startsWith('T')) stopped = true
-      }
-    }
-    return { foreground, stopped, agentPresent, label }
-  }
-  let tty = await ttyState()
-  if (!tty.foreground && tty.agentPresent) {
-    // Codex CLI の job control 欠陥（openai/codex#37088 系）で TUI が SIGTSTP/SIGTTIN 停止し、
-    // 打鍵が shell へ落ちる形が反復した（実被弾 2026-08-29 に2席×複数回）。配達の前提を
-    // 自動で回復する: pane の前面 shell へ `fg` を送って停止 job を前面へ戻し、成立を再観測する。
-    // Codex 0.153 はツール実行後に tty の前面を bash へ返したまま **動き続ける**（STAT は T でなく S）
-    // 形も出す（実測 2026-09-04: 3席が順に「codex 生存・bash 前面」になり、貼り付けが bash に落ちて
-    // `^[[200~` が生で残り、SEAT_TUI_GONE 誤判定→自動蘇生が生きた席を立て直す連鎖になった）。
-    // `fg` は停止 job にも背面で動く job にも効くので、agent が tty 上に実在する限り同じ復旧を使う。
-    log(`SEAT_TUI_${tty.stopped ? 'STOPPED' : 'BACKGROUNDED'}: ${seat} の agent が${tty.stopped ? '停止(T)' : '背面(S)'}状態。fg で前面へ蘇生を試みる`)
-    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'C-u'], { socket: observation.socket }))
-    await run('tmux', tmuxArgv(['send-keys', '-l', '-t', observation.target, 'fg'], { socket: observation.socket }))
-    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
-    await sleep(2000)
-    tty = await ttyState()
-    if (tty.foreground) log(`SEAT_TUI_RESUMED: ${seat} の agent を前面へ復帰させた`)
-  }
-  if (!tty.foreground) {
-    const foregroundLabel = tty.label
-    log(`SEAT_TUI_GONE: ${seat} の pane tty 前面が agent CLI でない（前面: ${foregroundLabel}）＝`
-      + '打鍵は shell に落ちる（agent 死亡・SIGTSTP 停止・背面化）。'
-      + 'shell へのコマンド実行を防ぐため配達しない。席を立て直すか leave-seat で畳むこと')
-    const error = new Error(`SEAT_TUI_GONE: ${seat}`)
-    error.code = 'SEAT_TUI_GONE'
-    throw error
-  }
-  // **tty が cooked（icanon/echo）のままなら raw -echo へ戻す。** Codex 0.153 はツール実行後に
-  // 前面を取り戻しても tty 属性を子 shell の cooked のまま放置することがあり、その状態では
-  // 打鍵が行バッファに溜まって生で echo され（`^L` `^[[201~` が画面に残る）、TUI には届かない
-  // （実測 2026-09-04: tsumugi。`stty -f <tty> raw -echo` で即座に TUI が復帰した）。
-  // agent TUI は raw で動く前提なので、前面が agent である限りこの正規化は無害。
-  if (paneTty) {
-    const sttyOut = await run('/bin/stty', ['-f', `/dev/${paneTty}`, '-a'], { env: { ...process.env, LC_ALL: 'C' } })
-    const lflags = String(sttyOut.stdout ?? '')
-    const cooked = /(^|\s)icanon(\s|$)/u.test(lflags) || /(^|\s)echo(\s|$)/u.test(lflags)
-    if (cooked) {
-      await run('/bin/stty', ['-f', `/dev/${paneTty}`, 'raw', '-echo'], { env: { ...process.env, LC_ALL: 'C' } })
-      log(`SEAT_TTY_COOKED: ${seat} の tty が icanon/echo のままだった。raw -echo へ戻した`)
-    }
-  }
-  if (await passKnownCodexDialog(member)) return 'deferred'
+  // **席の TUI への打鍵は aiterm の公開 API（pty_send / agent_steer）だけで行う。**
+  // PTY の状態（agent が tty の前面か・termios が raw か・貼付の方言・submit の成立）は aiterm が
+  // 所有し、bridge は「誰に・いつ・何を届けるか」と receipt だけを持つ（責務境界。2026-09-04
+  // オーナー裁定: 0.8.51/0.8.52 で bridge に足した fg／stty は aiterm へ移し、ここからは撤去）。
+  // 死んだ席（agent 不在の素の shell）へは aiterm の ready gate が入力受付不能として送らない。
   const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
   const screen = String(pane.stdout ?? '')
-  if (memberHarness(member) === 'grok') {
-    const tail = screen.split('\n').slice(-14).join('\n')
-    if (shouldDeferGrokWake(memberHarness(member), tail)) {
+  const harness = memberHarness(member)
+  const tail = screen.split('\n').slice(-14).join('\n')
+  if (harness === 'grok') {
+    if (shouldDeferGrokWake(harness, tail)) {
       if (!deferredBusy.has(seat)) {
         log(`Grok席が実行中なのでidleまで待つ: ${seat} ← ${msgs.length} 件`)
         deferredBusy.add(seat)
@@ -509,143 +415,54 @@ async function wake(seat, msgs) {
     }
     deferredBusy.delete(seat)
   }
-  // Codexの入力欄は本文とEnterを同じtmux commandで送ると、初回turn完了後に
-  // 本文が入力欄へ残ることがある。再試行時の半入力も含め、正規のsubmitを分離する。
-  // 最後のEnterまで成功しない限りwakeは成功扱いにせず、flushSeatのreceiptも確定しない。
-  // **前周期の本文が入力欄に残っている時は再打鍵しない**——C-u は複数行composerの1行しか
-  // 消せず、周期ごとの全文再打鍵が本文を多重に蓄積させた（実被弾 2026-08-29: 約1時間の
-  // STUCKループで入力欄が多重本文＋制御文字で汚染され、配達不能が固定化した）。
-  const preMarker = text.replace(/\s+/gu, '').slice(-24)
-  const prePane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
-  const preLoaded = preMarker.length >= 8
-    && composerSquashed(String(prePane.stdout ?? '')).includes(preMarker)
-  if (preLoaded) {
-    log(`入力欄に前周期の本文が残存: ${seat}。再打鍵せず送信だけ再試行する`)
-    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
-  } else {
-    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'C-u'], { socket: observation.socket }))
-    await sleep(100)
-    // 素打ち（send-keys -l）は長文で連続keystrokeとして届き、TUIのpaste burst検知を
-    // 半端な状態に落として composer が submit 不能に固まる形を繰り返した（実被弾
-    // 2026-08-29: Codex席が同日3回、掃除も効かない入力破損）。正規の bracketed paste
-    // （load-buffer→paste-buffer -p）で「1回の貼り付け」として届ける。
-    const pasteBuf = `wakeup-${process.pid}-${Date.now()}`
-    const pasteFile = join(proj, '.team', `wakeup-paste-${process.pid}.txt`)
-    writeFileSync(pasteFile, text)
-    try {
-      await run('tmux', tmuxArgv(['load-buffer', '-b', pasteBuf, pasteFile], { socket: observation.socket }))
-      // 貼り方の方言（-pの要否等）は seat-input.mjs の方言表だけが知る。ここでは判断しない。
-      await run('tmux', tmuxArgv(
-        seatPasteArgs(memberHarness(member), pasteBuf, observation.target),
-        { socket: observation.socket },
-      ))
-    } finally {
-      try { unlinkSync(pasteFile) } catch { /* 一時fileの掃除失敗は配達判定に影響しない */ }
-    }
-    await sleep(750)
-    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
+  if (await passKnownCodexDialog(member)) return 'deferred'
+  const sessionId = typeof member.aiterm_session_id === 'string' && member.aiterm_session_id
+    ? member.aiterm_session_id
+    : observation.target
+  // Codex は実行中ターンへ steer（0.153 は「次の tool call 後に送る」キューへ積む）、idle なら dispatch。
+  // 実行中の判定は画面の実行中マーカーだけ（読むだけで、状態を変えない）。
+  const busy = classifyPaneTail(tail) === 'busy' || tail.includes('esc to interrupt')
+  const deliverScript = fileURLToPath(new URL('./aiterm-deliver.mjs', import.meta.url))
+  const deliverFile = join(proj, '.team', `wakeup-deliver-${process.pid}.txt`)
+  writeFileSync(deliverFile, text)
+  const deliver = async (mode) => {
+    const res = await run(process.execPath, [deliverScript, sessionId, deliverFile, `--mode=${mode}`],
+      { env: process.env, maxBuffer: 4 * 1024 * 1024 })
+    return JSON.parse(String(res.stdout || '{}'))
   }
-  // 送信検証。Codex v0.148 は長文入力後に「Create a plan?」popup が出て Enter を呑むことがあり、
-  // 本文が入力欄に残ったまま席が沈黙する（2026-08-22 実測: 2席が無音停止し、人が画面を見るまで
-  // 誰も気づけなかった）。打鍵成功＝配達成功とみなさず、画面で送信成立を確認する。
-  // 残っていれば Escape（popup解除）→ Enter で再送信し、それでも残るなら受領を確定せず
-  // 次周期に再試行する（毎回ログに残るので沈黙しない）。
-  const markerSource = text.replace(/\s+/gu, '')
-  const marker = markerSource.slice(-24)
-  // Claude Code は長文入力を折り畳んで本文を画面から消し（"paste again to expand" /
-  // "[Pasted text"）、ターン実行中は "esc to interrupt" でなくスピナー（✻✽·）を出す。
-  // この2つで旧検証は「未送信」と誤判定し、しかも回復に撃つ Escape が **Claude の実行中
-  // ターンを中断**していた（実被弾 2026-08-22: 監査席が2秒ごとに中断され、監査が進まなかった）。
-  // Claude 席は「受理された兆候」を成功とみなし、回復キーに Escape を使わない。
-  const CLAUDE_ACCEPTED = /paste again to expand|\[Pasted text|esc to interrupt|✻|✽|✳|·\s*\w+ing…/u
-  const isClaude = memberHarness(member) === 'claude'
-  // Codex席の成立判定は画面でなくrollout transcript（席CODEX_HOMEの正本記録）で行う。
-  // 画面照合はTUIのレイアウト・描画タイミングごとに偽陽性/偽陰性を繰り返した（実被弾
-  // 2026-08-29に4系統: 会話履歴の残存誤検知・マーカー不在時のフォールバック誤検知・
-  // 受理済みキュー表示の誤検知・偽delivered）。submitされた本文はidle時ただちに
-  // rolloutへuser messageとして書かれるので、それだけを受理の証拠とする。
-  // 実行中ターン（esc to interrupt / to queue message）はCodexが入力をキューする実測
-  // （2026-08-08）に基づき受理扱いを維持する。
-  const codexSessionsDir = join(proj, '.team', 'seats', `${seat}.codex`, 'sessions')
-  const rolloutHasMarker = () => {
-    if (marker.length < 8) return false
-    let newest = null; let newestM = -Infinity
-    const walk = (dir) => {
-      let entries
-      try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
-      for (const entry of entries) {
-        const file = join(dir, entry.name)
-        if (entry.isDirectory()) { walk(file); continue }
-        if (!entry.name.startsWith('rollout-') || !entry.name.endsWith('.jsonl')) continue
-        let m
-        try { m = statSync(file).mtimeMs } catch { continue }
-        if (m > newestM) { newestM = m; newest = file }
-      }
+  let mode = harness === 'codex' && busy ? 'steer' : 'dispatch'
+  let receipt
+  try {
+    receipt = await deliver(mode)
+    if (receipt?.schema === 'aiterm.agent-steer.v1' && receipt.delivery === 'idle') {
+      // steer した瞬間に idle へ落ちた。dispatch で届け直す（aiterm が ready gate を通す）
+      mode = 'dispatch'
+      receipt = await deliver(mode)
     }
-    walk(codexSessionsDir)
-    if (newest === null) return false
-    let bytes
-    try {
-      const size = statSync(newest).size
-      const fd = openSync(newest, 'r')
-      const len = Math.min(size, 262144)
-      const buf = Buffer.alloc(len)
-      readSync(fd, buf, 0, len, size - len)
-      closeSync(fd)
-      bytes = buf.toString('utf8')
-    } catch { return false }
-    return bytes.replace(/\s+/gu, '').includes(marker)
+  } catch (e) {
+    const detail = String(e?.stderr || e?.message || e).split('\n').filter(Boolean).join(' / ').slice(0, 240)
+    if (/入力受付状態になりません|AGENT_TUI_BACKGROUNDED|AGENT_TTY_COOKED/u.test(detail)) {
+      // 席は在るが今は受け取れない（実行中・ダイアログ・前面回復不能）。次周期に再試行する
+      log(`配達できず次周期に再試行: ${seat} ← ${msgs.length} 件: ${detail}`)
+      return 'deferred'
+    }
+    const error = new Error(`DELIVERY_FAILED: ${seat}: ${detail}`)
+    error.code = 'DELIVERY_FAILED'
+    throw error
+  } finally {
+    try { unlinkSync(deliverFile) } catch { /* 一時fileの掃除失敗は配達判定に影響しない */ }
   }
-  const isCodex = memberHarness(member) === 'codex'
-  for (let attempt = 0; attempt < 3; attempt++) {
-    await sleep(1200)
-    const after = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
-    const tailLines = String(after.stdout ?? '').split('\n').slice(-14)
-    const tailJoined = tailLines.join(' ')
-    // 折返しはcapture上で行分割されるだけで空白は挟まらないため、空白除去で復元して照合する。
-    // 照合は composer 領域だけ（composerSquashed の注記を参照）
-    const tailSquashed = composerSquashed(String(after.stdout ?? ''))
-    const queuedOrRunning = tailJoined.includes('esc to interrupt') || tailJoined.includes('to queue message')
-      || (isClaude && CLAUDE_ACCEPTED.test(tailJoined))
-    const stuck = isCodex
-      ? (!queuedOrRunning && !rolloutHasMarker())
-      : ((!isClaude && tailJoined.includes('esc dismiss'))
-        || (marker.length >= 8 && tailSquashed.includes(marker) && !queuedOrRunning))
-    if (!stuck) break
-    if (attempt === 2) {
-      // 蓄積戦争の禁止: 次周期は束ねる本文が変わり得て残存照合が外れ、全文再打鍵が
-      // composer を多重本文で埋める（実被弾 2026-08-29 に2回）。STUCKで周期を明け渡す前に
-      // composer を行数分の C-u で空にし、次周期が常に「空の入力欄へ1部だけ」から始まる
-      // 構造にする。
-      const wipePane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
-      const wipeLines = Math.min(120, String(wipePane.stdout ?? '').split('\n').length + 10)
-      for (let i = 0; i < wipeLines; i++) {
-        await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'C-u'], { socket: observation.socket }))
-      }
-      log(`DELIVERY_STUCK: ${seat} の入力欄に本文が残ったまま送信できない（popup／入力詰まり）。入力欄を掃除し、受領を確定せず次周期に再試行する`)
-      const error = new Error(`DELIVERY_STUCK: ${seat}`)
-      error.code = 'DELIVERY_STUCK'
-      throw error
-    }
-    if (isClaude) {
-      // Escape は撃たない（実行中ターンを殺す）。Enter だけ打ち直す
-      log(`配達が送信されていない: ${seat}（Claude 席のため Escape は使わず Enter を打ち直す）`)
-      await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
-      continue
-    }
-    // Escape は popup が無い時に composer へリテラル ESC として混入し、本文を恒久汚染する
-    // （実被弾 2026-08-29: `^[` が本文中へ入り submit 不能が固定化）。popup 解除は
-    // 「esc dismiss」表示がある時だけ撃ち、それ以外は Enter だけ打ち直す。
-    if (tailJoined.includes('esc dismiss')) {
-      log(`配達が送信されていない（popup表示中）: ${seat}。Escape→Enter で再送信する`)
-      await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Escape'], { socket: observation.socket }))
-      await sleep(300)
-    } else {
-      log(`配達が送信されていない（入力詰まり）: ${seat}。Enter を打ち直す`)
-    }
-    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, 'Enter'], { socket: observation.socket }))
+  if (receipt?.submit_residue === true) {
+    // aiterm が composer への残存を観測＝submit 未成立の疑い。受領を確定せず次周期に再試行する
+    log(`DELIVERY_STUCK: ${seat} の composer に本文が残存（aiterm submit_residue=true）。受領を確定せず次周期に再試行する`)
+    const error = new Error(`DELIVERY_STUCK: ${seat}`)
+    error.code = 'DELIVERY_STUCK'
+    throw error
   }
-  log(`TUIへ入れた: ${seat} ← ${msgs.length} 件（最新 seq ${last.seq}）`)
+  const recovered = Array.isArray(receipt?.pane_input_recovery) && receipt.pane_input_recovery.length
+    ? `・回復 ${receipt.pane_input_recovery.join(',')}`
+    : ''
+  log(`TUIへ入れた: ${seat} ← ${msgs.length} 件（最新 seq ${last.seq}・${mode}${recovered}）`)
 }
 
 function dispatch(msg) {
