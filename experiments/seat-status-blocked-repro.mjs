@@ -1,33 +1,3 @@
 #!/usr/bin/env node
-// t2(b) 承認待ち(blocked)判定の再現ハーネス。欠陥版（blocked marker を見ない旧ロジック）で
-// 落ちることを先に確認してから green を読む（測定器を先に疑う）。
-import assert from 'node:assert/strict'
-
-import { classifyPaneTail } from '../skill/scripts/seat-usage.mjs'
-
-// ① 既知ダイアログ文言を含むペイン文字列で blocked が返る
-assert.equal(classifyPaneTail('Trust the files in this folder?\n1. Yes, I trust this folder'), 'blocked')
-assert.equal(classifyPaneTail('channels warning\n1. I am using this for local development'), 'blocked')
-assert.equal(classifyPaneTail('directory trust\n1. Yes, continue'), 'blocked')
-assert.equal(classifyPaneTail('rm -rf ./tmp\nDo you want to proceed?'), 'blocked')
-
-// ② `esc to interrupt` が同時に在れば busy が勝つ（承認プロンプトなのに実行中と誤認しない側の確認）
-assert.equal(classifyPaneTail('✶ Cogitating… (esc to interrupt)\nDo you want to proceed?'), 'busy')
-
-// ③ どちらも無ければ idle
-assert.equal(classifyPaneTail('· Wibbling… (3m 38s · ↓ 7.2k tokens · almost done thinking with high effort)'), 'busy')
-assert.equal(classifyPaneTail('✻ Incubating… (53s · ↓ 2.5k tokens · thinking with high effort)'), 'busy')
-assert.equal(classifyPaneTail('· Sprouting… (7m 48s · 27.9k tokens)\nTip: Use /btw to ask a quick side question without interrupting Claude\'s current work'), 'busy')
-assert.equal(classifyPaneTail('· Sprouting… (7m 48s · 27.9k tokens)'), 'busy')
-assert.equal(classifyPaneTail('Calling tools…（↓28.7k tokens）'), 'busy')
-assert.equal(classifyPaneTail('Waiting for response… 0.1s                                                                    1m39s ↓322k [stop]'), 'busy')
-assert.equal(classifyPaneTail('Responding…'), 'busy')
-assert.equal(classifyPaneTail('Worked for 38s                                                                               stop  [hooks: 1/3]'), 'busy')
-assert.equal(classifyPaneTail('Worked for 38s\nGrok 4.6 (medium) · always-approve'), 'idle')
-assert.equal(classifyPaneTail('Help improve Grok\n[Opt out] [Opt in]\nGrok 4.6 (medium) · always-approve'), 'blocked')
-assert.equal(classifyPaneTail('Waiting for response…\nHelp improve Grok\n[Opt out] [Opt in]'), 'busy')
-assert.equal(classifyPaneTail('✻ Cooked for 22s\n❯\n[Fable 5]'), 'idle')
-assert.equal(classifyPaneTail('gpt-5.6-sol high · context 81% left'), 'idle')
-assert.equal(classifyPaneTail(''), 'idle')
-
-console.log('seat status blocked repro: 19/19 green')
+// 旧再現入口の互換名。画面文言の分類はAitermが所有する。公開状態のblockedと稼働ランプの対応を検証する。
+import '../skill/scripts/seat-observer.test.mjs'

@@ -3,18 +3,15 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { hashArgv, refreshSeatRecord } from '../skill/scripts/refresh-seat-identity.mjs'
+import { refreshSeatRecord } from '../skill/scripts/refresh-seat-identity.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const identSrc = readFileSync(join(root, 'skill/scripts/seat-identity.mjs'), 'utf8')
 const refreshSrc = readFileSync(join(root, 'skill/scripts/refresh-seat-identity.mjs'), 'utf8')
 const member = readFileSync(join(root, 'skill/templates/member.md'), 'utf8')
 
-assert.match(identSrc, /'-o', 'command='/)
-assert.doesNotMatch(identSrc, /'-o', 'args='/)
-// ps 観測は seat-identity.mjs（OS観測ライブラリ）だけが持つ。refresh は import で使う
+// 本人性の観測はAitermの公開APIが所有する。
 assert.doesNotMatch(refreshSrc, /'-o', 'command='/)
-assert.match(refreshSrc, /from '\.\/seat-identity\.mjs'/)
+assert.match(refreshSrc, /aiterm\.observe/)
 assert.match(member, /refresh-seat-identity\.mjs/)
 
 const raw = {
@@ -28,8 +25,7 @@ const raw = {
 const observed = {
   pid: 31866,
   started_identity: 'Sat Aug 22 14:42:46 2026',
-  argv: 'node /bin/codex',
-  argv_digest: hashArgv('node /bin/codex'),
+  argv_digest: '公開APIが返したdigest',
 }
 const next = refreshSeatRecord(raw, observed, '2026-08-22T07:00:00.000Z')
 assert.equal(next.argv_digest, observed.argv_digest)

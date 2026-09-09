@@ -16,6 +16,7 @@ import net from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { AitermClient } from '../skill/scripts/aiterm-client.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = join(here, "..");
@@ -24,11 +25,7 @@ const launchSeat = join(repo, "skill", "scripts", "launch-seat.sh");
 const changeSeat = join(repo, "skill", "scripts", "change-seat.sh");
 const leaveSeat = join(repo, "skill", "scripts", "leave-seat.sh");
 const parentJoin = join(repo, "skill", "scripts", "parent-join.sh");
-const tmuxSocket = join(repo, "skill", "scripts", "tmux-socket.mjs");
-const wakeupBridge = join(repo, "skill", "scripts", "wakeup-bridge.mjs");
-const memberTemplate = join(repo, "skill", "templates", "member-standalone.md");
-const parentTemplate = join(repo, "skill", "templates", "parent.md");
-const charterTemplate = join(repo, "skill", "templates", "charter.md");
+const peertableCli = join(repo, 'skill', 'scripts', 'cli.mjs');
 
 const workerModelBefore = process.env.T4_WORKER_MODEL_BEFORE || "gpt-5.6-terra";
 const workerModelAfter = process.env.T4_WORKER_MODEL_AFTER || "gpt-5.6-sol";
@@ -153,20 +150,10 @@ async function members(base) {
   return Array.isArray(result) ? result : (result.members || result.items || []);
 }
 
-function pane(socket, session) {
-  try { return commandSync("tmux", ["-S", socket, "capture-pane", "-p", "-t", session, "-S", "-80"]); }
-  catch { return ""; }
-}
-
-async function waitForIdle(socket, session) {
-  let idleSince = 0;
-  await waitFor(`${session} idle`, () => {
-    if (pane(socket, session).includes("esc to interrupt")) {
-      idleSince = 0;
-      return false;
-    }
-    if (idleSince === 0) idleSince = Date.now();
-    return Date.now() - idleSince >= 4_000;
+async function waitForIdle(aiterm, session) {
+  await waitFor(`${session} idle`, async () => {
+    const observed = await aiterm.observe(session);
+    return observed.state === 'idle' && observed.harness_alive === true;
   }, 120_000, 1_000);
 }
 
@@ -183,7 +170,7 @@ async function liveLifecycle() {
   const dataDir = join(root, "room-data");
   const project = join(root, "project");
   const tokenFile = join(root, "post-token.env");
-  const socket = commandSync(process.execPath, [tmuxSocket]).trim();
+  const aiterm = new AitermClient();
   const invocationLog = join(project, ".team", "t4-test-invocations.jsonl");
   const room = `t4-live-${process.pid}`;
   const token = `t4-token-${process.pid}-${Date.now()}`;
@@ -222,21 +209,14 @@ async function liveLifecycle() {
 
   try {
     await mkdir(dataDir, { recursive: true });
-    await mkdir(join(project, ".team", "roles"), { recursive: true });
+    await mkdir(project, { recursive: true });
     await writeFile(tokenFile, `PEERTABLE_POST_TOKEN=${token}\n`, { mode: 0o600 });
-    await writeFile(join(project, ".team", "setup-state.json"), `${JSON.stringify({
-      project, room, server_url: serverUrl, public_url: serverUrl, mode: "standalone",
-      plan_key: "", parent: "bell", created_at: new Date().toISOString(), added_root_mcp: true,
-    }, null, 2)}\n`);
-    await writeFile(join(project, ".mcp.json"), `${JSON.stringify({
-      mcpServers: { peertable: { command: process.execPath, args: [join(repo, "room", "client.mjs")],
-        env: { PEERTABLE_SERVER_URL: serverUrl, PEERTABLE_ROOM: room } } },
-    }, null, 2)}\n`);
-    await writeFile(join(project, ".team", "CLAUDE.md"), "@roles/member.md\n");
-    await writeFile(join(project, ".team", "roles", "member.md"), await readFile(memberTemplate));
-    await writeFile(join(project, ".team", "roles", "parent.md"), await readFile(parentTemplate));
-    await writeFile(join(project, ".team", "charter.md"), await readFile(charterTemplate));
-    await writeFile(join(project, ".team", "tasks.md"), "# t4 live tasks\n\n- t4-live-work\n");
+    const tasksFile = join(root, 'tasks.md');
+    await writeFile(tasksFile, '# 自律作業の実機試験\n\n- t4-live-work\n');
+    roomProcess = await startRoom({ dataDir, token, port, room });
+    const setup = await command(process.execPath, [peertableCli, 'setup', project,
+      '--room', room, '--url', serverUrl, '--tasks', tasksFile], { env, timeout: 120_000 });
+    assert.equal(setup.code, 0, setup.stderr);
     await writeFile(join(project, ".team", "t4-deliverable.txt"), "t4-ready\n");
     await writeFile(join(project, ".team", "t4-self-test.mjs"), `import assert from "node:assert/strict";
 import { appendFileSync, readFileSync } from "node:fs";
@@ -245,7 +225,6 @@ appendFileSync(new URL("./t4-test-invocations.jsonl", import.meta.url), JSON.str
 console.log("t4-self-test: 1/1 green");
 `);
 
-    roomProcess = await startRoom({ dataDir, token, port, room });
     const joined = await command("bash", [parentJoin, project, "bell", auditorModel, auditorEffort, "codex"], {
       env: parentEnv, timeout: 120_000,
     });
@@ -271,15 +250,12 @@ console.log("t4-self-test: 1/1 green");
     await waitFor("作業席member登録", async () => (await members(base)).some((item) => item.name === "t4-live-worker"));
     await waitFor("作業席起動完了", async () => (await messages(base)).some((item) =>
       item.from === "t4-live-worker" && item.body?.includes("[t4-live-seat-ready]")));
-    await waitForIdle(socket, "peer-t4-live-worker");
-    workerBridge = spawn(process.execPath, [wakeupBridge, project, "t4-live-worker"], {
-      cwd: repo, env, stdio: ["ignore", "pipe", "pipe"],
-    });
+    await waitForIdle(aiterm, "peer-t4-live-worker");
 
     await postRoom(base, token, { from: "bell", to: "t4-live-worker", body: "[t4-live-boot] 再着任内容を返してください。" });
     await waitFor("boot応答", async () => (await messages(base)).some((item) =>
       item.from === "t4-live-worker" && item.body?.includes("[t4-live-boot-ok]")));
-    await waitForIdle(socket, "peer-t4-live-worker");
+    await waitForIdle(aiterm, "peer-t4-live-worker");
 
     await postRoom(base, token, { from: "bell", to: "t4-live-worker", body: "[t4-live-suppressive-parent] 親への応答後も自律作業を続けてください。" });
     await waitFor("自律progress/claim", async () => {
@@ -287,13 +263,13 @@ console.log("t4-self-test: 1/1 green");
       return log.some((item) => item.body?.includes("[t4-live-progress]"))
         && log.some((item) => item.body?.includes("[claim] t4-live-work"));
     });
-    await waitForIdle(socket, "peer-t4-live-worker");
+    await waitForIdle(aiterm, "peer-t4-live-worker");
     assert.equal((await messages(base)).some((item) => item.from === "bell" && item.body?.includes("[配車]")), false);
 
     await postRoom(base, token, { from: "bell", to: "t4-live-worker", body: "[t4-live-change] 現在の作業量に合う席設定を自然文で相談してください。" });
     const changeRequest = await waitFor("自然文の変更依頼", async () => (await messages(base)).find((item) =>
       item.from === "t4-live-worker" && item.to === "bell" && item.body?.includes("[t4-live-change-request]")));
-    await waitForIdle(socket, "peer-t4-live-worker");
+    await waitForIdle(aiterm, "peer-t4-live-worker");
     const change = await command("bash", [changeSeat, project, "t4-live-worker",
       "--model", workerModelAfter, "--effort", workerEffortAfter, "--parent", "bell",
       "--reason", "作業者の自然文相談を親が判断し、Solと最大推論をtargetとして確定"], { env, timeout: timeoutMs });
@@ -303,7 +279,7 @@ console.log("t4-self-test: 1/1 green");
     assert.equal(configured?.model, workerModelAfter);
     assert.equal(configured?.effort, workerEffortAfter);
 
-    await waitForIdle(socket, "peer-t4-live-worker");
+    await waitForIdle(aiterm, "peer-t4-live-worker");
     await stopProcess(workerBridge);
     workerBridge = null;
     const left = await command("bash", [leaveSeat, project, "t4-live-worker"], { env, timeout: 60_000 });
@@ -317,14 +293,11 @@ console.log("t4-self-test: 1/1 green");
     workerPresent = true;
     await waitFor("再起動した作業席の起動完了", async () => (await messages(base)).filter((item) =>
       item.from === "t4-live-worker" && item.body?.includes("[t4-live-seat-ready]")).length > readyBeforeRestart);
-    await waitForIdle(socket, "peer-t4-live-worker");
-    workerBridge = spawn(process.execPath, [wakeupBridge, project, "t4-live-worker"], {
-      cwd: repo, env, stdio: ["ignore", "pipe", "pipe"],
-    });
+    await waitForIdle(aiterm, "peer-t4-live-worker");
     await postRoom(base, token, { from: "bell", to: "t4-live-worker", body: "[t4-live-rejoin] role・tasks・room履歴から再着任してください。" });
     await waitFor("再着任応答", async () => (await messages(base)).some((item) =>
       item.from === "t4-live-worker" && item.body?.includes("[t4-live-rejoin-ok]")));
-    await waitForIdle(socket, "peer-t4-live-worker");
+    await waitForIdle(aiterm, "peer-t4-live-worker");
 
     const auditLaunch = await command("bash", [launchSeat, project, "t4-live-auditor", "監査・発見", auditorBrief,
       "--model", auditorModel, "--vendor", "codex", "--effort", auditorEffort], { env, timeout: timeoutMs });
@@ -335,10 +308,7 @@ console.log("t4-self-test: 1/1 green");
     await postRoom(base, token, { from: "bell", to: "t4-live-auditor", body: auditorAssignment });
     await waitFor("監査席起動完了", async () => (await messages(base)).some((item) =>
       item.from === "t4-live-auditor" && item.body?.includes("[t4-live-auditor-ready]")));
-    await waitForIdle(socket, "peer-t4-live-auditor");
-    auditorBridge = spawn(process.execPath, [wakeupBridge, project, "t4-live-auditor"], {
-      cwd: repo, env, stdio: ["ignore", "pipe", "pipe"],
-    });
+    await waitForIdle(aiterm, "peer-t4-live-auditor");
 
     await postRoom(base, token, { from: "bell", to: "t4-live-worker", body: "[t4-live-finalize] 自己試験・自己監査を完了し、最終結果だけを監査担当へ渡してください。" });
     const finalResults = await waitFor("最終試験結果", async () => (await messages(base)).find((item) =>
@@ -390,6 +360,9 @@ console.log("t4-self-test: 1/1 green");
         method: "DELETE", headers: { "X-Peertable-Token": token },
       }).catch(() => {});
     }
+    const cleanup = await command(process.execPath, [peertableCli, 'teardown', project], { env, timeout: 60_000 });
+    if (cleanup.code !== 0) throw new Error(cleanup.stderr);
+    await aiterm.close();
     if (roomProcess) await stopProcess(roomProcess.child);
     await rm(root, { recursive: true, force: true });
   }

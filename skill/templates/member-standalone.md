@@ -4,7 +4,7 @@
 
 ## Peertableの正規席と委譲入口
 
-このprojectの円卓メンバーは、親が`skill/scripts/launch-seat.sh`で着席させたAiterm長寿命外部PTYである。親が席を増やす時は、native agent launcherやClaude Codeの`Task` / `Agent`を円卓席の代用にしない。席間の分担は同じroom（`post` / `read_unread` / `read_log`）と、このモードの工程正本で行い、shell操作用の短命なPTYと、メンバーが長寿命で着席するPTYを混同しない。既存席を読む・起こす入口はaitermの`pty_read` / `pty_send` / `pty_key`である。
+このprojectの円卓メンバーは、親が`peertable launch`で着席させたAiterm長寿命外部PTYである。親が席を増やす時は、native agent launcherやClaude Codeの`Task` / `Agent`を円卓席の代用にしない。席間の分担は同じroom（`post` / `read_unread` / `read_log`）と、このモードの工程正本で行い、shell操作用の短命なPTYと、メンバーが長寿命で着席するPTYを混同しない。既存席を読む・起こす入口はaitermの`pty_observe` / `pty_read` / `pty_send`である。
 
 正式着席したメンバーは、工程遂行に必要なnative sub-agent、Aiterm外部agent、相談agent、自己実装を自由に選べる。親は二次委譲の手段を禁止・指定しない。メンバーが呼んだ子は自動的に円卓メンバーにはならず、工程所有・統合・room報告はこの着席メンバーが保持する。
 

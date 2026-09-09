@@ -1,4 +1,4 @@
-import { classifyPaneTail } from './seat-usage.mjs'
+import { seatSessionId } from './seat-session.mjs'
 
 export const BROADCAST_RECIPIENT = 'all'
 export const ROOM_UPDATE_FALLBACK =
@@ -36,13 +36,7 @@ export function isWakeupBridgeTarget(member, options = {}) {
   // Stop 回収が要るので、aiterm-deliver.mjs が receipt の wait_process を切り離して起動する。
   const parentName = options.parentName
   if (typeof parentName === 'string' && parentName.length > 0 && member.name === parentName) return false
-  const observe = member.observe
-  const hasPane = Boolean(
-    observe
-    && typeof observe === 'object'
-    && typeof observe.tmux_target === 'string'
-    && observe.tmux_target,
-  )
+  const hasPane = Boolean(seatSessionId(member))
   if (hasPane) return true
   const harness = memberHarness(member)
   return harness === 'codex' || harness === 'grok'
@@ -70,10 +64,6 @@ export function isIdleSelfWake(msg) {
 }
 
 /** Grok 既定はキュー投入。busy 中に積むと今のターンへ混ざらない。 */
-export function shouldDeferGrokWake(harness, tail) {
-  if (harness !== 'grok') return false
-  if (typeof tail !== 'string') return false
-  if (classifyPaneTail(tail) === 'busy') return true
-  if (tail.includes('send a message to interrupt')) return true
-  return tail.includes('Enter:send now') && /#\d+\s+\[/u.test(tail)
+export function shouldDeferGrokWake(harness, state) {
+  return harness === 'grok' && state === 'busy'
 }

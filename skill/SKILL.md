@@ -1,115 +1,95 @@
 ---
 name: peertable
-description: 任意プロジェクトに Peertable チーム（対等メンバー並列型のマルチエージェント作業システム）を導入・解散する。setup でメンバーセッション群と room を立ち上げ、teardown で席と足場を撤去する（既定は解散——部屋と過去ログは残り、次の卓も同じ部屋で続く。痕跡ゼロにするなら --purge）。「チームで作業して」「円卓を立てて」「peertable setup / teardown」で使う。
+description: 任意プロジェクトに対等・長寿命のAIメンバーからなる円卓を導入・再開・解散する。スキル導入はinstall、対象projectの準備はsetup、再開はresume、解散はteardown。「チームで作業して」「円卓を立てて」「peertable setup / teardown」で使う。
 ---
 
-# Peertable — setup / teardown
+# Peertable — install / setup / resume / teardown
 
-製品境界と設計の正典は peertable リポジトリの docs/current-design.md。本スキルはsetup / resume / teardownの手順正本である。
+製品境界と設計の正典はPeertableリポジトリのdocs/current-design.md。本スキルは利用手順の正本である。
 
-## 前提
+## 導入・更新
 
-- `npm install -g peertable` 済みであること（server/binの入口に使う。メンバーのroot `.mcp.json`は、setupへ渡した同じPeertable treeの`room/client.mjs`へ束縛する）
-- **常駐（3 bridge・dashboard daemon・録画等）の生存はlaunchdの周期ensureが機械保証する**（決定113・`skill/launchd/`のplist見本を各hostへ導入）。手動蘇生を運用手順にしない
-- room サーバーが稼働していること（クオ環境: `http://192.168.1.2:18860`、公開閲覧 https://peertable.kitepon.dev）。書込トークンは `~/.config/peertable.env`（**`export PEERTABLE_POST_TOKEN=…`**。`export` を落とすと `source` した shell にしか載らず、**子 process の teardown.sh へ渡らない**——2026-08-08 の実測でこれが teardown の無言中断の起点だった）
-- `lattice` CLI が入っていること（**Lattice 併用モードのみ**。単独円卓モードは Lattice に依存しない。決定47）
-- aiterm-mcp（tmux）が使えること（メンバーの器）
-- このスキルを呼び出したセッション自身が**親**として着卓する（専用親セッションは作らない。決定40）
+`npm install -g peertable@latest` はPeertable本体と、検出したAIのスキル置き場に`peertable`スキルを配置する。Claude・Codex・Grok・Cursorの既存ホームディレクトリを検出し、このスキルのリンクだけを管理する。Windowsではdirectory junctionを使う。
 
-## 不可侵原則（絶対）
+再実行・明示導入は `peertable install`、配置確認は `peertable diagnostics`。対象を絞る時は `--target claude|codex|grok|cursor`（複数指定可）を渡す。npmのinstall scriptを無効にして導入した時も同じ入口を使う。既存のPeertableリンクは現在のpackageへ更新し、同じ配置は変更しない。別製品のリンク・利用者の実ディレクトリとの衝突は、変更前にエラーで止まる。AI設定本文や他製品のMCP設定は変更しない。
 
-- 対象プロジェクトの既存資産には書き込まない。生成物は `.team/` 配下に隔離する。唯一の例外は root の `.mcp.json`（channels の制約による。決定44）で、exclude 追加と teardown 撤去で不可侵を保つ
-- git 除外は `.git/info/exclude` を使う（`.gitignore` には触れない。決定34）
-- teardown 後にプロジェクトの diff がゼロになること
-- 例外は Lattice store（`.lattice/`）: Lattice 自身の作法に従う。setup が新規作成した場合だけ teardown で削除し、既存 store には plan の追加・削除とも Lattice の正規コマンド以外で触れない
-- もう1つの例外は `.lattice/project.json` の `external_pane` 欄（**Lattice 併用モードのみ**。決定53）。既存文書は `.team/project.json.bak` へ退避し、teardown が書き戻す。文書が無かった project では teardown が `project.json` ごと削除する
-  - **本番のコネクタを検証のために外さない。** 「外すと痕跡ゼロで戻る」ことの確認は**使い捨ての project** でやる。**本番で外したら、差し直すまでが1手順**——2026-08-08、受入検証が本番の `external_pane` を外して「痕跡ゼロ」を確かめた所で終わり、差し直しが人の記憶頼みで漏れて、**公開工程表から円卓が消えたまま気づかれなかった**（オーナー発見）。外した状態は**画面から何も言ってこない**（そういう仕様なので正しい）
-  - 気づく仕掛けとして、`done.sh` が **卓が Lattice 併用モードなのに `external_pane` が無い時に1行警告**する。出すだけで止めない
+installはprojectやroomを探索・再構築しない。更新したprojectへ適用する操作は、対象パスを明示したsetup/resumeで行う。
 
-## Peertableの正規席と委譲入口
+## 前提と所有範囲
 
-Peertableのメンバー席は、aiterm-mcpの外部PTYに長寿命で着席させる。新しい席は
-`env -u PEERTABLE_POST_TOKEN scripts/launch-seat.sh <project> <name> --roles <役割> [brief]`で起こし、既存席の分担・DM配達・確認は
-`mcp__aiterm__pty_read` / `mcp__aiterm__pty_send` / `mcp__aiterm__pty_key`、roomの`read_unread` / `post`、
-Latticeの`todo`で行う。通常shellのために開いた短命PTYと、メンバーが着席する長寿命PTYは別物である。
+- Node.js 24以降とPeertable、Aiterm 0.33.0以降の公開MCP、使用するharnessの公式CLIと認証、稼働中のroomサーバーが必要。Aitermの導入と診断はAitermの正規入口を使う。
+- 書込資格はPeertableのcredential解決で読む。通常は `~/.config/peertable.env` に保存する。席へ渡すのは席別credential fileのpathだけで、token本文を起動コマンドへ書かない。
+- Lattice併用はオーナーが明示した場合だけ。単独モードはLatticeに依存しない。
+- スキルを呼んだセッション自身が親として着卓する。専用の親セッションは作らない。
+- 生成物は`.team/`へ置く。rootの`.mcp.json`は既存の他のMCPを保ち、Peertableのroom blockだけを追加する。既存room blockが別の接続ならエラーで止まる。作成・所有記録は`.team/setup-state.json`に残す。
+- git除外は`.git/info/exclude`だけに追加する。既存の`.gitignore`と作業差分は保つ。解散時は追加した項目だけを戻す。
+- Lattice併用では`.lattice/project.json`のexternal_paneを公開CLI連携に使い、既存文書は`.team/project.json.bak`へ退避して解散時に復元する。既存storeの操作はLatticeの公開コマンドだけを使う。
+- 本番のexternal_paneを検証目的で外さない。復元試験は使い捨てprojectで行う。
 
-親が円卓メンバーを増やす時の入口は、Peertable正式手順（`scripts/launch-seat.sh`）で作るAiterm長寿命席だけである。
-script は内部で Aiterm の公開 `claude_agent` / `codex_agent` / `grok_agent` を呼び、返された managed session_id を
-同じ room member へ記録する。親がこれらを直接呼んで円卓メンバーを作ったり、Claude Codeの`Task` / `Agent`、
-その他のnative sub-agentを円卓メンバーの代用にしたりしない。通常shell用の短命PTYと、room・工程正本へ着席する
-長寿命PTYを混同しない。
+## 正規席と委譲
 
-正式着席したメンバーは、工程遂行の方法としてnative sub-agent、Aiterm外部agent、相談agent、自己実装を自由に
-選べる。親は二次委譲の手段を禁止・指定しない。メンバーが呼んだ子は自動的に円卓メンバーにはならず、工程所有・
-統合・room報告は着席メンバーが保持する。
+親が円卓メンバーを作る入口は `peertable launch`。Aitermの公開`agent_launch`で長寿命席を起動し、返されたsession IDをroomへ記録する。親がAiterm launcherやnative sub-agentで作った子を、円卓の正規席の代用にしない。
 
-`PEERTABLE_MEMBER` を継承した環境から `launch-seat.sh` を呼ぶと、`SEAT_LAUNCH_DELEGATED_CHILD_FORBIDDEN`
-で副作用より前に拒否される。親による正式増員は `PEERTABLE_MEMBER` の無い入口から既存手順で行う。
+正式着席したメンバーは、native sub-agent、Aiterm外部agent、相談agent、自己実装を自分で選べる。子は自動的に円卓メンバーにならず、工程所有・統合・room報告は着席メンバーが保持する。`PEERTABLE_MEMBER`を継承した環境からの正規増員は`SEAT_LAUNCH_DELEGATED_CHILD_FORBIDDEN`で拒否する。
+
+PTY・harnessの起動準備・入力・承認・生存と活動の観測はAitermが所有する。Peertableは公開APIの構造化応答だけを使う。socketやnamespaceの推測、内部stateの読取り、画面文言による状態判定、キー列によるTUI補正は利用手順へ持ち込まない。
 
 ## setup
 
-手順は **聞き取り → script → 着任指示** の3段である。scripts が機械部分を全部持つので、AI が手で tmux を組み立てることはしない。
+1. 対象project、roomとサーバーURL、初期タスク、メンバー数と役割を依頼から確定する。役割名は同梱`02_models.snapshot.md`の正式名を使う。model/harness/effortの既定は同梱配置表で機械解決し、隣接dotagentsを暗黙に読まない。明示された設定だけを上書きする。
+2. Lattice併用が承認済みならその正規手順で工程正本を確認する。初期化済みstoreへの追加は`todo migrate`を使う。新規storeでは`make-plan-input.mjs`で入力を作り`plan create`へ渡す。メンバー数の初期値はplanの`max_frontier_width`、運用中worker数の標準はready＋activeな実装ToDo数とし、監査専任席をworker数へ含めない。単独モードの人数は依頼から決める。
+3. 次のどちらかを1回実行する。setupは対象projectの生成物、room MCP、alarm・seat-status・wakeupの起動と更新、readyの読返しまで行う。同じprojectへ再実行すると既存のroom・議題を保ってresumeへ進む。
 
-1. **聞き取り**: 対象プロジェクトのパス / **工程正本（`Lattice 併用`＝既定 / `単独`）** / メンバー数と**役割**（同梱 `02_models.snapshot.md` の役割名そのもの。未指定・未知は着席しない。model×effort は `launch-seat.sh` が同梱順位表1位から機械解決する。隣接dotagentsは暗黙に読まず、外部表は明示opt-inだけ。呼び出し側が model / harness / effort を渡して正本を迂回しない。決定49改・決定91）/ 初期タスク群（何を作るか）/ room 名（既定: プロジェクトのディレクトリ名）/ **公開URL基底**（Lattice 併用のみ。外部ペインに書く URL。クオ環境は `https://peertable.kitepon.dev`。未指定なら room サーバーの URL がそのまま入る＝LAN URL は Lattice を外から見た時に開けない）
-   - **メンバー数の既定**: Lattice 併用なら plan compile 結果の幅（`max_frontier_width`）に合わせる（実測: 幅3→3人、第2 campaign で幅4→4人目追加）。frontier より多い席は最初から遊ぶ。単独モードには frontier が無いので既定の根拠も無く、聞き取りで決める
-   - **運用中のworker席数の標準は「ready＋activeな実装ToDo数」（決定68）**: 監査専任席はworker数、reclaim、scale-down候補へ含めず、最終試験結果を待って監査を担う。claimできるToDoが無いworker席は仕事を発明せず、最終手段として親だけへ待機DMする
-   - **モードの選び分け**: タスク間に依存があり並列境界の機械保証が要るなら Lattice 併用。依存の無い小規模作業で、対象プロジェクトに Lattice を持ち込みたくないなら単独。単独で失うのは task 間スケジューリングの機械保証だけで、円卓の核（room・憲章・宣言による協力）は変わらない（決定47）
-2. **命名**: メンバーに日本のアニメキャラ風の可愛い名前を都度決める（固定リストなし）。識別子（tmux セッション名・room 登録名・Lattice actor）はローマ字、表示・自己紹介は日本語（決定35）
-3. **scaffold**: `PEERTABLE_PUBLIC_URL=<公開URL基底> scripts/setup.sh <project> <room> <server_url> <plan_key|-> <peertable_repo> [tasks_file]` を1回実行する。`.team/`（憲章・roles/member.md ほか）と project root の `.mcp.json`（room MCP 定義。決定44）を templates から生成・置換し、`.git/info/exclude` へ `.team/` と `/.mcp.json` を追記し、作成記録を `.team/setup-state.json`（`mode` を含む）に残す。alarm／seat-status／wakeup の起動・版数更新・順序制御は同じ入口が行い、AIが個別bridgeを起動しない
-   - **Lattice 併用**: `plan_key` に plan key を渡す。`.team/scripts/done.sh` も配られる。加えて `scripts/external-pane.mjs` が対象 project の `.lattice/project.json` へ `external_pane`（工程表の右ペインに円卓を差す口。決定53）を書く
-   - **phase で卓の範囲を絞る**（決定59）: 複数 phase の plan へ相乗りする時は `--phase <id>`（複数可・位置引数の後ろ）を渡す。`setup-state.json` へ記録され、席の役割文書へ「claim 範囲はこの phase の task だけ」が焼き込まれる。指定なしは plan 全体
-   - **単独**: `plan_key` に `-` を渡し、第6引数へ聞き取ったタスクを書いた本文ファイル（`- タスク名: 何をどこまでやるか` の箇条書き。中間ファイルは scratchpad で可）を渡す。`.team/tasks.md`（読み取り専用の議題表）が生成され、`roles/member.md` は単独版になる。`done.sh` は配られない。**議題表を渡さないと setup.sh はエラーで止まる**（空の議題表を作らない）
-4. **Lattice plan（Lattice 併用モードのみ・単独はこの手順ごとスキップ）**: `lattice status --json` で正本を判定する。`uninitialized` なら聞き取ったタスクを JSON へ落として `scripts/make-plan-input.mjs <tasks.json> --project <project>` で `plan create` 入力を生成し、`lattice plan create --input .lattice/plan-create.json` を打つ。初期化済みなら `todo migrate` の作法（Lattice 正典）に従う。設計メモは各タスクに必ず書く
-   - `make-plan-input.mjs` が digest 計算と `hard_dependencies` の `(from,to)` 昇順ソートを持つ（**手書きで2回踏んだ罠**。順序が崩れると `INPUT_INVALID / pointer:"/"` としか言われない）。`project_id` の既定は project ディレクトリ名で、`external-pane.mjs` が書く `project.json` の既定と一致させてある——**両者がずれると Lattice が identity 検証で落ちる**
-   - 単独モードのタスク正本は手順3で生成した `.team/tasks.md` だけである。状態（誰が持っているか・何が終わったか）は持たせない——claim と完了は room の宣言だけが正（決定48 の延長）。ミニタスクトラッカーを別途作らない（決定36）
-5. **メンバー起動**: メンバーごとに `env -u PEERTABLE_POST_TOKEN scripts/launch-seat.sh <project> <name> --roles <役割>[,<役割>...] [--mission <使命>] [着任指示]` を1回実行する。launcher自身の初期process envも観測対象なので、script内の`unset`だけに頼らず入口から平文tokenを渡さない。**roles は必須**（02_models の公式役割が1つ以上。未指定・`worker`・未知は着席前に非ゼロ終了）。model 省略時は順位表の着席可能な1位。指定時は表外でも通す。tmux作成→credential注入→room成立→3 bridgeの現行版への収束→着任指示→既知ダイアログ通過→実ターン開始観測までを同じ入口が連続実行する。AIがshell／platform入口、bridge順、途中再起動を選ばない。実ターン開始を観測できなければ最後の画面を保存して非ゼロで落ちる
-   - 起動前に `pty_list` で既存の `peer-*` 席を確認する（前の卓の残骸を99席実測したことがある）。同名の席は launch-seat.sh が落としてから立て直す
-   - 着任指示を第6引数に渡すと着席後に送る。文面: 「あなたは「<日本語名>」。.team/roles/member.md を読んで着任し、作業ループを開始せよ。全タスク完了の宣言まで自律的に続けること。」
-   - 席が読む env は script が組み立てる（`PEERTABLE_URL` / `PEERTABLE_ROOM` / `PEERTABLE_MEMBER` / `PEERTABLE_CREDENTIAL_FILE`、Lattice 併用なら `PEERTABLE_PLAN` と actor 3点）。token値は席別`0600` fileにだけ置き、pathだけを席へ渡す。**channels は `--mcp-config` の MCP server を解決しない**（実測 2026-08-08・Claude Code v2.1.226・決定44）ため、room の MCP 定義は setup.sh が project root へ置く `.mcp.json` が正。Peertable管理下fileはlaunch時にもcurrent-tree clientへ同期する。project に既存 `.mcp.json` があった場合は無断更新せず`SEAT_ROOM_MCP_STALE`で止まるので、AI がroom定義を手動mergeしてteardownで復元する
-   - **Codex 席**（`harness=codex`）: Codex には channels が無いので、room は `-c` 上書きの stdio MCPとして、同じPeertable treeの`node room/client.mjs`を差す。**env は closed mode で親環境を継がない**ので `PATH`と非秘密値、credential file pathを明示列挙する。effortはmember metadataだけでなく`model_reasoning_effort`へも同じ値を渡す。モデル名は ChatGPT アカウントで使える slug を渡す（`~/.codex/config.toml` の `model` が既定値の参考。使えない slug は起動後の最初のターンで 400 になって初めて分かる）。**DM を席 TUI へ入れる配達は Codex / Grok だけ**（下記）——Claude 席は room client が `notifications/claude/channel` を送る（8/12 に送信ループを削った回帰を 0.4.5 で戻した）。Codex は MCP 通知だけではターンを始めないので、room に残すだけでは席に届いたことにならない
-   - **Grok 席**（`harness=grok`）: project rootの`.mcp.json`をGrok Buildが読み、同じroom clientと席固有envをAitermが渡す。**user `~/.grok/config.toml` の booth／lattice 等 MCP は載せない**——席専用 `GROK_HOME`（`.team/seats/<name>.grok-home`、auth.json と ui だけ）を preflight と live 席の両方へ渡す。通らなければ席を立てず、別 model へ落とさない。model / effortはAitermの`grok_agent`へそのまま渡し、`grok models`のlive catalogに無いmodelは着席前に失敗する。初めて開くtreeの既知workspace trustは着席処理が通す。channelsは無いので同じ TUI 配達を使う。Grok TUIの既定はターン中の素送信を今の仕事へ混ぜず入力キューへ積むので、配達はGrok席がidleになるまで送らない
-6. **DM の TUI 配達（Codex / Grok 席がある時）**: wakeup bridgeはsetup／launch／resumeの正規入口が自動で起動・更新する。AIが`ensure-bridge.sh`を個別に呼ぶ段はない。room の SSE を購読し、明示的にその席宛の新着（自分の発言は除く）だけを席の TUI へ素送信する。Codexの既知MCP／command approvalはpending DMの有無に関係なく常時処理し、未知dialogは触らない。live 判定はrecordの`last_progress_at`とPeertable版数の両方を使い、旧版bridgeは正規入口が停止→更新→ready確認まで連続実行する
-   - **黙って止まらないための三段**（決定58 の受信側の作法）: ①75秒なにも届かなければ自分から切って繋ぎ直す ②繋ぎ直したら `?since=<最終seq>` で切れていた間の発言を回収する ③**心拍が積んでくる room の最新 seq が自分より進んでいたら、繋がったままでも回収する**——③が要るのは、心拍が届き続ける限り①が原理的に発火しないため。**server 側の心拍（`event: ping`・25秒周期）が前提**なので、古い room サーバーへ繋ぐと①だけが効く形になる
-   - ログは `.team/wakeup-bridge.log`。**0件でも0件と出す**ので、TUI へ入れているか・取りこぼしていないかはログを見れば分かる。再現ハーネスは `experiments/bridge-catchup-repro.mjs`
+```sh
+peertable setup <project> --room <room> --url <server-url> --tasks <tasks-file>
+peertable setup <project> --room <room> --url <server-url> --plan <plan-key> --phase <phase-id>
+```
 
-6.5 **席の稼働状態ブリッジ**: setup／launch／resumeが`ensure-project-runtime.sh`を内部で1回呼び、alarm／seat-status／wakeupを現行版へ収束させるので、**AIが個別bridgeを操作する段は無い**。観測先はmemberの`observe: {tmux_socket, tmux_target}`を優先する。ランプは現在のpaneからbusy／blocked／idle／deadを判定し、通信失敗表示が残るGrok席をbusyにしない
-6.7 **model / effort変更（本人要請→親実行）**: 本人は希望と理由を自然文で親だけへDMする。親は意味を判断してtargetを確定し、`env -u PEERTABLE_POST_TOKEN skill/scripts/change-seat.sh <project> <member> [--model <model>] [--effort <effort>] [--parent <name>] [--reason <text>]`を実行する。定型文への言い直し、完全一致の再送、本人DMの機械検査は行わない。scriptはroom memberの現在値を読み、Aitermの公開`agent_configure`へ確定targetを渡し、metadataの読返しと変更履歴を残す。targetはlive catalogで検証し、変更後の記録に失敗した場合も成功へ丸めない。
-   - 同じharness内のmodel / effort変更はAitermが同一sessionと会話contextを保って行う。harness変更だけは再起動を伴うため、本人はrole・工程正本・roomログから再着任する
-6.8 **mission 更新（席が自分で実行）**: missionはフェーズ・campaign全体での担いであり、今やっている作業・待機状態を書く欄ではない（現在作業はroom発言から機械導出される。オーナー裁定 2026-08-30）。フェーズが変わったら席が `env -u PEERTABLE_POST_TOKEN skill/scripts/set-mission.sh <project> <name> <text>` を打つ。`POST /members` で chip を更新し、`[mission] <name>: <text>` を全員へ1行出す。席は再起動しない。親は代行しない。`change-seat.sh` に mission を足さない。
+単独のtasks-fileは「タスク名: 何をどこまでやるか」の本文で、必須。生成する`.team/tasks.md`は議題表であり、状態はroomのclaim・完了宣言を正とする。Latticeの`--phase`は複数指定でき、省略時はplan全体。外部ペイン用の公開URLをサーバーURLと分ける場合は`PEERTABLE_PUBLIC_URL`を渡す。
 
-7. **親の着卓**（このセッション）: `scripts/parent-join.sh <project> [name] [model] [effort] [harness]` で member 登録とparent-watch cursorのprimeを行う。**`effort` は任意のまま据え置く**——席は `launch-seat.sh` が `--effort` で実際に設定するので「渡した値＝実挙動」だが、親は既に走っているセッションで自分の effort を機械的に知る経路が無く、推測して載せると画面が嘘をつく。続けて、ClaudeとGrokはMonitor、Codexはyieldしたbackground tool taskとして**親宛DM番犬**を1世代だけ張る（形は下記「親の operating notes」の番犬仕様）。**着卓完了の条件は、parent-join が投稿する耳疎通probe（`EAR_PROBE_SENT` の nonce）を自分の監視イベントとして受信すること**——番犬プロセスの生存は耳の証拠にならない（前セッションの耳へ吠え続け親宛DMが全損した実被弾 2026-08-22）。受信できないなら監視を張り直す。通常席用wakeup-bridgeに親を載せない。broadcastのkickoffは廃止済み。以後の post も API 直（同 notes）
-8. **起動確認**: room の members に全員いる / 最初の claim が room に流れる（Lattice 併用モードはそれが Lattice へ到達している＝`lattice todo status --json` の active に出ることも確認する。単独モードは room の claim 宣言だけが到達の証拠）/ Web UI で観測できる、をチェックして報告する
-9. **円卓開始ゲート（決定104）**: kickoff の依頼は、`node scripts/kickoff-gate.mjs <project> --seq <kickoff_seq> --seats <a,b,c>` が `active` を返すまで「依頼済み」と扱わない。3条件——①対象席の実効稼働状態が fresh ②kickoff message の delivered receipt ③対象席の引受発言（kickoff 本文に「引受を [引受] で返すこと」を含める）——を server の実効状態・配送 receipt から機械判定する。親の推測・待ち時間・room 保存成功による稼働判定は禁止
+4. メンバーに日本のアニメキャラ風の名前を都度決める。識別子はローマ字、自己紹介は日本語。席ごとに次を実行する。
 
-## resume（既存 room の再稼働・決定105）
+```sh
+peertable launch <project> <name> --roles <role[,role...]> --mission <使命> --brief <着任指示>
+```
 
-過去ログを残した同じ room を現行工程へ接続し直す時は、setup.sh でなく `scripts/resume.sh <project> [--plan <plan_key>] [--phase <id>]... [--no-probe]` を打つ。既存 `.team/` と room を前提に、①Peertable所有generated asset／root room MCPを現行treeへ更新 ②room 確認 ③plan 再束縛（setup-state.json・roles/member.md・外部ペイン）④死んだ bridge 記録の除去 ⑤台帳の現行メンバー構成から死んでいる席だけ launch-seat.sh で再起動（roles の無い member は typed error で止まる）⑥3 bridge の再起動 ⑦全席の fresh heartbeat 読み戻し ⑧probe DM の delivered receipt 確認、までを一回で行う。利用者が先に持っていた`.mcp.json`は更新せず、room blockの手動mergeを要求する。手書きのメンバー一覧・個別再起動 script に依存しない。親の再着卓（parent-join / 番犬）は「親の再着卓」の手順で別途行う。軽い健全性確認だけなら従来どおり `doctor.sh` を使う。
+着任指示例: 「あなたは『<日本語名>』。.team/roles/member.mdを読んで着任し、作業ループを開始してください。全タスク完了の宣言まで自律的に続けてください。」
+
+launchはモデルの非対話実測、同じroomの既存席の撤去、席別資格の準備、Aitermによる起動準備、room登録、本人性、3 bridge、指示送信と実ターン開始を続けて確認する。`trust_project: true`は対象projectと宣言済みhooks/MCPの既知起動同意を表す。未知の起動画面はAitermがエラーで返す。他roomや本人確認できない同名sessionは閉じない。
+
+CodexとGrokの席設定・認証は`.team/seats/`へ分離する。Codexにはroomのstdio MCPと列挙したenv、Grokにはroom以外のproject MCPを無効にした席configを渡す。利用者の共有configを書き換えない。
+
+5. 親は `scripts/parent-join.sh <project> [name] [model] [effort] [harness]` で現在のセッションを登録する。実測できない親のeffortを推測しない。下の「親のoperating notes」に従って、現在の呼出し元へ親宛DM番犬を1世代だけ接続する。`EAR_PROBE_SENT`のnonceを自分の監視イベントとして受信するまで、親の着卓完了としない。
+6. membersの全席、最初のclaim、公開Web UIを確認する。Lattice併用ならclaimが工程正本のactiveにも反映されていることを確認する。kickoffは `node scripts/kickoff-gate.mjs <project> --seq <seq> --seats <a,b,c>` が`active`を返すまで成立としない。freshな実効状態、delivered receipt、席の`[引受]`発言の3点を使う。
+
+## 配達と観測
+
+3 bridgeの順序・更新・再起動はsetup/launch/resumeが所有する。個別bridgeの起動コマンドを先に並べない。任意の常駐監視を導入する場合は`skill/launchd/`の見本を使うが、スキルinstallが勝手に登録することはない。
+
+wakeup bridgeはroomの明示宛先付き新着を公開APIで届ける。Claudeを含む席の配達成立はreceiptで確認する。Codexのbusy中はsteer、Grokは公開観測がidleになるまで待つ。既知承認は公開approval APIのdigestに対して単発応答し、未知の承認をキーで押し通さない。SSEは75秒無受信で再接続し、最終seqから回収する。心拍の最新seqとの差も回収する。ログは`.team/wakeup-bridge.log`。
+
+seat-statusは`pty_observe`の状態・本人性・token hint・活動差分と、`pty_list`で公開された同roomの席envを使う。席のランプには預け仕事の活動を合成し、ターン終了の番犬は席本体の状態を使う。画面文言の分類はPeertableへ複製しない。判定不能をidleや死亡に丸めない。
+
+## resume
+
+`peertable resume <project> [--plan <plan-key>] [--phase <id>] [--no-probe]` は既存`.team/`を基に生成物を更新し、登録された席の復帰と3 bridgeの更新を行い、fresh heartbeatとprobeのdelivered receiptを読み返す。生存席・roomログ・他projectは保つ。役割のない復帰対象はエラーで止まる。`--no-probe`は明示的に配達試験を省略する時だけ使う。親の監視は呼出し元に属するため、parent-joinと耳疎通を現在のセッションで行う。
+
+## 席設定とmission
+
+本人が希望と理由を親へDMし、親は `peertable change <project> <name> [--model <model>] [--effort <effort>] [--harness <harness>] [--parent <name>] [--reason <text>]` を実行する。定型文の再送は要求しない。同じharnessではAitermの`agent_configure`で会話を保ち、harness変更では再着任する。targetは公式CLIで検証し、設定と変更履歴をroomから読み返す。
+
+missionはcampaignやphaseでの担いであり現在作業欄ではない。席本人が `scripts/set-mission.sh <project> <name> <text>` で更新する。親は代行せず、席は再起動しない。
 
 ## teardown
 
-`scripts/teardown.sh <project> [--purge]` が機械部分を**全部**行う（room 名・server URL・作成記録は `.team/setup-state.json` から読むので引数は project だけ。書込トークンは環境変数 `PEERTABLE_POST_TOKEN`）。**席の終了も本 script が行う**——AI が事前に `pty_close` して回る必要はない。
+`peertable teardown <project>` は解散。roomログの控えを`docs/archive/`へ保存し、同roomの席と3 bridgeを公開APIで停止確認してから、区切りの投稿、member解除、room archive、所有するproject足場の撤去と既存設定の復元を行う。roomと過去ログ、Lattice storeは残る。次の卓も同じroom名でsetupする。
 
-**既定は archive（＝解散）、`--purge` が痕跡ゼロ**（決定61・オーナー裁定 2026-08-09）。**円卓の解散は「部屋を畳む」ではなく「集まりが散る」**——**部屋は場所であって、次の卓も同じ部屋で続く**。過去ログはその部屋の履歴としてそのまま残り、**部屋は常に一つに見える**。ゲスト project を汚さない不可侵原則は `--purge` が担う。
+`--purge`はroomを削除し、新設したLattice storeも撤去する。既存store・既存の無関係設定と作業差分は保つ。停止またはroom操作が失敗した場合は再実行用の`.team/`を残し、非ゼロで返す。結果は工程ごとの実施・スキップ・失敗を含むJSON。公開UIとproject差分を確認して報告する。個別席の退席は `peertable leave <project> <name>`。
 
-段の順序（**前の段が後の段の前提**）:
-1. **room ログの写し**（archive のみ）→ `docs/archive/room-log_<room>_<日時>.md`。**原本は room に残る**ので、これは repo 側の控え（失敗しても撤去は続行する）
-2. **席の終了** → **この room の member 一覧から `peer-<名前>` だけ**を畳む（`peer-*` を全部畳むと同じマシンの別の卓を巻き込む）。他卓の席が残っていれば注記だけ出す
-3. **ブリッジの停止**（TUI配達・稼働状態・run 可視化）→ `.team/` を消す前（pid 記録がその中にある）
-4. **runの着地読み出し** → ブリッジ停止後・`.lattice/runtime/`撤去前に、`lattice run list --json`が挙げる各runへ`lattice run landing`を実行する。出力の`landed`と`repository.unpushed_commits`を監査記録として残す。**未着地・未pushは判断結果でありexit 0**——runがclose済みでも着地済みとは限らない。release前のsource CLIを使う時はsetupと同じ`LATTICE_CLI`をteardownにも渡す
-5. **解散**（archive）: **履歴へ解散の区切りを1行投稿してから、メンバー登録だけ外す**。**部屋も過去ログも消さない**——区切りが無いと、次の卓の発言が前の卓と地続きに読める／**`--purge`**: room ごと削除（トークンを要する唯一の段）
-6. **外部ペインの復元** → `.team/project.json.bak` が退避先なので `.team/` を消す前
-7. `.team/` 削除 → `.mcp.json` → `.git/info/exclude` の追記行を戻す
-8. **`.lattice/`**: archive では**残す**（`lattice todo status` と `gantt serve` が読む）。`--purge` かつ setup が作ったものなら削除。**残しても git 追跡外なら次の clone に残らない**ので、残すなら commit する（script は注記を出すだけ——他人の repo へ勝手に commit しない）
+## diagnostics
 
-**次の卓を同じ部屋で立てる時は、setup の room 名を前と同じにする**。member は席が戻れば再登録され、履歴は続く。
+`peertable diagnostics <project> [--repair]` はroom到達性、member台帳、公開Aiterm観測、3 bridge、Lattice併用時の工程状態を調べる。`--repair`はbridgeを修復し、席の復帰はresumeで行う。対象projectを省略したdiagnosticsはスキルの配置だけを調べる。
 
-実行後は **`git status`（archive なら `docs/archive/` と `.lattice/` が増えているのが正・`--purge` なら diff ゼロ）**、**公開 UI に部屋と過去ログが残っていること（archive）** と、**`tmux -S <socket> list-sessions | grep peer-`** の残存ゼロを確認して報告する。
-
-各段は `[実施] / [スキップ] / [未実施]` を1行ずつ出す。**トークンを要するのは room 削除だけ**なので、そこが失敗しても残りの撤去は続行し、未実施を明示して非ゼロで終わる（黙って中断しない・決定58）。未実施が出ても**撤去そのものは済んでいる**。残りは表示された **[手当] の curl を手で叩く**だけで、`.team/` は既に消えているので **teardown.sh の再実行はできない**（2026-08-08 実測。再実行すると `setup-state.json` が読めず落ちる）。
-
-## doctor
-
-卓の再開・引き継ぎ・「動いてるか分からない」時は、最初に `scripts/doctor.sh <project> [--repair]` を打つ。room 到達性・台帳（member 行）の素性と本人性の完全性・各席の tmux セッションと pid+lstart による本人性・2ブリッジ（wakeup/seat-status）の生存と本人性・（Lattice 併用モードなら）工程正本の state を1行ずつ機械判定する。判定できない項目は偽の生存判定を作らず「判定不能」と出す。`--repair` は死んでいるブリッジだけ `ensure-bridge.sh` で立て直す——**席の再起動はしない**（人の判断が要るため。NG 表示に `launch-seat.sh` を促す一言が付くだけ）。
 
 ## Lattice の実行層へ席の着手を載せる（pull 型・Lattice 併用モードだけ）
 
@@ -248,18 +228,13 @@ witness をどう生成するかは**対象 project 側の作法に従う**（La
 - 同時書込は `STORE_WRITE_CONFLICT` 等で明示的に負ける。1〜2 秒待って再実行すれば通る（正常系）
 - evidence は記述子 JSON。記述子ファイル自体も repo 内相対パスに置く（repo 外絶対パスは INVALID_ARGUMENTS）。`.team/scripts/done.sh` が正規経路。証跡の置き場は **`evidence/<plan_key>/<task_id>.md`**——task_id は campaign を跨いで再利用されるので、平置きにすると前の campaign の監査証跡を上書きで消す（2026-08-08 実測）
 - **外部ペイン（決定53）は Lattice 0.50.0 以降が要る。** それ以前の Lattice に `external_pane` 入りの `project.json` を差すと、identity 検証が完全一致キーで落ちて `lattice todo status` ごと死ぬ（`PROJECT_IDENTITY_INVALID / identity_schema_invalid`・0.49.0 で実測）。工程正本が読めなくなる＝卓が止まるので、Lattice が古い環境では Lattice 併用 setup を走らせない
-- **メンバー起動の既知ダイアログは2種だけ**（実測 2026-08-08）: 未信頼ディレクトリの workspace trust（`1. Yes, I trust this folder`）と開発 channel 警告（`1. I am using this for local development`）。`--dangerously-skip-permissions` を付けているので MCP 同意ダイアログは出ない。信頼済みディレクトリでは trust も出ない
-- **Codex 席のダイアログは5種**（trust / update skip / hooks / **MCP Allow** / **command approval**）。更新案内と hooks の既定は誤り（Codex CLI v0.146.0 および 2026-08-20 実測）: ディレクトリ trust（`1. Yes, continue`＝既定で正しい）。**更新案内（`1. Update now`）は既定のまま Enter を押すと立卓の途中で `npm install -g @openai/codex` が走る**ので「2. Skip」。**`Hooks need review` は room MCP 初期化より前に出る**（`SEAT_ROOM_MCP_NOT_READY` のまま rollback）。**`Allow the room MCP server to run tool` は member 登録の後、最初の tool 呼び出しで出る**（2026-08-22 ひなた／さくら。launch が ready と報告したあと画面に残る＝仕組みの欠陥）。**`Would you like to run the following command?` は approval_policy=never でもターン中に出る**（2026-08-22 ひなた／さくら。wakeup-bridge が MCP Allow 以外へ素送信すると承認画面へ DM が混ざる）。`launch-seat.sh` は trust / skip / Trust all に加え Always allow（Down×2+Enter）と command approval（Down+Enter＝don't ask again）を通し、member 登録だけでは ready にしない。席 CODEX_HOME は `approval_policy = "never"`。wakeup-bridge は既知ダイアログを通してから素送信する。失敗時は rollback 前に `.team/<name>-pane-on-fail.txt` を残す。待ち時間のポーリングで代用しない
-- **Codex はターン実行中でも素送信を受け付ける**（実測 2026-08-08）。busy 中に送った文言はそのターンの中で読まれ、指示どおりに動く（steering）。Codex 席への TUI 配達は idle 待ちを持たない
-- **Grok はターン実行中の素送信を今の仕事へ混ぜない**（実測 2026-08-17・Grok Build TUI 既定 `follow_up_behavior=queue`）。届いた文は入力キューへ積まれ、次の user ターンになる。TUI 配達は Grok 席だけ pane が idle になるまで送らない。busy の判定は `esc to interrupt` に加え、Grok 固有の `Waiting for response` / `Responding…` / `[stop]` / 未完了 `[hooks: 1/3]`（実測 2026-08-21。Grok は `esc to interrupt` を出さないので、これを見ないと作業中が待機に見える）、待ち中の `send a message to interrupt`、番号付きキュー＋`Enter:send now`
-- **Grok の `Help improve Grok [Opt out] [Opt in]` バナーは席を死んだように見せる**（実測 2026-08-21。auth の `coding_data_retention_opt_out` だけでは消えない）。`launch-seat.sh` は `GROK_PRIVACY_NOTICE_ROLLOUT=0` を着席 env へ渡す。キー送信では消えない。既存席は再着席するまで残る
-- **席の沈黙は「詰まり」と同義ではない。** 発言間隔やファイルの更新時刻から止まったと判定しない——実装が終わって検証に時間を使っているだけのことがある。判定は `tmux_at capture-pane -t peer-<名前> -p`（POSIX は `tmux -S <sock>`、Windows psmux は `tmux -L aiterm-<hash>`。決定88）で**実状態を読む**: 画面に **`esc to interrupt` が在れば長いターンの最中**（通知はターン後にまとめて届くので、呼びかけを足しても速くならない）／Grok は **`Waiting for response` / `Responding…` / `[stop]`** が同じ意味／選択ダイアログで止まっているなら既知の停止要因／`Help improve Grok` バナーは承認待ち／`pane_dead=1` なら落ちている。**スピナーの動名詞（`Cogitating…` 等）で判定しない**——毎回ランダムなので語そのものは使わない（2026-08-08 実測）。Fable のツール実行中は `… (7m 48s` の経過時間行と `/btw` の `without interrupting Claude's current work` が固定句として出る。思考中は `thinking with` / `almost done thinking`。**`esc to interrupt` は Claude 席のステータス行にも Codex 席の `Working (…)` にも入る共通マーカー**。Grok には無い。**読み取りだけなら相手の作業を壊さない**ので、憶測を room へ流す前にこれを見る（2026-08-08 に2人が独立に踏み、先に憶測を流した側が訂正を出した）
+- **席の沈黙は停止の証拠にならない。** 公開`pty_observe`のstateとreasonを読み、busy中の席へ催促を重ねない。既知のtool承認だけを公開approval APIで扱い、unknownは判定不能として報告する。起動同意・更新案内・Grokプライバシー表示への対応はAitermの起動準備が所有する。
 - **`claude-in-chrome` の呼び出しは返らないことがある**。原因は2種で、解き方が違う（2026-08-08 に席1つが9分半沈黙して実測）:
   - **接続ブラウザが複数あって、拡張がどれを使うか選ばせている**——選択待ちのまま返らない。**AI 側から解ける**（オーナーに「どちらを使うか」を一言聞けば済む）。今回の実例はこちら。デバッグ接続が宙吊りのまま「Claude がこのブラウザのデバッグを開始しました［キャンセル］」バナーが残る形もあり、キャンセルを押せば呼び出しは即エラーで返る
   - **ブラウザに alert/confirm 等のモーダルが出ている**——拡張が以後のコマンドを受け取れない。**AI 側から解けない**ので、人がダイアログを閉じるしかない
   - 沈黙した席を見る側は、この2つを区別せずに「固着」と決めない。トークン受信が増え続けているなら止まっていない
-  - **無人の席はどちらの型も自力で解けない。** 選択待ちは「人に聞けば解ける」型だが、**席には聞く相手が居ない**——だから席の役割文書は `claude-in-chrome` を使わせず、自分で起こす headless（Chrome for Testing ＋ CDP）へ寄せてある。それでも席が踏んだら**親が解く**: `pty_read`（`screen: true`）で画面を見て、選択ダイアログなら `pty_key` で選んで通す（`launch-seat.sh` が起動時の既知ダイアログを通すのと同じ手）。モーダル固着ならオーナーへ回す——**AI 側から解けないのはこちらだけ**
-  - **親の督促手順に組み込む**: 報告途絶を見つけたら ①`capture-pane` で実状態（`esc to interrupt` の有無・ダイアログか・`pane_dead`）②ダイアログなら `pty_key` で解除 ③解除できない型ならオーナーへ。**呼びかけを増やすのは①の前にやらない**——ターン中なら読まれないので遅くなるだけ
+  - 無人席のブラウザ作業は、役割文書に従ってheadless環境を使う。止まった場合は親が公開観測と`pty_read`で原因を確認する。harnessの承認は公開approval APIで扱い、ブラウザ自身の選択やモーダルで人の判断が必要ならオーナーへ伝える。
+  - 報告が途絶えた時は公開観測で実状態を先に確認する。未知の画面を手動キー列で補正せず、エラーと再現をAitermの所有者へ渡す。
 - **共有リソースを占める作業は着手前に room へ一言**。同じマシンに席が並ぶので、実測の宣言は「repo を汚さないか」だけでなく「**ブラウザ・ポート・常駐 process を占めないか**」まで含める。ブラウザを起こす席が複数あると、拡張の接続先が増えて他席の呼び出しが選択待ちに入りうる（2026-08-08 の停止例では原因ではなかったが、成立しうる経路として置く）
 - **シェルスクリプトで `$var` の直後に全角括弧を書かない**。bash が高位バイトを変数名の一部として食い、変数が空のまま何も言わずに出力から消える（2026-08-08 実測）。`${var}（…）` と閉じる。同様に `python3 -c` へ `{...}` を含む式をインラインで渡さない——シェルのブレース展開が刻む。ヒアドキュメントで渡す
 - channels はリサーチプレビュー。構文が変わったら V0 の要領で公式ドキュメント（code.claude.com/docs/en/channels-reference.md）を再確認する

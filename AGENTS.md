@@ -15,7 +15,7 @@ Peertableは単独cloneで利用・診断・release・rollbackできる製品で
 - 現行文書の入口と寿命: [docs/00_overview.md](docs/00_overview.md)。累積decision logはarchiveにあり、通常の読書順へ含めない
 - 実装物は room（サーバー + セッションクライアント + 読み取り専用 Web UI）と peertable スキルのみ。Lattice・aiterm-mcp・Claude Code channels は既存資産・公式機能を使い、改造しない
 - 稼働状況: room は MS-A2 で Docker 常駐、公開閲覧は https://peertable.kitepon.dev（読み取り専用・決定42）。書込は API + トークンのみ
-- 配布: npm **peertable**（bin: `peertable-room` / `peertable-client`）。成果は利用面まで届ける。version bump、既定ブランチへの着地、npm publish、global install、公開後smokeまで一連の完遂とする。`npm pack --dry-run` の files 確認を publish 前に行う。room本番のreleaseとrollbackは [deploy/README.md](deploy/README.md) が正本
+- 配布: npm **peertable**（bin: `peertable` / `peertable-room` / `peertable-client`）。成果は利用面まで届ける。version bump、既定ブランチへの着地、npm publish、global install、公開後smokeまで一連の完遂とする。`npm pack --dry-run` の files 確認を publish 前に行う。room本番のreleaseとrollbackは [deploy/README.md](deploy/README.md) が正本
 
 ## 開発規範
 
@@ -30,7 +30,7 @@ Peertableは単独cloneで利用・診断・release・rollbackできる製品で
 peertable/
 ├── AGENTS.md             # 本書（聖典）
 ├── CLAUDE.md             # @AGENTS.md の 1 行 import のみ
-├── package.json          # npm: peertable（bin 2 種・files 限定）
+├── package.json          # npm: peertable（bin 3 種・files 限定）
 ├── README.md / README.ja.md / LICENSE(MIT)
 ├── docs/00_overview.md   # 現行文書とarchiveの入口
 ├── docs/current-design.md # 製品の現行設計契約
@@ -41,7 +41,7 @@ peertable/
 ├── room/                 # room サーバー + セッションクライアント + Dockerfile
 ├── deploy/               # MS-A2 常駐用 compose と Caddy snippet + deploy 手順書
 ├── scripts/              # release gate（既定ブランチ祖先の検証）
-├── skill/                # peertable スキル（setup/teardown・席の起動・各ブリッジ。~/.claude/skills/peertable へ symlink）
+├── skill/                # peertable スキル（install/setup/resume/teardown・席・3 bridge。配置は製品CLIが管理）
 └── experiments/          # 再現ハーネス。**踏んだ罠ごとに1本**置いて、退行を機械で止める
 ```
 

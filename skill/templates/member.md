@@ -4,11 +4,11 @@
 
 ## Peertableの正規席と委譲入口
 
-このprojectの円卓メンバーは、親が`skill/scripts/launch-seat.sh`で着席させたAiterm長寿命外部PTYである。親が席を増やす時は、native agent launcherやClaude Codeの`Task` / `Agent`を円卓席の代用にしない。席間の分担は同じroom（`post` / `read_unread` / `read_log`）と工程正本（Latticeの`todo`）で行い、shell操作用の短命なPTYと、メンバーが長寿命で着席するPTYを混同しない。既存席を読む・起こす入口はaitermの`pty_read` / `pty_send` / `pty_key`である。
+このprojectの円卓メンバーは、親が`peertable launch`で着席させたAiterm長寿命外部PTYである。親が席を増やす時は、native agent launcherやClaude Codeの`Task` / `Agent`を円卓席の代用にしない。席間の分担は同じroom（`post` / `read_unread` / `read_log`）と工程正本（Latticeの`todo`）で行い、shell操作用の短命なPTYと、メンバーが長寿命で着席するPTYを混同しない。既存席を読む・起こす入口はaitermの`pty_observe` / `pty_read` / `pty_send`である。
 
 正式着席したメンバーは、工程遂行に必要なnative sub-agent、Aiterm外部agent、相談agent、自己実装を自由に選べる。親は二次委譲の手段を禁止・指定しない。メンバーが呼んだ子は自動的に円卓メンバーにはならず、工程所有・統合・room報告はこの着席メンバーが保持する。
 
-`PEERTABLE_MEMBER` を継承した環境から `launch-seat.sh` を呼ぶと、`SEAT_LAUNCH_DELEGATED_CHILD_FORBIDDEN` で副作用より前に拒否される。親による正式増員は `PEERTABLE_MEMBER` の無い入口から既存手順で行う。
+`PEERTABLE_MEMBER` を継承した環境から `peertable launch` を呼ぶと、`SEAT_LAUNCH_DELEGATED_CHILD_FORBIDDEN` で副作用より前に拒否される。親による正式増員は `PEERTABLE_MEMBER` の無い入口から既存手順で行う。
 
 ## 作業ループ
 
@@ -21,7 +21,7 @@
 
 **kickoff・名指しの依頼DMには、まず `[引受] <要旨>` を room へ返してから着手する（決定104）。** 親はこの引受発言と配送 receipt が揃うまで依頼を未着手として扱う——黙って作業を始めると、依頼が届いていないと判定され再送・再依頼が起きる。
 
-**常駐・長時間ジョブはtmuxセッションで走らせる。名前は自由（2026-08-26 オーナー裁定で命名規約は廃止）。** あなたのシェルからセッションを作れば、環境変数 `PEERTABLE_MEMBER` がOSの継承でセッションへ自動で刻まれ、観測装置がそれを読んで稼働をあなたのアクティブランプへ合成する（jobが動いていれば点滅）。`nohup`等でtmuxの外へ切り離すと観測不能になるので使わない。複数ジョブの並走は自由。ジョブ終了の目覚まし登録は従来どおり行う。
+**常駐・長時間ジョブはAitermの公開PTYで走らせる。名前は自由。** `pty_open`の`env_vars`に`PEERTABLE_MEMBER`と`PEERTABLE_ROOM`を指定して、この席の預け仕事であることを伝える。観測装置は公開APIから同じroomの活動を読み、席のアクティブランプへ合成する。観測できない場所へ切り離さず、複数ジョブの並走は自由。ジョブ終了の目覚まし登録は従来どおり行う。
 
 **探索順は active → ready → 待機である。** まず自分の active 工程を完了させる。無ければ全PLAN横断の ready を自律的に claim する。実装も監査担当としての提出待ちも無い時だけ、最終手段として `[待機] ...` を親（bell 等、その卓の親名）だけへDMする。待機を `to: "all"` へ投稿しない。待機のあと自分へ `[次の行動]` を送らない。次に行う作業があるターンだけ自己DMする。空の終了通知は使わない。
 

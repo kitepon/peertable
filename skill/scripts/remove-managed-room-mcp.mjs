@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import {
-  closeSync, fsyncSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync,
+  closeSync, existsSync, fsyncSync, lstatSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { randomBytes } from 'node:crypto'
+import { isDeepStrictEqual } from 'node:util'
 import { isPeertableRoomMcp } from './room-mcp-config.mjs'
 
 const fail = (code, detail) => {
@@ -43,9 +44,13 @@ if (config.mcpServers.room === undefined) {
 if (!isPeertableRoomMcp(config.mcpServers.room))
   fail('PEERTABLE_MANAGED_MCP_REMOVE_CONFLICT', `${file}: room blockがPeertable所有形でない`)
 
+const backup = join(resolve(project), '.team', 'root-mcp.original.json')
+const originalText = existsSync(backup) ? readFileSync(backup, 'utf8') : null
+const original = originalText === null ? null : JSON.parse(originalText)
 delete config.mcpServers.room
-if (Object.keys(config.mcpServers).length === 0) delete config.mcpServers
-if (Object.keys(config).length === 0) {
+if (Object.keys(config.mcpServers).length === 0 && !Object.hasOwn(original ?? {}, 'mcpServers')) delete config.mcpServers
+const restored = originalText !== null && isDeepStrictEqual(config, original)
+if (!restored && Object.keys(config).length === 0) {
   unlinkSync(file)
   process.stdout.write(`${JSON.stringify({ schema: 'peertable.managed_room_mcp_remove_result.v1',
     result: 'ok', action: 'file-deleted' })}\n`)
@@ -56,7 +61,7 @@ const temporary = join(dirname(file), `.${basename(file)}.teardown-${process.pid
 let fd
 try {
   fd = openSync(temporary, 'wx', stat.mode & 0o777)
-  writeFileSync(fd, `${JSON.stringify(config, null, 2)}\n`, 'utf8')
+  writeFileSync(fd, restored ? originalText : `${JSON.stringify(config, null, 2)}\n`, 'utf8')
   fsyncSync(fd)
   closeSync(fd)
   fd = undefined

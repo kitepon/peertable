@@ -9,15 +9,6 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const helper = resolve(root, 'skill/scripts/ensure-codex-room-mcp.mjs')
-const launch = readFileSync(resolve(root, 'skill/scripts/launch-seat.sh'), 'utf8')
-const leave = readFileSync(resolve(root, 'skill/scripts/leave-seat.sh'), 'utf8')
-const aiterm = readFileSync(resolve(root, 'skill/scripts/aiterm-launch.mjs'), 'utf8')
-
-assert.match(launch, /codex_home="\$\{proj\}\/\.team\/seats\/\$\{name\}\.codex"/)
-assert.match(launch, /launch_env\+=\("CODEX_HOME=\$codex_home"\)/)
-assert.match(aiterm, /env_vars\.push\('CODEX_HOME'\)/)
-assert.match(leave, /\$\{name\}\.codex/)
-
 const project = mkdtempSync(join(tmpdir(), 'peertable-codex-project-'))
 const hinata = mkdtempSync(join(tmpdir(), 'peertable-codex-hinata-'))
 const nagi = mkdtempSync(join(tmpdir(), 'peertable-codex-nagi-'))
@@ -34,6 +25,7 @@ try {
       PEERTABLE_MEMBER: member,
       PEERTABLE_CREDENTIAL_FILE: '/tmp/fixture-credential',
       PEERTABLE_VENDOR: 'codex',
+      PEERTABLE_HARNESS: 'codex',
       PEERTABLE_MODEL: 'gpt-5.6-terra',
       PEERTABLE_ROLE: '実装',
       PEERTABLE_ROLES: '実装',

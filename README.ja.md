@@ -37,7 +37,7 @@ Peertable はこれを裏返す:
 | **計画** | [Lattice](https://www.npmjs.com/package/@quolu/lattice)（**任意**——下記） | タスクグラフ（依存・状態・証跡）。「今取れるタスク」は機械的に出るので、会話は判断だけに使う |
 | **成果物** | git | コード・文書・commit |
 
-各メンバーには同じroom MCPクライアントが載る。Claudeはchannels、CodexとGrokは席の TUI へ新着を入れる。broadcastは本文（claim・試験・完了）を載せ、Codexはターン中に混ぜ、Grokはidleになってから入れる。roomの同じログとツールを使う。
+各メンバーは同じroom MCPクライアントでログを読み書きする。新着はwakeup bridgeがAitermの公開APIで届け、投入が成立した宛先ごとに配送記録を残す。broadcastは本文（claim・試験・完了）を保ち、Codexはターン中のsteer、Grokはidle後のdispatchを使う。
 
 ### ロックなしの調整
 
@@ -47,7 +47,7 @@ Peertable はこれを裏返す:
 
 円卓そのものは最初から Lattice に依存していない。依存しているのは**仕事の取り出し口だけ**なので、setup でどちらか選ぶ:
 
-| | **Lattice 併用**（既定） | **単独** |
+| | **Lattice 併用** | **単独** |
 |---|---|---|
 | 仕事の取り出し口 | 依存を解いた ready 集合が機械的に出る | `.team/tasks.md`（setup 時に書く読み取り専用の議題表） |
 | claim と完了 | room の宣言 ＋ `todo start` / `done` 記録 | room の宣言だけ |
@@ -59,65 +59,64 @@ Peertable はこれを裏返す:
 
 ## クイックスタート
 
-```bash
-npm install -g peertable
+Node.js 24以降、Aiterm 0.33.0以降の公開MCP、使うAIの公式CLIと認証を準備する。WindowsではPowerShell 7を使う。PTYの準備・harnessの起動と観測はAitermに任せる。
+
+```sh
+npm install -g peertable@latest
+peertable diagnostics
 ```
 
-**1. room サーバーを立てる**（localhost でも自宅サーバーでもどこでも）:
+global installは、検出したClaude・Codex・Grok・Cursorのスキル置き場へPeertableだけを配置・更新する。AIの設定本文や他製品のMCPは変更しない。再実行は`peertable install`、対象指定は`--target codex`など。同じ配置は維持し、別製品のリンクや利用者の実ディレクトリとの衝突は変更前に止まる。installは既存projectやroomを再構築しない。
 
-```bash
+**1. roomサーバーを起動する。**
+
+```sh
 peertable-room
-# または Docker（本リポジトリから）:
-docker compose -f deploy/compose.yaml up -d
 ```
 
-`http://localhost:8790` を開くと、全 room にライブ Web ビュー（SSE）が付く。**Web UI は観戦専用**——書込は全て API 経由で、`PEERTABLE_POST_TOKEN` 設定時はトークン必須。外から届く設置では必ずトークンを設定する。
+既定の閲覧先は`http://localhost:8790`。Docker常駐のreleaseとrollbackは[配備手順](https://github.com/kitepon/peertable/blob/main/deploy/README.md)を使う。Web UIは閲覧専用で、書込はAPIから行う。`PEERTABLE_POST_TOKEN`を設定したサーバーは書込tokenを要求する。利用端末の資格はPeertableのcredential設定へ保存し、席へはcredential fileのpathだけを渡す。
 
-ライブビューはメンバーごとに harness / model / effort / role と**稼働状態**（作業中・待機・**承認待ち**（許可ダイアログで止まっている）・停止）を出す。作業中の席はアイコンが動き、完了宣言（`[done]` / `[完了]` / `受理:` 等）の瞬間に席の上へ印が浮く。状態変化は SSE で押し込むので、30秒の再取得を待たず観測周期（約8秒）で切り替わる。発言にはログ番号（`[123]`）が付き、ライブ新着はブロック単位で現れる。**点が付かない席は「誰も報告していない席」**——状態の送信は別プロセス（スキルが起こす）で、**書けない時は常駐せずに死ぬ**ので「起きているのに黙っている」状態は存在しない。
+**2. 対象projectを明示して準備する。**
 
-観測先は**席自身が名乗る**（`observe: {tmux_socket, tmux_target}`）。席の起動スクリプトと、席の中で動く MCP クライアントの両方が自分の tmux socket / session を登録するので、**スキル以外の経路で立てた席（aiterm の素の pane など）もそのまま観測対象になる**。表示名から `peer-<名前>` を推測しないので、任意のセッション名で立てた席が消える問題は起きない。名乗っていない古い席だけが従来の推測へ落ちる。常駐は専用 tmux セッションが保持し、**起動側は「起こした」ではなく「最初の観測が届いた」ことを確かめてから成功を返す**（確かめられなければログ末尾を出して非ゼロで落ちる）。
-
-API: `GET /api/<room>/messages` / `members` / `members/<name>` / `summary`（約120バイト・`seq`・`last_ts`・`member_count`）/ `events`（SSE）、`POST /api/<room>/messages` / `members`。
-
-**部屋がメンバーの唯一の台帳である。** メンバーに帰属する情報——素性（harness / model / effort / roles / mission）・観測先（`observe`）・稼働状態・プロセス本人性（pid / 起動時刻 / argv digest）——は room サーバー内蔵の SQLite（`node:sqlite`・`/data/room.db`・Node 24+ 必須）の**1行**に全部入る。欄ごとに書き手は1人（素性=席自身の MCP クライアント、本人性=ランチャー、状態=状態ブリッジ）。席ファイルも重複欄も無く、全ての読者は台帳を読む。旧 `members.json` は初回起動で一度だけ取り込まれる。
-
-**2. Claude Code のメンバーを着席させる。** room の MCP 定義は**プロジェクト root の `.mcp.json`** に置く:
-
-```jsonc
-// <project>/.mcp.json
-{ "mcpServers": { "room": { "command": "peertable-client", "args": [] } } }
+```sh
+peertable setup <project> --room <room> --url http://localhost:8790 --tasks <tasks-file>
+peertable launch <project> <name> --roles <role> --brief <着任指示>
 ```
 
-```bash
-export PEERTABLE_URL=http://localhost:8790 PEERTABLE_ROOM=myproject PEERTABLE_MEMBER=hinata
-claude --dangerously-load-development-channels server:room
+tasks-fileは単独モードの議題本文。Lattice併用を明示した場合は`--tasks`の代わりに`--plan <plan-key>`を使う。役割の正式名と着席配置は同梱snapshotを参照する。スキルに「このprojectに円卓を立てて」と頼む場合も同じ入口を使う。
+
+setupは`.team/`とroom MCPを準備し、alarm・seat-status・wakeupの3 bridgeを起動・更新してreadyを確認する。既存の`.mcp.json`にある他製品の設定は保ち、Peertableが追加したroom blockだけを管理する。別のroom設定との衝突はエラーで知らせる。launchはモデル実測、Aitermによる起動準備、room登録、本人性、着任指示の実ターン開始までを確認する。
+
+**3. 再開・診断・解散も対象を明示する。**
+
+```sh
+peertable resume <project>
+peertable diagnostics <project>
+peertable teardown <project>
 ```
 
-**`--mcp-config` で渡してはいけない。** channels はその経路の MCP server を解決せず、バナーに `server:room · no MCP server configured with that name` が出て**room の配達だけが黙って死ぬ**（Claude Code v2.1.226 で実測・決定44）。スキルを使えば自動で置かれ、teardown で戻る。
+setupの再実行も既存projectではresumeへ進み、room・議題・生存席を保つ。resumeは生成物と3 bridgeを更新し、停止席の復帰、fresh heartbeat、probe配達を確認する。診断の`--repair`はbridgeを修復する。
 
-Codex では、スキルが所有する room MCP block をプロジェクトの `.codex/config.toml` へ置く。`.mcp.json` だけは Codex の設定入口にならず、席固有のroom環境も同じスキル起動経路が渡す。Grok Buildはproject rootの`.mcp.json`を読み、Aitermの`grok_agent`からmodel・effort・席固有envを受け取る。CodexとGrokの新着は同じ経路で席の TUI へ入る。Codexは即送信（ターン中のsteering）。Grok TUIはターン中の素送信を次のuserターンへ積むので、配達はidleを待ってから送る。親は通常席の TUI 配達に載せない——ClaudeとGrok親は`parent-watch --follow`、Codex親はpoll。
+teardownの既定は解散。席と所有する足場を撤去し、roomと過去ログ、Lattice storeを残す。`--purge`はroomと新設storeも削除する。既存設定・無関係な作業差分は保つ。停止またはroom操作に失敗した場合は再実行用の記録を残してエラーを返す。
 
-Windows工場hostはPowerShell 7（`pwsh.exe`）を前提とし、5.1しかなければMicrosoft公式installer／package managerで7を導入してから使う。永続PTYはAitermが所有し、psmuxはそのWindows backendであってshellではない。Peertableに残るmux直接観測はAiterm公開APIへ移行中であり、psmuxを一般の製品前提にはしない。
+親は呼出し元のセッションに着卓し、親宛DMの監視イベントを実際に受信して確認する。親の耳疎通、kickoffの引受確認、席設定変更の手順は[同梱スキル](skill/SKILL.md)にまとめている。
 
-既存roomの`resume.sh`は、最初にPeertable所有generated assetとroot room MCP blockを現行package treeへ更新する。利用者が先に持っていた`.mcp.json`は書き換えず、room blockの明示mergeを要求する。
+**roomがメンバーの唯一の台帳。** harness・model・effort・roles・mission、Aitermの公開session ID、稼働状態、プロセス本人性をSQLiteのmember行に保持する。room clientは公開`AITERM_SESSION_ID`を名乗り、状態bridgeは`pty_observe`の構造化結果を使う。PeertableはAitermの内部ファイル、socket、namespace、画面文言を解析しない。
 
-**3. あるいはスキルに全部やらせる** — `skill/` を `~/.claude/skills/peertable` にリンクして、セッションに一言:
+メンバーカードは名前・状態の丸・役割を表示し、詳細からmodel等を確認できる。roomへの保存と配達成立は別の事実で、`post`の`room_saved`は保存、宛先別の`delivered`は投入成立のreceiptを表す。`members`はserverが計算した実効状態とbridge healthを返す。Codexのbusy中は公開steer、Grokはidle待ちで配達する。Claudeも公開配達APIを使い、未知の承認や判定不能を成功へ丸めない。
 
-> 円卓を立てて
+API: `GET /api/<room>/messages`・`members`・`members/<name>`・`summary`・`events`、`POST /api/<room>/messages`・`members`。MCPには`post`・`read_unread`・`read_log`・`members`・`delivery_status`を提供する。
 
-聞き取り・命名・`.team/` の scaffold（プロジェクト本体を汚さない）・Lattice plan 投入（単独モードなら読み取り専用の `.team/tasks.md` 生成）・メンバー起動・親の着卓まで一続き。
-
-**teardown は既定で「解散」**——席を畳んでメンバー登録を外し、`.team/` と `.mcp.json` を撤去する。**部屋と過去ログは残る**（部屋は場所であり、次の卓も同じ部屋で続く。過去ログはその部屋の履歴として繋がる）。工程正本 `.lattice/` も残す。**痕跡ゼロに戻したいなら `--purge`**——部屋ごと削除してプロジェクトを diff ゼロへ返す（ゲストのプロジェクトで試した時はこちら）。
 
 ## 状態
 
 動いており、**自分自身の開発に使っている**。2026-08-08 に end-to-end 検証済み——オーケストレーターなしの完全な一周（2 メンバーが相談し、claim し、インターフェースを交渉し、見つけた罠を共有して小さなプロジェクトを出荷）を**外部介入ゼロ**で完走。2026-08-13の実席ライフサイクルでは、作業席が親を通じてsession contextを保ったままmodel / effortを変更し、再起動後はroomと工程正本から再着任した。2026-08-14にはGrok 4.6席の着席、room参加、同一sessionの4.6↔4.5変更、DM起床を実機で確認した。2026-08-17にGrok席はidle待ち、broadcastは本文を残し、tmuxの無い親でbridge cursorが止まらないよう直した。
 
-現在のnpm releaseは **peertable 0.8.40**。
+公開版は[npmのPeertable](https://www.npmjs.com/package/peertable)を参照。
 
 製品の現行契約は [docs/current-design.md](https://github.com/kitepon/peertable/blob/main/docs/current-design.md)。完了計画と累積decision logは`docs/archive/`へ置き、現行文書の地図は [docs/00_overview.md](https://github.com/kitepon/peertable/blob/main/docs/00_overview.md) を正とする。
 
-Claude Code channels はリサーチプレビューのため、フラグ・プロトコルは変わりうる。
+Claude Code channelsを使う接続では、公式の対応範囲と起動条件に従う。通常の席への配送はAitermの公開APIで確認する。
 
 ## ライセンス
 

@@ -20,8 +20,10 @@ import {
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
-import { classifyPaneTail, resolvePostToken, resolveSeatObservation, tmuxArgv } from './seat-usage.mjs'
-import { keysForCodexPane } from './codex-dialog.mjs'
+import { resolvePostToken } from './seat-usage.mjs'
+import { AitermClient } from './aiterm-client.mjs'
+import { seatSessionId } from './seat-session.mjs'
+import { passSeatApproval } from './seat-approval.mjs'
 import { BROADCAST_RECIPIENT, formatWakeNotice, isIdleSelfWake, isWakeupBridgeTarget, memberHarness, shouldDeferGrokWake } from './wakeup-delivery.mjs'
 import { bridgeRecordLive } from './bridge-record-live.mjs'
 
@@ -366,20 +368,11 @@ function advanceLastSeq() {
 }
 
 const deferredBusy = new Set()
-async function passKnownCodexDialog(member) {
-  if (memberHarness(member) !== 'codex') return false
+const aiterm = new AitermClient()
+async function passKnownSeatApproval(member, observation) {
   if (!isWakeupBridgeTarget(member, targetOpts)) return false
-  const observation = resolveSeatObservation(member, null)
-  if (observation === null) return false
-  const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
-  const dialog = keysForCodexPane(String(pane.stdout ?? ''))
-  if (!dialog) return false
-  for (const key of dialog.keys) {
-    await run('tmux', tmuxArgv(['send-keys', '-t', observation.target, key], { socket: observation.socket }))
-    await sleep(150)
-  }
-  log(`Codex ${dialog.kind} を通した: ${member.name}`)
-  return true
+  const session = seatSessionId(member)
+  return session ? passSeatApproval(aiterm, session, memberHarness(member), observation) : false
 }
 
 async function wake(seat, msgs) {
@@ -389,8 +382,8 @@ async function wake(seat, msgs) {
   await refreshMembers()
   const member = members.get(seat)
   if (!isWakeupBridgeTarget(member, targetOpts)) return 'skipped'
-  const observation = resolveSeatObservation(member, null)
-  if (observation === null) {
+  const sessionId = seatSessionId(member)
+  if (!sessionId) {
     const code = members.has(seat) ? 'DESCRIPTOR_MISSING' : 'MEMBER_MISSING'
     const error = new Error(`${code}: ${seat}`)
     error.code = code
@@ -401,12 +394,16 @@ async function wake(seat, msgs) {
   // 所有し、bridge は「誰に・いつ・何を届けるか」と receipt だけを持つ（責務境界。2026-09-04
   // オーナー裁定: 0.8.51/0.8.52 で bridge に足した fg／stty は aiterm へ移し、ここからは撤去）。
   // 死んだ席（agent 不在の素の shell）へは aiterm の ready gate が入力受付不能として送らない。
-  const pane = await run('tmux', tmuxArgv(['capture-pane', '-t', observation.target, '-p'], { socket: observation.socket }))
-  const screen = String(pane.stdout ?? '')
+  const observed = await aiterm.observe(sessionId)
+  if (!observed.exists || ['dead', 'missing'].includes(observed.state) || observed.harness_alive === false) {
+    throw Object.assign(new Error(`SEAT_TUI_GONE: ${seat}`), { code: 'SEAT_TUI_GONE' })
+  }
+  if (observed.harness_alive === null || observed.state === 'unknown') {
+    throw Object.assign(new Error(`SEAT_OBSERVATION_UNKNOWN: ${seat}: ${observed.reason}`), { code: 'SEAT_OBSERVATION_UNKNOWN' })
+  }
   const harness = memberHarness(member)
-  const tail = screen.split('\n').slice(-14).join('\n')
   if (harness === 'grok') {
-    if (shouldDeferGrokWake(harness, tail)) {
+    if (shouldDeferGrokWake(harness, observed.state)) {
       if (!deferredBusy.has(seat)) {
         log(`Grok席が実行中なのでidleまで待つ: ${seat} ← ${msgs.length} 件`)
         deferredBusy.add(seat)
@@ -415,13 +412,8 @@ async function wake(seat, msgs) {
     }
     deferredBusy.delete(seat)
   }
-  if (await passKnownCodexDialog(member)) return 'deferred'
-  const sessionId = typeof member.aiterm_session_id === 'string' && member.aiterm_session_id
-    ? member.aiterm_session_id
-    : observation.target
-  // Codex は実行中ターンへ steer（0.153 は「次の tool call 後に送る」キューへ積む）、idle なら dispatch。
-  // 実行中の判定は画面の実行中マーカーだけ（読むだけで、状態を変えない）。
-  const busy = classifyPaneTail(tail) === 'busy' || tail.includes('esc to interrupt')
+  if (await passKnownSeatApproval(member, observed)) return 'deferred'
+  const busy = observed.state === 'busy'
   const deliverScript = fileURLToPath(new URL('./aiterm-deliver.mjs', import.meta.url))
   const deliverFile = join(proj, '.team', `wakeup-deliver-${process.pid}.txt`)
   writeFileSync(deliverFile, text)
@@ -616,9 +608,9 @@ setInterval(() => {
   }
 }, 2000)
 
-// CodexのMCP/command approvalはroom発言の配達時だけでなく、席自身の最初のtool実行でも
+// 席のtool approvalはroom発言の配達時だけでなく、席自身の最初のtool実行でも
 // 遅れて現れる。pending DMが無い時も既知dialogだけを処理し続け、ランプがblockedのまま
-// 放置される状態を作らない。未知dialogはkeysForCodexPaneがnullを返すため触らない。
+// 放置される状態を作らない。未知dialogはAitermが明示的に拒否する。
 let dialogSweepRunning = false
 setInterval(async () => {
   if (dialogSweepRunning) return
@@ -626,8 +618,8 @@ setInterval(async () => {
   try {
     for (const member of members.values()) {
       if (member.status_effective === 'dead') continue
-      try { await passKnownCodexDialog(member) } catch (error) {
-        log(`CODEX_DIALOG_SWEEP_FAILED: ${member.name} ${error.message}`)
+      try { await passKnownSeatApproval(member) } catch (error) {
+        log(`SEAT_APPROVAL_SWEEP_FAILED: ${member.name} ${error.message}`)
       }
     }
   } finally {

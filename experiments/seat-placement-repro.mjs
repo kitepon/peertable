@@ -9,7 +9,8 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const fixture = await readFile(join(root, 'experiments/fixtures/02_models.md'), 'utf8')
-const launch = await readFile(join(root, 'skill/scripts/launch-seat.sh'), 'utf8')
+const launch = await readFile(join(root, 'skill/scripts/launch-seat.mjs'), 'utf8')
+const cli = join(root, 'skill/scripts/cli.mjs')
 
 let ok = true
 const check = (name, pass, detail = '') => {
@@ -18,7 +19,8 @@ const check = (name, pass, detail = '') => {
 }
 
 check('launch-seat は role 既定 worker を持たない', !launch.includes('role="${7:-worker}"'))
-check('launch-seat は --roles を usage に持つ', launch.includes('--roles'))
+const help = spawnSync(process.execPath, [cli, '--help'], { encoding: 'utf8' })
+check('正規CLIは --roles の指定方法を案内する', help.status === 0 && help.stdout.includes('--roles'))
 check('launch-seat は三者上書き経路を持たない', !launch.includes('SEAT_PLACEMENT_OVERRIDE'))
 check('launch-seat は 02_models 解決器を呼ぶ', launch.includes('resolve-seat-placement.mjs'))
 
@@ -87,10 +89,9 @@ check('台帳に無い model は harness 付きなら通す',
 const first = resolveSeatPlacement('実装', fixture)
 check('単役割 helper は1位 Terra のまま', first.model === 'gpt-5.6-terra' && first.rank === 1, JSON.stringify(first))
 
-const bash = process.platform === 'win32' ? 'C:\\Program Files\\Git\\bin\\bash.exe' : 'bash'
-const missing = spawnSync(bash, [join(root, 'skill/scripts/launch-seat.sh')], { encoding: 'utf8' })
-check('launch-seat は roles 無しで usage を出して落ちる',
-  missing.status !== 0 && /usage:/.test(missing.stderr || missing.stdout || ''), (missing.stderr || missing.stdout || '').trim())
+const missing = spawnSync(process.execPath, [cli, 'launch', root, 'fixture-missing-role'], { encoding: 'utf8' })
+check('正規CLIは roles 無しの着席を拒否する',
+  missing.status !== 0 && /SEAT_LAUNCH_ARGS_INVALID/.test(missing.stderr) && /役割/.test(missing.stderr), missing.stderr.trim())
 
 const env = { ...process.env, PEERTABLE_MODELS_DOC: join(root, 'experiments/fixtures/02_models.md') }
 const resolveBin = join(root, 'skill/scripts/resolve-seat-placement.mjs')

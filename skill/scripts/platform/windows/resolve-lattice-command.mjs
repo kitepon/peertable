@@ -1,9 +1,20 @@
+import { existsSync } from 'node:fs'
+import { win32 } from 'node:path'
+
 export function resolveWindowsCommand(cli, argv, {
   platform = process.platform,
-  exists,
+  exists = existsSync,
+  pathEnv = process.env.PATH ?? '',
   pwsh = 'pwsh.exe',
 } = {}) {
   if (platform !== 'win32') return { command: cli, argv }
+  if (!/[\\/]/u.test(cli)) {
+    for (const directory of pathEnv.split(';').filter(Boolean)) {
+      const candidates = /\.(?:exe|ps1|cmd|bat)$/iu.test(cli) ? [cli] : [`${cli}.exe`, `${cli}.ps1`]
+      const found = candidates.map(name => win32.join(directory, name)).find(exists)
+      if (found) { cli = found; break }
+    }
+  }
   const lower = cli.toLowerCase()
   if (lower.endsWith('.exe')) return { command: cli, argv }
 

@@ -14,7 +14,7 @@ import { boundedRecent, boundedUnread } from './message-bounds.mjs'
 
 // client.mjs 側のハードコード版数。package.json の version と一致していることを
 // diagnostics の version_consistency が見る（2 つの版数源の drift 検出。決定45）
-const MCP_VERSION = '0.8.55'
+const MCP_VERSION = '0.8.56'
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 const USAGE = `usage:
@@ -209,34 +209,8 @@ await mcp.connect(new StdioServerTransport())
 // 登録は client の起動ごとに繰り返し起きるので、1回きりの経路に置くと
 // member の状態が失われた時に二度と戻らない（server 側は渡された欄だけ更新する upsert）
 function observeSelf() {
-  const named = process.env.PEERTABLE_MEMBER ? `peer-${process.env.PEERTABLE_MEMBER}` : ''
-  const handed = process.env.PEERTABLE_TMUX_SOCKET
-  if (handed && named) {
-    return { tmux_socket: handed, tmux_target: named, tmux_namespace: handed }
-  }
-  if (!process.env.TMUX) {
-    process.stderr.write('peertable-client: observe unavailable: TMUX 不在\n')
-    return null
-  }
-  if (!process.env.TMUX_PANE) {
-    process.stderr.write('peertable-client: observe unavailable: TMUX_PANE 不在\n')
-    return null
-  }
-  const socket = process.env.TMUX.split(',')[0]
-  if (!socket) {
-    process.stderr.write('peertable-client: observe unavailable: TMUX の socket が空\n')
-    return null
-  }
-  try {
-    const target = execFileSync('tmux', ['-S', socket, 'display-message', '-p', '-t', process.env.TMUX_PANE, '#S'], {
-      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim()
-    if (!target) throw new Error('session 名が空')
-    return { tmux_socket: socket, tmux_target: target }
-  } catch (error) {
-    process.stderr.write(`peertable-client: observe unavailable: ${error.message}\n`)
-    return null
-  }
+  const session = process.env.AITERM_SESSION_ID
+  return session ? { aiterm_session_id: session } : null
 }
 
 {
@@ -258,6 +232,7 @@ const IDENTITY = Object.fromEntries(Object.entries({
   effort: process.env.PEERTABLE_EFFORT,
   roles,
   mission: process.env.PEERTABLE_MISSION,
+  aiterm_session_id: process.env.AITERM_SESSION_ID,
   observe,
 }).filter(([, v]) => v != null && v !== '' && !(Array.isArray(v) && v.length === 0)))
 {
@@ -383,8 +358,21 @@ async function runDiagnostics(asJson) {
       'scripts/external-pane.mjs',
       'scripts/launch-seat.sh',
       'scripts/resolve-seat-placement.mjs',
-      'scripts/tmux-at.bash',
-      'scripts/tmux-socket.mjs',
+      'scripts/cli.mjs',
+      'scripts/install-skill.mjs',
+      'scripts/project-scaffold.mjs',
+      'scripts/project-runtime.mjs',
+      'scripts/legacy-entry.mjs',
+      'scripts/launch-seat.mjs',
+      'scripts/leave-seat.mjs',
+      'scripts/change-seat.mjs',
+      'scripts/teardown.mjs',
+      'scripts/doctor.mjs',
+      'scripts/room-api.mjs',
+      'scripts/aiterm-client.mjs',
+      'scripts/seat-session.mjs',
+      'scripts/seat-observer.mjs',
+      'scripts/seat-approval.mjs',
       'scripts/seat-identity.mjs',
       'scripts/pid-alive.mjs',
       'scripts/parent-watch.mjs',
@@ -394,6 +382,7 @@ async function runDiagnostics(asJson) {
       // 既存卓の現行tree同期とteardownのblock単位所有。resume／teardownから呼ぶため一体で必須
       'scripts/room-mcp-config.mjs',
       'scripts/upgrade-team-assets.sh',
+      'scripts/upgrade-team-assets.mjs',
       'scripts/remove-managed-room-mcp.mjs',
       'scripts/bridge-record-live.mjs',
       'scripts/leave-seat.sh',
@@ -409,13 +398,15 @@ async function runDiagnostics(asJson) {
       'scripts/seat-status-bridge.mjs',
       'scripts/ensure-bridge.sh',
       'scripts/ensure-project-runtime.sh',
+      'scripts/ensure-project-runtime.mjs',
+      'scripts/ensure-bridge.mjs',
+      'scripts/runtime-launch-command.mjs',
       'scripts/runtime-digest.mjs',
       'scripts/alarm-bridge.mjs',
       'scripts/alarm-set.sh',
       'scripts/alarm-write.mjs',
       'scripts/alarm-condition.mjs',
-      'scripts/agent-pane-status.mjs',
-      'scripts/codex-dialog.mjs',
+      'scripts/aiterm-deliver.mjs',
       'scripts/grok-seat-config.mjs',
       // 円卓開始ゲートと既存 room の正規 resume 入口（決定104・105）。欠けると親の依頼確定と再稼働が手作業へ戻る
       'scripts/kickoff-gate.mjs',

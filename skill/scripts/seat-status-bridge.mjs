@@ -1,33 +1,12 @@
 #!/usr/bin/env node
-// 席の稼働状態ブリッジ（決定61 候補・t15）。tmux の pane を読んで busy/idle/dead を判定し、room サーバーへ送る。
-// usage: seat-status-bridge.mjs <project_dir> [--interval <sec>] [--once]
-//        seat-status-bridge.mjs <project_dir> --stop
-//
-// AI は使わない。読むのは `tmux capture-pane -p` の末尾だけで、席へは1バイトも送らない。
-//
-// 判定（2026-08-08 実測。**推測でパターンを書かない**）:
-//   busy    = pane の末尾に `esc to interrupt` が在る。Claude 席のステータス行にも Codex 席の `Working (…)` にも
-//             同じ文字列が入る。Grok はこれを出さず `Waiting for response` / `Responding…` / `[stop]` を出す
-//             （2026-08-21 実測。これを見ないと作業中の Grok 席が idle に見える）。実行中の動名詞
-//             （Cogitating/Coalescing/Effecting/Gallivanting/Fermenting/Symbioting…）は**毎回変わる**ので
-//             判定に使わない——語で照合すると全席を idle と誤判定して、画面が嘘をつく
-//   blocked = 既知の承認ダイアログ文言が末尾に在る（`esc to interrupt` は消えている）。2026-08-08 実測:
-//             確認ダイアログで停止した席が busy と `esc to interrupt` 不在から idle 側に誤判定され、
-//             動けない席へ卓が代走を申し出るところまで進んだ。判定順は busy → blocked → idle
-//             （承認プロンプト表示中は `esc to interrupt` が消えるので、この順で正しい）
-//   dead    = tmux セッションが無い／`pane_dead=1`／画面は idle 風だが中の CLI プロセスが停止
-//             （`ps` stat 先頭 `T`。Lattice pull run の accept hold が attach 済み worker へ
-//             SIGSTOP を送る局面等。2026-08-11 実測）
-//   idle    = 生きていて busy でも blocked でもない
-//
-// 送信は「変化した時」＋「変化が無くても心拍」の2本立て。変化時だけだと、**bridge が死んだのか状態が
-// 変わっていないのかを server が区別できない**（決定58 の liveness と cursor の分離と同じ形）。
-// server 側は最終受信からの経過で `unknown` へ落とす——古い状態を出し続けるのが最悪だから。
+// Aitermの公開観測をroomの稼働表示と継続番犬へつなぐ。
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { STOP_DECLARATION, attributeJobSession, combineSeatLamp, isPaneHarnessMissing, hasActiveDescendant, subtreeCpuSeconds, patrolTargets, classifyPaneTail, decideBridgeContinuation, deriveMissingSession, isPaneProcessStopped, paneStatusTail, parsePaneTokenHint, resolveLatticeExecutable, resolvePostToken, resolveSeatObservation, resolveTmuxSocket, supportsMemberObservation, tmuxArgv, tmuxPanePid } from './seat-usage.mjs'
+import { STOP_DECLARATION, patrolTargets, decideBridgeContinuation, resolveLatticeExecutable, resolvePostToken, supportsMemberObservation } from './seat-usage.mjs'
+import { AitermClient } from './aiterm-client.mjs'
+import { SeatObserver } from './seat-observer.mjs'
 import { updateBridgeProgress } from './bridge-record-live.mjs'
 
 const args = process.argv.slice(2)
@@ -52,10 +31,10 @@ if (stop) {
     // SIGTERM 5秒 → SIGKILL 3秒（wakeup-bridge.mjs と同じ形）。**昇格が無いと、SIGTERM を無視する
     // 常駐が居た時に teardown が `set -e` の2段目で即死して、[未実施] も [手当] も要約も出ない**
     process.kill(pid, 'SIGTERM')
-    for (let i = 0; i < 50 && alive(pid); i++) execFileSync('sleep', ['0.1'])
+    for (let i = 0; i < 50 && alive(pid); i++) await new Promise(resolve => setTimeout(resolve, 100))
     if (alive(pid)) {
       process.kill(pid, 'SIGKILL')
-      for (let i = 0; i < 30 && alive(pid); i++) execFileSync('sleep', ['0.1'])
+      for (let i = 0; i < 30 && alive(pid); i++) await new Promise(resolve => setTimeout(resolve, 100))
     }
     if (alive(pid)) { console.error(`SEAT_STATUS_BRIDGE_STOP_FAILED: pid ${pid} が SIGKILL でも止まらない`); process.exit(1) }
   }
@@ -80,132 +59,14 @@ const room = setup.room
 const token = resolvePostToken(process.env)
 writeFileSync(pidPath, JSON.stringify({ pid: process.pid, started_at: new Date().toISOString() }) + '\n')
 
-// 記述子がある席は既定 socket を要らない。曖昧な既定 socket のせいで観測可能な席まで止めないよう、
-// legacy 席を読む時だけ解決する。
-let defaultSocketResolution = null
-let resolutionLogged = false
+const aiterm = new AitermClient()
+const observer = new SeatObserver(aiterm, room)
 let readyRecorded = false
-const defaultSocket = () => {
-  if (defaultSocketResolution === null) defaultSocketResolution = resolveTmuxSocket(process.env)
-  return defaultSocketResolution.socket
-}
-const tmux = (socket, ...a) => { try { return execFileSync('tmux', tmuxArgv(a, { socket }), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }) } catch { return null } }
 
-// 監視するのは room の members に居る席だけ。tmux の `peer-*` を全部拾うと、同じマシンで走る別の卓を晒す
 async function seats() {
   const res = await fetch(`${url}/api/${encodeURIComponent(room)}/members`)
-  const { members } = await res.json()
-  return members
-}
-
-function readSeat(member, previous, observedAt) {
-  // まず記述子だけで解決する。socket が無い記述子／記述子なしの場合だけ既定を調べる。
-  const target = resolveSeatObservation(member, null) ?? resolveSeatObservation(member, defaultSocket())
-  if (target === null) return deriveMissingSession(previous)
-  const dead = tmux(target.socket, 'list-panes', '-t', target.target, '-F', '#{pane_dead}')
-  // セッションが見つからない。tmux 席を持たない member（親など）は一度も観測できないので送らない
-  // （`previous` が無い＝一度も観測できていない）。過去に観測できていた席が消えたなら実際に落ちた
-  if (dead === null) return deriveMissingSession(previous)
-  if (dead.trim().split('\n')[0] === '1') {
-    return { status: 'dead', busySince: null, paneTokenHint: null }
-  }
-  const pane = tmux(target.socket, 'capture-pane', '-t', target.target, '-p')
-  if (pane === null) return { status: 'dead', busySince: null, paneTokenHint: null }
-  const tail = paneStatusTail(pane)
-  const tentativeStatus = classifyPaneTail(tail)
-  // pane 自体は生きたまま中の CLI プロセスだけが停止する局面（Lattice pull run の accept hold 等）を
-  // 拾う。画面の残像だけでは idle に誤判定するため、idle と読めた時だけ実プロセスの stat を見る。
-  let status = tentativeStatus
-  if (tentativeStatus === 'idle') {
-    const panePid = tmuxPanePid(target.socket, target.target)
-    if (isPaneProcessStopped(panePid)) status = 'dead'
-    else {
-      // harness死亡でshellだけ残った席（実被弾 2026-08-26: mio）。画面の残像はidleに見える
-      try {
-        const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,command='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).split('\n')
-        if (isPaneHarnessMissing(rows, Number(panePid))) status = 'dead'
-      } catch { /* psが使えない端末では従来判定のまま */ }
-    }
-  }
-  const busySince = status === 'busy' || status === 'blocked'
-    ? ((previous?.status === 'busy' || previous?.status === 'blocked') && previous.busySince ? previous.busySince : observedAt)
-    : null
-  return { status, busySince, paneTokenHint: parsePaneTokenHint(tail) }
-}
-
-// ---- 預け仕事（jobセッション）の観測（2026-08-25 オーナー裁定）----
-// 席が常駐・長時間ジョブを `peer-<名前>-job*` の名前のtmuxセッションで走らせる取り決めを前提に、
-// その実物を毎周期観測してランプへ合成する。登録・宣言は一切見ない——観測だけ。
-// active判定は「画面内容が前周期から変わった」こと。出力を出さない計算中はidle表示になるが、
-// それは観測できる事実の正直な表示であり、推測で点滅させない。
-const jobPaneHash = new Map() // `${name}:${session}` -> { hash, changedAt }
-const jobCpuSeconds = new Map() // `${name}:${session}` -> 前周期の累積CPU秒（root=job本体を含む）
-let jobObserveFailureLogged = false
-let envAttributionFailureLogged = false
-function observeJob(socket, name, memberNames, envCache) {
-  const listed = tmux(socket, 'list-sessions', '-F', '#{session_name}')
-  if (listed === null) {
-    // 「jobなし」と「観測手段が壊れている」を同じ顔にしない（silent absence禁止・2026-08-25 オーナー裁定）。
-    // この端末でjob観測が成立しない場合、ランプ合成は席paneのみで動いていることを明示的に吠える。
-    if (!jobObserveFailureLogged) {
-      jobObserveFailureLogged = true
-      console.error('JOB_OBSERVE_UNAVAILABLE: tmux list-sessions が失敗するため、預け仕事のランプ合成はこの端末で無効（席paneのみで表示）。以後この警告は繰り返さない')
-    }
-    return { alive: false, active: false }
-  }
-  jobObserveFailureLogged = false
-  // 帰属はsession envのPEERTABLE_MEMBER（OSの継承をtmux update-environmentが写した実物）が正。
-  // 名前は自由——`-job` 規約は廃止（2026-08-26 オーナー裁定）。env読みは周期内cacheで1セッション1回。
-  const names = memberNames?.length ? memberNames : [name]
-  const envOf = (session) => {
-    if (envCache?.has(session)) return envCache.get(session)
-    // 変数名指定でなく全量listを読む: 「変数が無い」と「show-environment自体が使えない」
-    // （psmux等のtmux互換の欠け）を区別するため。使えない端末は名前fallbackで動き続けるが、
-    // その事実は黙らず一度だけ吠える（silent absence禁止）
-    const out = tmux(socket, 'show-environment', '-t', session)
-    if (out === null) {
-      if (!envAttributionFailureLogged) {
-        envAttributionFailureLogged = true
-        console.error('ENV_ATTRIBUTION_UNAVAILABLE: show-environment がこの端末のtmux/psmuxで失敗するため、預け仕事の帰属はsession envで判定できない（peer-<name>- 前置の名前fallbackのみで動作）')
-      }
-      envCache?.set(session, null)
-      return null
-    }
-    const m = /^PEERTABLE_MEMBER=(.+)$/m.exec(out)
-    const value = m ? m[1].trim() : null
-    envCache?.set(session, value)
-    return value
-  }
-  const sessions = listed.split('\n').filter(Boolean)
-    .filter(session => attributeJobSession({ session, memberNames: names, env: envOf(session) }) === name)
-  if (sessions.length === 0) return { alive: false, active: false }
-  let active = false
-  let psRows = null
-  for (const session of sessions) {
-    const pane = tmux(socket, 'capture-pane', '-t', session, '-p')
-    if (pane === null) continue
-    const hash = String(pane.length) + ':' + pane.slice(-256)
-    const key = `${name}:${session}`
-    const prev = jobPaneHash.get(key)
-    if (!prev || prev.hash !== hash) { jobPaneHash.set(key, { hash }); active = true }
-    // 画面に何も出さず働くジョブ（checkpointだけ書く収集等）は画面hashでは稼働に見えない
-    // （実被弾 2026-08-25: 収集が毎分書き込み中なのにランプが点灯止まり）。jobセッションの
-    // プロセスツリーのCPU実働も稼働として合成する。セッション全体が預け仕事なので足場除外は不要。
-    if (!active) {
-      const jobPanePid = tmuxPanePid(socket, session)
-      if (jobPanePid) {
-        try {
-          psRows ??= execFileSync('ps', ['-axo', 'pid=,ppid=,time=,etime='], { encoding: 'utf8' }).split('\n')
-          // pcpu%はIO待ち主体のジョブで0.0に丸まる。累積CPU時間の前周期差分で「変化」を見る
-          const seconds = subtreeCpuSeconds(psRows, Number(jobPanePid), { includeRoot: true })
-          const prevSeconds = jobCpuSeconds.get(key)
-          jobCpuSeconds.set(key, seconds)
-          if (prevSeconds !== undefined && seconds > prevSeconds) active = true
-        } catch { /* psが使えない端末では画面hash判定だけで続行 */ }
-      }
-    }
-  }
-  return { alive: true, active }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return (await res.json()).members
 }
 
 async function send(name, observation, observedAt) {
@@ -286,7 +147,6 @@ const patrolNagStreak = new Map() // seat -> 連続催促数（催促条件が�
 const patrolEscalated = new Set() // 同一縮退エピソードでの親通報は1回だけ
 const busyStartedAt = new Map() // seat -> epoch_ms（このbridgeプロセスが観測した最後のターン開始・pane基準）
 const paneLast = new Map() // seat -> 直前周期のpane生status（番犬系専用。表示合成とは分離）
-const paneJobCpuSeconds = new Map() // seat -> 前周期の非足場子孫の累積CPU秒
 let lastPatrolAt = 0
 async function patrolClaims() {
   if (setup.mode !== 'lattice' || !setup.plan_key) return
@@ -390,28 +250,6 @@ const tokenBucket = value => value === null ? null : Math.floor(value / 1_000)
 // 数えないと、失敗を1行ずつ吐きながら永久に常駐する（2026-08-10 に4時間そうなった）
 const NOTHING_ATTEMPTED = { attempted: 0, failed: 0 }
 
-function hasDescriptor(member) {
-  return member?.observe && typeof member.observe === 'object'
-    && typeof member.observe.tmux_target === 'string' && member.observe.tmux_target.length > 0
-}
-
-function logResolution(members) {
-  if (resolutionLogged) return
-  resolutionLogged = true
-  const descriptors = members.filter(hasDescriptor).length
-  const legacy = members.length - descriptors
-  if (legacy === 0) {
-    console.error(`seat-status-bridge: 観測記述子 ${descriptors} 席、legacy 0 席、既定 socket は未使用`)
-    return
-  }
-  const resolved = defaultSocketResolution ?? resolveTmuxSocket(process.env)
-  defaultSocketResolution = resolved
-  const detail = resolved.error
-    ? `${resolved.source} (${resolved.error.code}: ${resolved.candidates.join(', ')})`
-    : `${resolved.source} (${resolved.socket})`
-  console.error(`seat-status-bridge: 観測記述子 ${descriptors} 席、legacy ${legacy} 席、既定 socket=${detail}`)
-}
-
 function recordReady() {
   if (readyRecorded) return
   readyRecorded = true
@@ -432,51 +270,31 @@ async function tick() {
   // 保持する版かどうかは GET で分かるので、**分かるまで投げない**。
   if (supported === null) {
     try { supported = await serverKeepsStatus() } catch { return NOTHING_ATTEMPTED }   // 判定できない間は送らない
-    recordReady()
     if (!supported) console.error('seat-status-bridge: この room サーバーは稼働状態を保持しない版（GET /members に status が無い）。送信すると保存されないうえに system 発言を撒くので、送信しない')
   }
-  logResolution(members)
   if (!supported) { console.error(`seat-status-bridge: ${members.length} 席を見たが、server が未対応なので送っていない`); return NOTHING_ATTEMPTED }
   const now = Date.now()
   const observedAt = new Date(now).toISOString()
-  const memberNames = members.map(m => m.name)
-  const envCache = new Map() // session env読みの周期内cache（帰属判定は全memberで同じ実物を見る）
+  const observations = await observer.cycle(members, last, observedAt)
+  recordReady()
   let sent = 0
   let skipped = 0
   let failed = 0
   for (const member of members) {
     const { name } = member
     const prev = last.get(name)
-    const observation = readSeat(member, prev, observedAt)
-    // tmux 席を持たない member（親など）は一度も観測できないので送らない（deriveMissingSession が null を返す）
-    if (observation === null) { skipped++; continue }
+    const observation = observations.get(name)
+    // Aiterm席を持たない member（親など）は一度も観測できないので送らない
+    if (!observation) { skipped++; continue }
+    if (observation.error) {
+      failed++
+      console.error(`seat-status-bridge: ${name} の観測失敗: ${observation.error.code}: ${observation.error.message}`)
+      continue
+    }
     // 番犬（ターン終了検知・busy履歴）はpaneの生状態だけを読む。表示用の合成ランプ（job込み）を
     // ここへ流すと、静かなジョブの画面出力の間欠でランプがbusy⇄idleに揺れ、その揺れを
     // 「ターン終了」と誤認して正当待機の席へ[継続]を撃つ（実被弾 2026-08-25 #175: mio誤起床）。
-    const paneStatus = observation.status
-    {
-      const target = resolveSeatObservation(member, null) ?? resolveSeatObservation(member, defaultSocket())
-      if (target !== null) {
-        const job = observeJob(target.socket, member.name, memberNames, envCache)
-        // 席paneの子孫プロセス（Codex内蔵background terminal等）の実働もjob稼働として合成する
-        if (!job.active && observation.status === 'idle') {
-          const panePid = tmuxPanePid(target.socket, target.target)
-          if (panePid) {
-            try {
-              const rows = execFileSync('ps', ['-axo', 'pid=,ppid=,time=,etime='], { encoding: 'utf8' }).split('\n')
-              // 足場（席と同時起動）を除外し、後から生まれた子孫の累積CPU秒の前周期差分で稼働判定
-              const seconds = subtreeCpuSeconds(rows, Number(panePid), {
-                includeChild: (childAge, rootAge) => rootAge != null && childAge != null && rootAge - childAge >= 60,
-              })
-              const prevSeconds = paneJobCpuSeconds.get(member.name)
-              paneJobCpuSeconds.set(member.name, seconds)
-              if (prevSeconds !== undefined && seconds > prevSeconds) job.active = true
-            } catch { /* psが失敗する端末では子孫観測なしで続行（named session観測は生きている） */ }
-          }
-        }
-        observation.status = combineSeatLamp(observation.status, job)
-      }
-    }
+    const paneStatus = observation.paneStatus
     const changed = !prev || prev.status !== observation.status
       || prev.busySince !== observation.busySince
       // token表示は実行中に細かく増える。1k未満の差で8秒ごとにPOSTせず、表示精度に合う粒度で送る。
@@ -498,7 +316,7 @@ async function tick() {
     }
   }
   // 0件でも0件と言う（条件付きログにしない。沈黙する失敗を作らない・決定58）
-  console.error(`seat-status-bridge: ${members.length} 席を見て ${sent} 件送った（tmux席を持たず観測対象外: ${skipped}）`)
+  console.error(`seat-status-bridge: ${members.length} 席を見て ${sent} 件送った（Aiterm席を持たず観測対象外: ${skipped}）`)
   await patrolClaims()
   return { attempted: sent + failed, failed }
 }
@@ -540,5 +358,14 @@ async function guardedTick() {
 process.on('SIGTERM', () => { try { unlinkSync(pidPath) } catch {} process.exit(0) })
 process.on('SIGINT', () => { try { unlinkSync(pidPath) } catch {} process.exit(0) })
 
-await guardedTick()
-if (!once) setInterval(() => { guardedTick() }, interval * 1000)
+try {
+  await guardedTick()
+  while (!once) {
+    await new Promise(resolve => setTimeout(resolve, interval * 1000))
+    await guardedTick()
+  }
+} catch (error) {
+  die('SEAT_STATUS_BRIDGE_OBSERVATION_FAILED', error.message)
+} finally {
+  await aiterm.close()
+}

@@ -7,116 +7,22 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
-import { keysForCodexPane } from './codex-dialog.mjs'
-import { buildWindowsBridgeLaunch } from './platform/windows/build-bridge-command.mjs'
-import { paneStatusTail } from './seat-usage.mjs'
-import { classifyGrokPaneTail } from './vendors/grok/pane-status.mjs'
 import { latticeTaskAvailable } from './alarm-condition.mjs'
 import { boundedRecent, boundedUnread } from '../../room/message-bounds.mjs'
 
-test('Grokの通信失敗はWaiting表示が残ってもbusyにしない', () => {
-  const tail = [
-    'Connection failed — reqwest error stream: error sending request.',
-    'Check your network and try again.',
-    'Waiting for response… 29s [stop]',
-  ].join('\n')
-  assert.equal(classifyGrokPaneTail(tail), 'blocked')
-})
-
-test('通信失敗の無いGrok応答待ちはbusy', () => {
-  assert.equal(classifyGrokPaneTail('Waiting for response… 12s [stop]'), 'busy')
-})
-
-test('状態判定窓は折返しで14行より上へ出た通信失敗を含む', () => {
-  const pane = ['Connection failed — reqwest error stream', ...Array(20).fill('wrapped line'), 'Waiting for response…'].join('\n')
-  assert.ok(paneStatusTail(pane).includes('Connection failed'))
-})
-
-test('Codexのroom許可とcommand許可は固定選択肢だけを通す', () => {
-  assert.deepEqual(keysForCodexPane([
-    'Allow the room MCP server to run tool "members"?',
-    '3. Always allow',
-  ].join('\n')), { kind: 'mcp-allow', keys: ['Down', 'Down', 'Enter'] })
-  assert.deepEqual(keysForCodexPane([
-    'Would you like to run the following command?',
-    "2. Yes, and don't ask again for commands that start with Get-Content",
-  ].join('\n')), { kind: 'command-approval', keys: ['Down', 'Enter'] })
-})
-
-test('Codexの現在busy／idle composerはscrollbackの古い許可文より優先する', () => {
-  const stale = [
-    'Would you like to run the following command?',
-    "2. Yes, and don't ask again for commands that start with rg",
-  ]
-  assert.equal(keysForCodexPane([...stale, '• Working (8s • esc to interrupt)', '› Ask Codex to do anything', 'gpt-5.6-terra high · ~/work'].join('\n')), null)
-  assert.equal(keysForCodexPane([...stale, '› Ask Codex to do anything', 'gpt-5.6-terra high · ~/work'].join('\n')), null)
-})
-
-test('Codexの長い承認文は現在footerがあれば24行を越えても検出する', () => {
-  const screen = [
-    'Would you like to run the following command?',
-    "2. Yes, and don't ask again for commands that start with Get-Process",
-    ...Array(28).fill('wrapped command line'),
-    'Press enter to confirm or esc to cancel',
-  ].join('\n')
-  assert.deepEqual(keysForCodexPane(screen), { kind: 'command-approval', keys: ['Down', 'Enter'] })
-})
-
-test('着座はAiterm dispatch前に独自prompt連続判定を重ねない', () => {
-  const source = readFileSync(new URL('./launch-seat.sh', import.meta.url), 'utf8')
-  const activeBranch = source.slice(
-    source.indexOf('if [ "$brief_in_composer" != true ]; then'),
-    source.indexOf('  else\n  # Codex はヘッダを描いた後も MCP 初期化を続ける。'),
-  )
-  assert.ok(activeBranch.includes('aiterm-send.mjs'))
-  assert.ok(!activeBranch.includes('brief_ready_streak'))
-  assert.ok(source.includes('brief_turn_observed'))
-  assert.ok(source.includes('agent-pane-status.mjs'))
-  assert.ok(source.includes('aiterm-wait --session'))
-})
-
-test('wakeup bridgeはpending DMが無くてもCodex既知dialogを巡回する', () => {
-  const source = readFileSync(new URL('./wakeup-bridge.mjs', import.meta.url), 'utf8')
-  assert.ok(source.includes('dialogSweepRunning'))
-  assert.ok(source.includes('await passKnownCodexDialog(member)'))
-})
-
-test('円卓runtimeは3bridgeを固定順で一括収束する', () => {
-  const source = readFileSync(new URL('./ensure-project-runtime.sh', import.meta.url), 'utf8')
-  assert.ok(source.includes('for kind in alarm seat-status wakeup'))
-})
-
-test('bridge更新は版数だけでなくruntime source digestへ束縛する', () => {
-  const digest = spawnSync(process.execPath, [fileURLToPath(new URL('./runtime-digest.mjs', import.meta.url))], { encoding: 'utf8' })
-  assert.equal(digest.status, 0, digest.stderr)
-  assert.match(digest.stdout, /^[0-9a-f]{64}$/u)
-  const source = readFileSync(new URL('./ensure-bridge.sh', import.meta.url), 'utf8')
-  assert.ok(source.includes('peertable_runtime_digest'))
-})
-
-test('bridge起動は書込トークンをコマンドラインへ載せない', () => {
-  const ensure = readFileSync(new URL('./ensure-bridge.sh', import.meta.url), 'utf8')
-  // env_prefix の転送対象に生トークンを含めない（tmux session コマンドと ps に平文で残る・2026-08-30 実測）
-  assert.ok(!ensure.includes('PEERTABLE_TMUX_SOCKET PEERTABLE_POST_TOKEN'))
-  assert.ok(ensure.includes('bridge.token'))
-  const launch = buildWindowsBridgeLaunch({
-    script: 'bridge.mjs', project: 'C:\\work', log: 'C:\\work\\bridge.log',
-    env: { PEERTABLE_POST_TOKEN: 'secret-raw-token', PEERTABLE_CREDENTIAL_FILE: 'C:\\work\\.team\\credentials\\bridge.token' },
-  })
-  const encodedAt = launch.argv.indexOf('-EncodedCommand')
-  const decoded = Buffer.from(launch.argv[encodedAt + 1], 'base64').toString('utf16le')
-  assert.ok(!decoded.includes('secret-raw-token'))
-  assert.ok(decoded.includes('bridge.token'))
-})
-
-test('Windows bridgeはUTF-8を明示してログへ書く', () => {
-  const launch = buildWindowsBridgeLaunch({ script: 'bridge.mjs', project: 'C:\\work', log: 'C:\\work\\bridge.log' })
-  const encodedAt = launch.argv.indexOf('-EncodedCommand')
-  const decoded = Buffer.from(launch.argv[encodedAt + 1], 'base64').toString('utf16le')
-  assert.ok(decoded.includes('[Console]::OutputEncoding = $utf8'))
-  assert.ok(decoded.includes('Out-File'))
-  assert.ok(decoded.includes('-Encoding utf8'))
-})
+// TUI判定の試験は所有者Aitermへ移し、ここでは公開契約とPeertableの操作結果を検証する。
+import './install-skill.test.mjs'
+import './project-scaffold.test.mjs'
+import './project-runtime.test.mjs'
+import './leave-seat.test.mjs'
+import './launch-seat.test.mjs'
+import './change-seat.test.mjs'
+import './room-public-session.test.mjs'
+import './seat-observer.test.mjs'
+import './seat-approval.test.mjs'
+import './runtime-launch-command.test.mjs'
+import './ensure-project-runtime.test.mjs'
+import './teardown.test.mjs'
 
 test('alarm writerは日本語noteをUTF-8 stdinから保存する', () => {
   const dir = mkdtempSync(join(tmpdir(), 'peertable-alarm-'))
@@ -186,43 +92,4 @@ test('親post入口は明示envだけでなく共通token解決を使う', () =>
   const source = readFileSync(new URL('./post-message.mjs', import.meta.url), 'utf8')
   assert.ok(source.includes("import { resolvePostToken } from './seat-usage.mjs'"))
   assert.ok(source.includes('resolvePostToken(process.env)'))
-})
-
-test('teardownはalarm-bridgeを停止してから.teamを削除する', () => {
-  const source = readFileSync(new URL('./teardown.sh', import.meta.url), 'utf8')
-  const stop = source.indexOf('alarm-bridge.mjs" "$proj" --stop')
-  const remove = source.indexOf('rm -rf "$proj/.team"')
-  assert.ok(stop >= 0)
-  assert.ok(remove >= 0 && stop < remove)
-  assert.ok(source.includes('did "alarm-bridge 停止"'))
-  assert.ok(source.includes('miss "alarm-bridge 停止に失敗'))
-  assert.ok(source.includes('-X DELETE "$url/api/$room/bridges"'))
-})
-
-test('archive room logは解散区切り前の控えであり原本をroomに残すと明記する', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'peertable-archive-room-log-'))
-  const out = join(dir, 'room-log.md')
-  const script = fileURLToPath(new URL('./archive-room-log.py', import.meta.url))
-  const fixture = JSON.stringify({
-    messages: [{ seq: 1, from: 'bell', to_names: ['all'], ts: '2026-08-30T00:00:00Z', body: '完了' }],
-  })
-  const python = [
-    'import importlib.util, json, sys',
-    'spec = importlib.util.spec_from_file_location("archive_room_log", sys.argv[1])',
-    'module = importlib.util.module_from_spec(spec)',
-    'spec.loader.exec_module(module)',
-    'fixture = json.loads(sys.argv[3])',
-    'module.fetch = lambda _url, _path: fixture',
-    'raise SystemExit(module.main(["https://room.example", "factory", sys.argv[2]]))',
-  ].join('; ')
-  try {
-    const result = spawnSync('python3', ['-c', python, script, out, fixture], { encoding: 'utf8' })
-    assert.equal(result.status, 0, result.stderr)
-    const log = readFileSync(out, 'utf8')
-    assert.match(log, /解散の区切りを投稿する前までの room ログを書き出した控え/u)
-    assert.match(log, /room と過去ログの原本はサーバー側に残り、次の卓も同じ room で続く/u)
-    assert.doesNotMatch(log, /削除済み|唯一の記録/u)
-  } finally {
-    rmSync(dir, { recursive: true, force: true })
-  }
 })

@@ -1,6 +1,6 @@
 {
   "name": "peertable",
-  "version": "0.8.55",
+  "version": "0.8.56",
   "description": "A round table of peer agents. No orchestrator at the head. Turn Claude Code, Codex, and Grok sessions into a team of equal, long-lived peers.",
   "type": "module",
   "license": "MIT",
@@ -25,11 +25,13 @@
     "channels"
   ],
   "scripts": {
+    "postinstall": "node skill/scripts/install-skill.mjs --postinstall",
     "verify:release-commit": "node scripts/verify-release-commit.mjs",
     "test:docs": "node --test scripts/docs-contract.test.mjs",
     "prepublishOnly": "node scripts/prepublish.mjs"
   },
   "bin": {
+    "peertable": "skill/scripts/cli.mjs",
     "peertable-room": "room/server.mjs",
     "peertable-client": "room/client.mjs"
   },

@@ -77,7 +77,7 @@ function expectedBlock(addedNewline) {
     '[mcp_servers.room]',
     'command = "node"',
     `args = [${JSON.stringify(client)}]`,
-    'env_vars = ["TMUX", "TMUX_PANE"]',
+    'env_vars = ["AITERM_SESSION_ID"]',
     '[mcp_servers.room.env]',
     ...explicitEnv,
     endMarker,

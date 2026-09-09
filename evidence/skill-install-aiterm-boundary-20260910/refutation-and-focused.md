@@ -1,0 +1,23 @@
+# 公開境界の反証と機能確認
+
+## 別ベンダー反証
+
+Grokの読取専用sessionで実ファイルを反証した。前回の判定不能と死亡の混同、登録前に残った席、席ごとの身元不一致、Claude承認は修正を確認した。Grok起動表示とnative停止の判定はAiterm所有者が修理した。PeertableにTUI補正を戻していない。
+
+最終反証では、MCP設定を所有記録より先に更新すると、記録の書込み失敗後に再実行できないことを指摘された。`scaffoldProject`のfilesystem境界へENOSPCを注入し、既存MCPが変更済みのまま`PEERTABLE_SETUP_TEAM_CONFLICT`になることを再現した。
+
+所有記録までの書込みを`.team`へ限定し、失敗した足場を撤去するよう変更した。MCPは所有記録の後に同directoryの一時fileから置換する。setupとresumeは、記録済みだがMCP置換前に止まった処理を再開する。2箇所の書込み失敗、原文の保持、再実行、撤去後の原文復元をfocused試験で確認した。Grokの追試読取は2026-09-09T21:47:57Zにこの指摘の解消を確認した。Grok自身は試験を再実行していない。
+
+## 実機で発見した新規setupの資格不足
+
+実roomと公開Aitermで新規setupを実行すると、alarmが`ALARM_BRIDGE_TOKEN_MISSING`で停止した。alarmだけを起動する最小再現で同じエラーを確認した。新規runtimeが資格元からcredential fileを準備していなかったため、bridge起動の共通入口で準備し、公開PTYへpathだけを渡すよう修正した。単独alarmのreadyと、3 bridgeを持つsetup・同一runtimeを保つ再setupが成立した。
+
+初期の実機ハーネスは親から存在しない`PEERTABLE_CREDENTIAL_FILE`を継承していた。専用資格元だけを使うfixtureへ直した。未知の資格を製品が黙って別の資格へ切り替える処理は追加していない。
+
+## 公開前のMac実機確認
+
+OS標準sshdを使い捨て設定・鍵でloopbackのみに起動し、Aitermの永続PTYからSSHログインした。macOS arm64、Node v26.8.1、SSH_CONNECTIONありを確認した。OSの共有SSH設定は変更していない。
+
+このSSH sessionで、sourceの`public-lifecycle-live-smoke.mjs codex gpt-5.6-terra`を実行した。実Codexの起動・room投稿、同じnative process/sessionでのeffort変更、DMへの応答、resumeの配達確認、撤収、room履歴と元MCP書式の保存が成功した。Aitermはnpm公開版0.33.0である。これはPeertableの公開npm版の導入確認とは分けて扱う。
+
+runtimeの公開PTY試験は、過去の資格エラー後の再実行、初回ready、同一PID保持、package版更新による再起動を確認した。この試験はfake bridgeを使う輸送試験であり、実harnessの動作証拠は前段の実機試験である。

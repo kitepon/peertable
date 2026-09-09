@@ -1,18 +1,14 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict'
-import { resolveSeatObservation } from '../skill/scripts/seat-usage.mjs'
+import { seatSessionId, findSeatSession } from '../skill/scripts/seat-session.mjs'
 
-assert.deepEqual(
-  resolveSeatObservation({ name: 'codex', observe: { tmux_socket: '/tmp/aiterm.sock', tmux_target: 'seat-codex' } }, '/tmp/default.sock'),
-  { socket: '/tmp/aiterm.sock', target: 'seat-codex', source: 'descriptor' },
-)
-assert.deepEqual(resolveSeatObservation({ name: 'codex' }, '/tmp/default.sock'), {
-  socket: '/tmp/default.sock', target: 'peer-codex', source: 'legacy',
-})
-assert.deepEqual(
-  resolveSeatObservation({ name: 'codex', observe: { tmux_socket: '', tmux_target: 'seat-codex' } }, '/tmp/default.sock'),
-  { socket: '/tmp/default.sock', target: 'seat-codex', source: 'descriptor' },
-)
-assert.equal(resolveSeatObservation({ name: 'codex', observe: { tmux_target: 'seat-codex' } }, null), null)
-
-console.log('seat observe descriptor repro: 4/4 green')
+assert.equal(seatSessionId({ name: 'codex', aiterm_session_id: 'seat-codex' }), 'seat-codex')
+assert.equal(seatSessionId({ observe: { aiterm_session_id: 'seat-new', tmux_target: 'old' } }), 'seat-new')
+assert.equal(seatSessionId({ observe: { tmux_socket: '/旧内部pathは使わない', tmux_target: 'old' } }), 'old')
+assert.equal(seatSessionId({ name: 'codex' }), null)
+const member = { name: 'codex', aiterm_session_id: 'seat' }
+const session = { session_id: 'seat', environment: { PEERTABLE_MEMBER: 'codex', PEERTABLE_ROOM: 'room' } }
+assert.equal(findSeatSession(member, [session], 'room'), session)
+assert.throws(() => findSeatSession(member, [session], 'other'), { code: 'PEERTABLE_SEAT_SESSION_IDENTITY_CONFLICT' })
+assert.equal(findSeatSession(member, [], 'room'), null)
+console.log('公開session descriptor: 7件成功')

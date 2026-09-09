@@ -282,7 +282,7 @@ const isParentMember = member => member?.delivery?.kind === 'parent_watch'
 // wakeup-bridge の配送対象判定（skill/scripts/wakeup-delivery.mjs の isWakeupBridgeTarget と同じ規則）
 function isTuiDeliveryTarget(member) {
   if (!member || isParentMember(member)) return false
-  const hasPane = typeof member.observe?.tmux_target === 'string' && member.observe.tmux_target.length > 0
+  const hasPane = Boolean(member.aiterm_session_id || member.observe?.aiterm_session_id || member.observe?.tmux_target)
   const harness = member.harness ?? member.vendor
   return hasPane || harness === 'codex' || harness === 'grok'
 }

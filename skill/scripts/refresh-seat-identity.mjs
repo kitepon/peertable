@@ -1,15 +1,14 @@
 #!/usr/bin/env node
-// 台帳（room member 行）の argv_digest を、Lattice attach と同じ /bin/ps -o command= 観測へ揃える。
+// 台帳のargv_digestを、Aitermの公開プロセス観測へ揃える。
 // pid / lstart が台帳と違うときは書き換えず終わる（pid 推定も再利用も禁止）。
-import { execFileSync, execFile } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
-// ps 観測と digest 計算は seat-identity.mjs（OS観測ライブラリ）が唯一の所有者。再実装しない。
-export { hashArgv, observePidCommand } from './seat-identity.mjs'
-import { observePidCommand } from './seat-identity.mjs'
+import { AitermClient } from './aiterm-client.mjs'
+import { seatSessionId } from './seat-session.mjs'
 
 export function refreshSeatRecord(raw, observed, recordedAt) {
   if (!Number.isSafeInteger(raw?.pid) || raw.pid < 1) {
@@ -37,7 +36,7 @@ export function refreshSeatRecord(raw, observed, recordedAt) {
 }
 
 function utcRecordedAt() {
-  return execFileSync('date', ['-u', '+%Y-%m-%dT%H:%M:%S.000Z'], { encoding: 'utf8' }).trim()
+  return new Date().toISOString()
 }
 
 const isCli = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])
@@ -62,12 +61,16 @@ if (isCli) {
   }
   const raw = (await memberResponse.json()).member
   let observed
+  const aiterm = new AitermClient()
   try {
-    observed = observePidCommand(raw.pid)
+    const id = seatSessionId(raw)
+    if (!id) throw new Error('Aitermのsession_idが台帳にありません')
+    observed = (await aiterm.observe(id)).process_identity
+    if (!observed) throw new Error('Aitermでプロセス本人性を確認できません')
   } catch (error) {
     process.stderr.write(`${error.code || 'SEAT_IDENTITY_UNOBSERVABLE'}: ${error.message}\n`)
     process.exit(2)
-  }
+  } finally { await aiterm.close() }
   let next
   try {
     next = refreshSeatRecord(raw, observed, utcRecordedAt())

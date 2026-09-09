@@ -9,7 +9,7 @@ Peertableは、親に最終判断を集中させず、情報を最も持つメ�
 Peertableは単独cloneで次を所有する。
 
 - roomサーバー、セッションクライアント、読み取り専用Web UI
-- setup、resume、teardownと、席・bridge・生成物のライフサイクル
+- スキルinstall、明示projectへのsetup・resume・teardown、席・bridge・生成物のライフサイクル
 - source、schema、state、診断、着席配置snapshot
 - npm release、room本番release、rollback、製品CI
 
@@ -31,7 +31,7 @@ dotagentsは任意の工場統合とhost配線を統括するが、Peertableの�
 
 円卓の核はroom、憲章、宣言による協力であり、Latticeには依存しない。setupで次のどちらかを選ぶ。
 
-- **Lattice併用（既定）**: ready集合、依存、start/done、証跡束縛、監査状態をLatticeから読む。
+- **Lattice併用（明示適用）**: ready集合、依存、start/done、証跡束縛、監査状態をLatticeから読む。
 - **単独**: setup時に生成した読み取り専用の`.team/tasks.md`を議題にし、claimと完了はroomへ宣言する。ミニタスクトラッカーや状態台帳は内蔵しない。
 
 単独モードで失うのはtask間スケジューリングの機械保証だけである。room、席、配送、共同作業の契約は変わらない。
@@ -60,13 +60,18 @@ Web UIのメンバーカードは**オーナー意匠**である（裁定 2026-0
 
 setup、resume、teardownはそれぞれ一回の製品入口で必要な順序を完結させる。利用AIへbridge停止、更新、再起動、ready確認の順序選択を委ねない。
 
-- setupは聞き取り、生成物、接続、着席、bridge起動、ready確認までを持つ。
+- global npm installは検出したAIのスキル配置を更新する。再実行入口は`peertable install`。所有するPeertableリンクだけを管理し、共有AI設定本文や他製品の設定を変更しない。installからprojectの再構築を行わない。
+- setupは明示projectの生成物、接続、bridge起動、ready確認までを持つ。再実行時は既存roomと議題を保ってresumeへ進む。席の追加は`peertable launch`がroom登録と実ターン開始まで確認する。
 - resumeはPeertable所有の生成物とroom MCPを現行treeへ同期してから席を復帰する。
 - teardownはwakeup、seat-status、alarmの3 bridgeを停止してから生成物を片付ける。既定は席と足場だけを畳み、room履歴とLattice storeを残す。痕跡ゼロは明示した`--purge`だけで行う。
 
 roomは解散状態（archive）を持つ。teardownがroomをarchiveし、公開一覧（`/api/rooms`のrooms欄とトップページ主一覧）から外す。個別ページとログAPIは読めるまま残る。次のsetupのmember登録が同じroomを自動で現役へ戻す。公開面に並ぶのは現役の卓だけである。
 
 永続PTYとharness起動はAitermの公開APIを使う。Windows native shellはPowerShell 7を正とし、OS差分は環境別adapterへ閉じ込める。
+
+session IDは公開`AITERM_SESSION_ID`とMCP応答から取得する。`pty_list`の明示envと`pty_observe`の状態・本人性・活動差分を使い、内部state・namespace・socket・画面分類をPeertableへ複製しない。起動準備は`agent_launch`の`startup.ready`、承認は公開approval API、入力は公開send/steerのreceiptで確認する。API不足は再現と必要契約をAitermへ渡して解消する。
+
+root MCPはblock単位の所有を記録し、既存の他のblockを保つ。停止やroom操作に失敗した解散は`.team/`を残して同じ入口から再実行できる状態にする。
 
 ## 7. 着席配置
 

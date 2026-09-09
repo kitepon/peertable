@@ -29,7 +29,9 @@ try {
     process.stderr.write(`${result.content?.[0]?.text ?? 'AITERM_DELIVER_FAILED'}\n`)
     process.exit(1)
   }
-  const receipt = result.structuredContent ?? JSON.parse(result.content?.[0]?.text ?? '{}')
+  const receipt = result.structuredContent
+  const expectedSchema = mode === 'steer' ? 'aiterm.agent-steer.v1' : 'aiterm.pty-send-result.v1'
+  if (receipt?.schema !== expectedSchema) throw new Error(`PEERTABLE_AITERM_CONTRACT_UNAVAILABLE: ${expectedSchema}`)
   // aiterm の契約: dispatch は投げっぱなしでよいが、完了（Stop）は receipt の wait_process で回収する。
   // Claude 席は前の匿名 turn の Stop を回収しない限り次の dispatch が「Claude turn が未解決」で拒否される
   // （実測 2026-09-04: 監査席への 2 通目以降が全部失敗し、監査提出が 10 分読まれなかった）。
