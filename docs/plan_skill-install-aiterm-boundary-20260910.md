@@ -8,6 +8,13 @@ Peertable repoと製品が所有するskill導入先だけを変更する。npm�
 
 ## 現在地
 
+- main統合・push、3 OSのCI、npm 0.8.56公開、3 OSへの公式global install・スキル配置・再実行・設定hash保持が完了した。Aiterm担当による0.33.1の共有設定更新が終わってからPeertableを導入した。
+- Mac/Linuxの公開版実Codex lifecycleとroom本番への新image反映が成功した。会話履歴のbyte一致、公開API、SSEを確認した。
+- WindowsのGrok初回送信は、Peertableが先行配達した参加通知との競合だった。初回brief成立まで通常配達を保留する修理を入れ、focused試験・Windows実着席・Grok反証を通した。修正版0.8.57の公開準備とWindows lifecycle確認を進めている。最終受入記録と工程完了は未完了。
+- 公開後の詳細は[受入記録](../evidence/skill-install-aiterm-boundary-20260910/published-acceptance.md)を参照する。
+
+## 実施の経過
+
 - 2026-09-10着手。fetch後のmainとorigin/mainは`cb738a4f9e49290c024558b432a4b84944f3b1e0`で一致。公開npmは0.8.55。
 - 元worktreeの既存dirtyは`room/server.mjs`、`docs/brand-landing-refresh-20260905.md`。今回へ混入させず、専用worktreeで実装する。
 - ベースライン: `node --test skill/scripts/runtime-contract.test.mjs`、20件成功。

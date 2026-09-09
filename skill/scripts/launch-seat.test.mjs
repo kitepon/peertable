@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { launchSeat } from './launch-seat.mjs'
 import { runScript } from './project-scaffold.mjs'
+import { isSeatLaunching } from './seat-launch-phase.mjs'
 
 function fixture(t, harness = 'claude') {
   const project = mkdtempSync(join(tmpdir(), 'peertable-launch-'))
@@ -63,6 +64,20 @@ test('起動準備・登録・runtimeの成立後に長い日本語briefを一�
   assert.equal(Object.hasOwn(launch.args, 'prompt'), false)
   assert.equal(launch.args.env_vars.includes('PEERTABLE_POST_TOKEN'), false)
   assert.deepEqual(f.events.find(event => event.wait).wait, { executable: 'opaque-waiter', args: ['opaque-cursor'] })
+})
+
+test('参加通知が着任指示に先行しないよう、公開起動から初回送信まで配達を保留する', async t => {
+  const f = fixture(t)
+  const structured = f.dependencies.aiterm.structured
+  f.dependencies.aiterm.structured = async (tool, args) => {
+    if (tool === 'agent_launch' || tool === 'pty_send') assert.equal(isSeatLaunching(f.options.project, 'alice'), true)
+    return structured(tool, args)
+  }
+  await launchSeat(f.options, f.dependencies)
+  assert.equal(isSeatLaunching(f.options.project, 'alice'), false)
+  f.dependencies.aiterm.structured = async () => { throw new Error('外部起動失敗') }
+  await assert.rejects(launchSeat(f.options, f.dependencies), /外部起動失敗/)
+  assert.equal(isSeatLaunching(f.options.project, 'alice'), false)
 })
 
 test('モデル実測失敗とサイズ超過は既存席へ触らない', async t => {

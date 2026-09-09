@@ -25,6 +25,7 @@ import { AitermClient } from './aiterm-client.mjs'
 import { seatSessionId } from './seat-session.mjs'
 import { passSeatApproval } from './seat-approval.mjs'
 import { BROADCAST_RECIPIENT, formatWakeNotice, isIdleSelfWake, isWakeupBridgeTarget, memberHarness, shouldDeferGrokWake } from './wakeup-delivery.mjs'
+import { isSeatLaunching } from './seat-launch-phase.mjs'
 import { bridgeRecordLive } from './bridge-record-live.mjs'
 
 const run = promisify(execFile)
@@ -376,6 +377,7 @@ async function passKnownSeatApproval(member, observation) {
 }
 
 async function wake(seat, msgs) {
+  if (isSeatLaunching(proj, seat)) return 'deferred'
   const last = msgs[msgs.length - 1]
   const text = msgs.map(formatWakeNotice).join(' || ')
   // 配送直前に member ledger を取り直し、current name -> descriptor の一経路だけを使う。

@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { leaveSeat } from './leave-seat.mjs'
+import { beginSeatLaunch, endSeatLaunch, isSeatLaunching } from './seat-launch-phase.mjs'
 
 function fixture(t, failure) {
   const project = mkdtempSync(join(tmpdir(), 'peertable-leave-'))
@@ -35,6 +36,16 @@ test('公開APIで停止を確認してから登録と秘密を消し、他のro
   assert.deepEqual(f.sessions().map(item => item.session_id), ['other'])
   assert.equal(existsSync(f.token), false)
   assert.equal(existsSync(join(f.project, '.team', 'seats', 'alice.grok-home')), false)
+})
+
+test('中断した起動の配達保留を退席で解除し、同名の再着席を可能にする', async t => {
+  const f = fixture(t)
+  beginSeatLaunch(f.project, 'alice')
+  await leaveSeat(f.project, 'alice', f)
+  assert.equal(isSeatLaunching(f.project, 'alice'), false)
+  beginSeatLaunch(f.project, 'alice')
+  endSeatLaunch(f.project, 'alice')
+  endSeatLaunch(f.project, 'alice')
 })
 
 for (const failure of ['list', 'close']) test(`Aitermの${failure}失敗では登録とcredentialを保つ`, async t => {

@@ -11,6 +11,7 @@ import { ensureProjectRuntime } from './ensure-project-runtime.mjs'
 import { projectPath, readSetup, runScript, fail } from './project-scaffold.mjs'
 import { packageRoot } from './install-skill.mjs'
 import { resolveWindowsCommand } from './platform/windows/resolve-lattice-command.mjs'
+import { beginSeatLaunch, endSeatLaunch } from './seat-launch-phase.mjs'
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const harnessIds = { claude: 'claude-code', codex: 'codex-cli', grok: 'grok-cli' }
@@ -87,10 +88,13 @@ export async function launchSeat(options, dependencies = {}) {
   const aiterm = dependencies.aiterm ?? new AitermClient({ env })
   const sessionId = `peer-${name}`
   let launched = false
+  let launchPhase = false
   try {
     prepareHarness(project, name, harness, env, script, home)
     const before = await aiterm.sessions()
     if (before.some(session => session.session_id === sessionId)) fail('SEAT_SESSION_CONFLICT', `${sessionId} が既に存在します`)
+    beginSeatLaunch(project, name)
+    launchPhase = true
     launched = true
     const launch = await aiterm.structured('agent_launch', {
       session_name: sessionId, harness: harnessIds[harness], model, reasoning_effort: effort,
@@ -152,5 +156,8 @@ export async function launchSeat(options, dependencies = {}) {
       catch (rollback) { throw new AggregateError([error, rollback], `着座失敗後の撤去も失敗しました: ${error.message}; ${rollback.message}`) }
     } else script('seat-credential.mjs', ['remove', project, credential], { env })
     throw error
-  } finally { if (!dependencies.aiterm) await aiterm.close() }
+  } finally {
+    if (launchPhase) endSeatLaunch(project, name)
+    if (!dependencies.aiterm) await aiterm.close()
+  }
 }

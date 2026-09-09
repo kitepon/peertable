@@ -21,3 +21,13 @@ OS標準sshdを使い捨て設定・鍵でloopbackのみに起動し、Aitermの
 このSSH sessionで、sourceの`public-lifecycle-live-smoke.mjs codex gpt-5.6-terra`を実行した。実Codexの起動・room投稿、同じnative process/sessionでのeffort変更、DMへの応答、resumeの配達確認、撤収、room履歴と元MCP書式の保存が成功した。Aitermはnpm公開版0.33.0である。これはPeertableの公開npm版の導入確認とは分けて扱う。
 
 runtimeの公開PTY試験は、過去の資格エラー後の再実行、初回ready、同一PID保持、package版更新による再起動を確認した。この試験はfake bridgeを使う輸送試験であり、実harnessの動作証拠は前段の実機試験である。
+
+## Windowsの参加通知と着任指示の競合
+
+公開0.8.56のWindows native Grokでは、room参加後の初回briefがAitermの入力待ち判定で失敗した。起動と初回送信だけのfocused再現で、送信失敗時の公開`pty_read(screen:true)`と`pty_observe`を保存した。画面には参加通知DMを受けて作業するGrokが写り、観測は`busy/turn_running`、`harness_alive:true`だった。通常GROK_HOME・空projectの対照は初回dispatchに成功した。
+
+Aiterm担当の読取反証でもbusy判定は正しいと確認した。Peertableのwakeupが参加通知を先行配達し、その処理中にlaunchがbriefを送る順序競合が原因だった。TUIへの補正や再送は追加していない。
+
+Peertableは公開起動より先に席の`.launching`記録を作り、着任指示の成立までその席へのwakeupを保留する。pending通知は残し、起動処理の終了後に通常配達する。中断後の記録は、同名席の起動前に通る既存の退席処理で撤去する。公開停止が失敗した時は退席処理が記録を保持する。
+
+初回送信まで保留が続くこと、正常・失敗終了で解除すること、中断記録から同名の再着席ができることをfocused試験で確認した。Windowsの実Grokでもsetup・launchの`turn_started:true`・teardownが成功した。Grokの最終読取反証は2026-09-09T23:05:24.756Zに中断記録の指摘の解消を確認した。
