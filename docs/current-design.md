@@ -62,6 +62,7 @@ setup、resume、teardownはそれぞれ一回の製品入口で必要な順序�
 
 - global npm installは検出したAIのスキル配置を更新する。再実行入口は`peertable install`。所有するPeertableリンクだけを管理し、共有AI設定本文や他製品の設定を変更しない。installからprojectの再構築を行わない。
 - setupは明示projectの生成物、接続、bridge起動、ready確認までを持つ。再実行時は既存roomと議題を保ってresumeへ進む。席の追加は`peertable launch`がroom登録と実ターン開始まで確認する。
+- 着任指示の成立まで、その席への通常通知はpendingに保持する。初回指示と参加通知の配達順序はPeertableが所有し、起動中断の記録は再着席前の退席処理で解除する。
 - resumeはPeertable所有の生成物とroom MCPを現行treeへ同期してから席を復帰する。
 - teardownはwakeup、seat-status、alarmの3 bridgeを停止してから生成物を片付ける。既定は席と足場だけを畳み、room履歴とLattice storeを残す。痕跡ゼロは明示した`--purge`だけで行う。
 
