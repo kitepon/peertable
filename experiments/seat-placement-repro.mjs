@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
 import {
   findModelsDoc, resolveSeatPlacement, resolveSeatIdentity,
 } from '../skill/scripts/resolve-seat-placement.mjs'
@@ -34,10 +35,11 @@ const explicitDoc = findModelsDoc({
   scriptDir: placementScriptDir,
 })
 check('PEERTABLE_MODELS_DOCの明示時だけ外部表を使う', explicitDoc === join(root, 'experiments/fixtures/02_models.md'), explicitDoc)
+const explicitRoot = join(tmpdir(), 'explicit-dotagents')
 const explicitRootDoc = findModelsDoc({
-  env: { DOTAGENTS_ROOT: '/tmp/explicit-dotagents' }, exists: () => true, scriptDir: placementScriptDir,
+  env: { DOTAGENTS_ROOT: explicitRoot }, exists: () => true, scriptDir: placementScriptDir,
 })
-check('DOTAGENTS_ROOTの明示時だけ外部dotagentsを使う', explicitRootDoc === '/tmp/explicit-dotagents/docs/02_models.md', explicitRootDoc)
+check('DOTAGENTS_ROOTの明示時だけ外部dotagentsを使う', explicitRootDoc === join(explicitRoot, 'docs', '02_models.md'), explicitRootDoc)
 
 const empty = resolveSeatIdentity({ roles: '', markdown: fixture })
 check('空の roles を拒否する', empty.error === 'SEAT_ROLE_REQUIRED', empty.error)

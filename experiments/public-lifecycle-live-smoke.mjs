@@ -7,13 +7,14 @@ import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'nod
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
-import { AitermClient } from '../skill/scripts/aiterm-client.mjs'
 
 const execute = promisify(execFile)
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const repo = process.env.PEERTABLE_SMOKE_PACKAGE_ROOT
+  ? resolve(process.env.PEERTABLE_SMOKE_PACKAGE_ROOT) : resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const { AitermClient } = await import(pathToFileURL(join(repo, 'skill/scripts/aiterm-client.mjs')).href)
 
 export async function liveSmoke({ harness, model, nextModel = model, effort = 'high', nextEffort = 'medium', stopProbe = false }) {
   assert.ok(harness && model, 'harnessとmodelを明示してください')

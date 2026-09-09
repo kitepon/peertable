@@ -103,9 +103,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: ${{ fromJSON(inputs.environment != 'all' && format('["{0}"]', inputs.environment) || '["macos-native","linux-native","windows-native","wsl2"]') }}
+        environment: ${{ fromJSON(inputs.environment != 'all' && format('["{0}"]', inputs.environment) || '["macos-native","linux-native","windows-native"]') }}
     timeout-minutes: 30
-    runs-on: [self-hosted, factory, "${{ matrix.environment }}"]
+    # Linuxの論理環境名は維持し、現役の工場workstationへ接続する。
+    runs-on: [self-hosted, factory, "${{ matrix.environment == 'linux-native' && 'linux-workstation' || matrix.environment }}"]
     steps:
       - name: checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
