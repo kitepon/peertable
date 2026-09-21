@@ -38,7 +38,7 @@ export async function changeSeat(options, dependencies = {}) {
   if (!old?.model || !(old.harness ?? old.vendor)) fail('SEAT_CHANGE_MEMBER_METADATA_MISSING', name)
   const oldHarness = old.harness ?? old.vendor
   const harness = options.harness || oldHarness, model = options.model || old.model, effort = options.effort || old.effort
-  if (!['claude', 'codex', 'grok'].includes(harness)) fail('SEAT_CHANGE_HARNESS_UNSUPPORTED', harness)
+  if (!['claude', 'codex', 'grok', 'cursor'].includes(harness)) fail('SEAT_CHANGE_HARNESS_UNSUPPORTED', harness)
   if (harness !== oldHarness && (!options.model || !options.effort)) fail('SEAT_CHANGE_ARGS_INVALID', 'harness変更にはmodelとeffortを指定してください')
   if (!effort) fail('SEAT_CHANGE_EFFORT_UNKNOWN', 'effortを明示してください')
   if (harness === oldHarness && model === old.model && effort === old.effort) return { schema: 'peertable.seat-change.v1', status: 'unchanged', member: name }
@@ -50,12 +50,13 @@ export async function changeSeat(options, dependencies = {}) {
     const observed = await aiterm.observe(session)
     if (!observed.exists || observed.state === 'dead') fail('SEAT_CHANGE_SEAT_MISSING', name)
     if (observed.state !== 'idle') fail('SEAT_CHANGE_SEAT_BUSY', `${name}: ${observed.state}`)
-    validateTarget(harness, model, effort, dependencies)
+    if (harness !== 'cursor') validateTarget(harness, model, effort, dependencies)
     if (harness === oldHarness) {
+      const configureModel = Boolean(options.model || harness === 'cursor')
       const receipt = await aiterm.structured('agent_configure', { session_id: session,
-        ...(options.model ? { model } : {}), ...(options.effort ? { reasoning_effort: effort } : {}),
+        ...(configureModel ? { model } : {}), ...(options.effort ? { reasoning_effort: effort } : {}),
       }, 'aiterm.agent-configure-result.v1')
-      if (receipt.session_id !== session || (options.model && receipt.model !== model)
+      if (receipt.session_id !== session || (configureModel && receipt.model !== model)
         || (options.effort && receipt.reasoning_effort !== effort)) fail('SEAT_CHANGE_AITERM_RESULT_MISMATCH', 'Aitermが返した変更結果が一致しません')
       await api.request('members', { method: 'POST', body: { name, harness, vendor: harness, model, effort } })
     } else {

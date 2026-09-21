@@ -96,6 +96,7 @@ export async function teardownProject(options, dependencies = {}) {
     const managed = state.room_mcp_managed ?? state.added_root_mcp ?? state.root_mcp_json_fallback ?? false
     if (managed) script('remove-managed-room-mcp.mjs', [project], { env })
     script('ensure-codex-room-mcp.mjs', ['remove', project, packageRoot], { env: { ...env, CODEX_HOME: join(project, '.codex') } })
+    script('ensure-cursor-room-mcp.mjs', ['remove', project, packageRoot], { env })
     if (state.work_order_adapter && !state.runtime_preexisting) rmSync(join(project, '.lattice', 'runtime'), { recursive: true, force: true })
     if (options.purge && !state.lattice_preexisting) rmSync(join(project, '.lattice'), { recursive: true, force: true })
     for (const [flag, rule] of [['added_exclude', '.team/'], ['added_mcp_exclude', '/.mcp.json'], ['added_runtime_exclude', '/.lattice/runtime/']]) {

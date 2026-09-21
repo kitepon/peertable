@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, realpathSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { leaveSeat } from './leave-seat.mjs'
@@ -36,6 +36,18 @@ test('公開APIで停止を確認してから登録と秘密を消し、他のro
   assert.deepEqual(f.sessions().map(item => item.session_id), ['other'])
   assert.equal(existsSync(f.token), false)
   assert.equal(existsSync(join(f.project, '.team', 'seats', 'alice.grok-home')), false)
+})
+test('最後のCursor席の退席後だけ、Cursor用room MCPの撤去を依頼する', async t => {
+  const f = fixture(t)
+  let members = 0
+  f.api.members = async () => ++members === 1 ? [{ name: 'alice', harness: 'cursor', aiterm_session_id: 'seat-a' }] : []
+  let calls = 0
+  await leaveSeat(f.project, 'alice', { ...f, removeCursorRoomMcp: (project, options) => {
+    calls++
+    assert.equal(project, realpathSync(f.project))
+    assert.ok(options.env)
+  } })
+  assert.equal(calls, 1)
 })
 
 test('中断した起動の配達保留を退席で解除し、同名の再着席を可能にする', async t => {

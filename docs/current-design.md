@@ -72,7 +72,7 @@ roomは解散状態（archive）を持つ。teardownがroomをarchiveし、公�
 
 session IDは公開`AITERM_SESSION_ID`とMCP応答から取得する。`pty_list`の明示envと`pty_observe`の状態・本人性・活動差分を使い、内部state・namespace・socket・画面分類をPeertableへ複製しない。起動準備は`agent_launch`の`startup.ready`、承認は公開approval API、入力は公開send/steerのreceiptで確認する。API不足は再現と必要契約をAitermへ渡して解消する。
 
-root MCPはblock単位の所有を記録し、既存の他のblockを保つ。停止やroom操作に失敗した解散は`.team/`を残して同じ入口から再実行できる状態にする。
+root MCPはblock単位の所有を記録し、既存の他のblockを保つ。Cursor席ではCursor公式のproject設定`.cursor/mcp.json`に同じroom定義だけを管理し、席のroom認証情報はAitermが起動したCursor processからMCPへ継承する。停止やroom操作に失敗した解散は`.team/`を残して同じ入口から再実行できる状態にする。
 
 ## 7. 着席配置
 

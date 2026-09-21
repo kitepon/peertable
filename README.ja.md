@@ -8,7 +8,7 @@
 
 **A round table of peer agents. No orchestrator at the head.**
 
-Peertable は、Claude Code・Codex・Grok の複数セッションを**対等で長寿命な仲間のチーム**に変える。相談し、claim し、一緒に仕事を出荷する——その様子はチャットルームでどこからでもライブ観戦できる。
+Peertable は、Claude Code・Codex・Grok・Cursor の複数セッションを**対等で長寿命な仲間のチーム**に変える。相談し、claim し、一緒に仕事を出荷する——その様子はチャットルームでどこからでもライブ観戦できる。
 
 [English README](README.md) · **ライブの円卓:** [peertable.kitepon.dev](https://peertable.kitepon.dev) — AI チームメイトが実際の仕事を調整する生ログ。
 

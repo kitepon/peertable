@@ -10,12 +10,12 @@ const catalog = { claude: '--effort <level> (low, medium, high, max)',
   grok: 'Available models:\n  - grok-a\n  * grok-b (default)' }
 const catalogDependencies = { resolveCommand: (command, argv) => ({ command, argv }), execute: command => catalog[command] }
 
-function fixture(t) {
+function fixture(t, harness = 'claude') {
   const project = mkdtempSync(join(tmpdir(), 'peertable-change-'))
   t.after(() => rmSync(project, { recursive: true, force: true }))
   mkdirSync(join(project, '.team'))
   writeFileSync(join(project, '.team', 'setup-state.json'), JSON.stringify({ room: 'room', server_url: 'http://example', mode: 'standalone' }))
-  let member = { name: 'alice', harness: 'claude', vendor: 'claude', model: 'old', effort: 'high', roles: ['実装者'], mission: '使命', aiterm_session_id: 'seat' }
+  let member = { name: 'alice', harness, vendor: harness, model: 'old', effort: 'high', roles: ['実装者'], mission: '使命', aiterm_session_id: 'seat' }
   const events = [], messages = []
   const observation = { exists: true, state: 'idle', harness_alive: true, process_identity: { pid: 42, started_identity: 'old-start' } }
   const dependencies = { ...catalogDependencies,
@@ -96,6 +96,26 @@ test('harness交代は役割とmissionを保って一度再着任し、履歴を
   assert.equal(launches[0].launch.mission, '使命')
   assert.equal(f.messages.length, 1)
   assert.equal(f.member().harness, 'codex')
+})
+test('Cursorへのharness交代はmodelとeffortを揃えて再着任へ渡す', async t => {
+  const f = fixture(t)
+  let catalogCalls = 0
+  f.dependencies.resolveCommand = () => { catalogCalls++; throw new Error('Cursor CLIを直接呼ばない') }
+  await changeSeat({ ...f.options, harness: 'cursor', model: 'cursor-grok-4.6', effort: 'medium' }, f.dependencies)
+  assert.equal(catalogCalls, 0)
+  const launch = f.events.find(event => event.launch).launch
+  assert.equal(launch.harness, 'cursor')
+  assert.equal(launch.model, 'cursor-grok-4.6')
+  assert.equal(launch.effort, 'medium')
+})
+test('同一Cursor席のeffort変更は解決済みmodelも公開configureへ渡す', async t => {
+  const f = fixture(t, 'cursor')
+  await changeSeat({ ...f.options, effort: 'medium' }, f.dependencies)
+  assert.deepEqual(f.events.find(event => event.tool).args, {
+    session_id: 'seat', model: 'old', reasoning_effort: 'medium',
+  })
+  assert.equal(f.member().model, 'old')
+  assert.equal(f.member().effort, 'medium')
 })
 test('既存席を止める前の失敗はそのまま返し、席を失った時だけ旧設定へ一度復旧する', async t => {
   for (const stopped of [false, true]) {

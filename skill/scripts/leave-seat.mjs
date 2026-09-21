@@ -5,9 +5,10 @@ import { AitermClient } from './aiterm-client.mjs'
 import { RoomApi } from './room-api.mjs'
 import { findSeatSession } from './seat-session.mjs'
 import { projectPath, readSetup, runScript, fail } from './project-scaffold.mjs'
+import { packageRoot } from './install-skill.mjs'
 import { endSeatLaunch } from './seat-launch-phase.mjs'
 
-export async function leaveSeat(project, name, { aiterm, api, credentialCommand = runScript } = {}) {
+export async function leaveSeat(project, name, { aiterm, api, credentialCommand = runScript, removeCursorRoomMcp } = {}) {
   if (!name || !/^[A-Za-z0-9._:-]+$/.test(name)) fail('SEAT_LEAVE_ARGS_INVALID', 'member名に使えない文字があります')
   project = projectPath(project)
   const state = readSetup(project)
@@ -33,8 +34,13 @@ export async function leaveSeat(project, name, { aiterm, api, credentialCommand 
       }
     }
     await api.request(`members/${encodeURIComponent(name)}`, { method: 'DELETE' })
-    if ((await api.members()).some(item => item.name === name)) fail('SEAT_LEAVE_MEMBER_FAILED', `${name} の登録が残っています`)
+    const remaining = await api.members()
+    if (remaining.some(item => item.name === name)) fail('SEAT_LEAVE_MEMBER_FAILED', `${name} の登録が残っています`)
     for (const suffix of ['.grok-home', '.codex']) rmSync(join(project, '.team', 'seats', name + suffix), { recursive: true, force: true })
+    if ((member?.harness ?? member?.vendor) === 'cursor'
+      && !remaining.some(item => (item.harness ?? item.vendor) === 'cursor')) {
+      await (removeCursorRoomMcp ?? ((target, options) => runScript('ensure-cursor-room-mcp.mjs', ['remove', target, packageRoot], options)))(project, { env })
+    }
     endSeatLaunch(project, name)
     credential(['remove', project, file])
     return { schema: 'peertable.seat-leave.v1', status: 'left', member: name, session_id: session?.session_id ?? null }

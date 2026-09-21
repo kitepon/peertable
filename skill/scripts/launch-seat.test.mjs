@@ -1,11 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { launchSeat } from './launch-seat.mjs'
 import { runScript } from './project-scaffold.mjs'
+import { packageRoot } from './install-skill.mjs'
 import { isSeatLaunching } from './seat-launch-phase.mjs'
 
 function fixture(t, harness = 'claude') {
@@ -18,7 +19,7 @@ function fixture(t, harness = 'claude') {
   const member = { name: 'alice', harness, model: 'fixture-model', roles: ['実装者'], aiterm_session_id: 'peer-alice', pid: 23 }
   const options = { project, name: 'alice', roles: '実装者', brief: '着任してください' }
   const dependencies = {
-    resolveCommand: (command, argv) => ({ command, argv }),
+    resolveCommand: (command, argv) => { events.push({ resolve: { command, argv } }); return { command, argv } },
     runScript: (file, args) => {
       events.push({ file, args })
       if (file === 'resolve-seat-placement.mjs') return JSON.stringify({ settings: { model: 'fixture-model', harness, effort: 'high' }, roles: ['実装者'] })
@@ -36,10 +37,11 @@ function fixture(t, harness = 'claude') {
     api: { members: async () => [member], request: async (path, options) => { events.push({ path, options }) } },
     aiterm: {
       sessions: async () => [],
+      call: async (tool, args) => { events.push({ call: { tool, args } }) },
       observe: async () => ({ state: 'busy', exists: true, harness_alive: true, process_identity: { pid: 23, started_identity: 'native-start', argv_digest: 'digest' }, observed_at: 'now' }),
       structured: async (tool, args) => {
         events.push({ tool, args })
-        if (tool === 'agent_launch') return { session_id: 'peer-alice', startup: { status: 'ready' } }
+        if (tool === 'agent_launch') return { session_id: args.session_name, startup: { status: 'ready' } }
         if (tool === 'agent_approval') return { status: 'none' }
         if (tool === 'pty_send') return { mode: 'agent_dispatch', event_cursor: 0, submit_residue: false, wait_process: { executable: 'opaque-waiter', args: ['opaque-cursor'] } }
         throw new Error(`予期しないAPI: ${tool}`)
@@ -171,4 +173,38 @@ test('CodexとGrokは席専用homeへ設定し、共有設定を保つ', async t
     if (preflightHome) assert.equal(existsSync(preflightHome), false)
     assert.ok(f.events.find(event => event.tool === 'agent_launch').args.env_vars.includes(harness === 'grok' ? 'GROK_HOME' : 'CODEX_HOME'))
   }
+})
+
+test('CursorはAitermの公開launcherで事前確認し、room MCPを配線してから起動する', async t => {
+  const f = fixture(t, 'cursor')
+  const script = f.dependencies.runScript
+  f.dependencies.runScript = (file, args, options) => file === 'ensure-cursor-room-mcp.mjs'
+    ? runScript(file, args, options) : script(file, args, options)
+  await launchSeat(f.options, f.dependencies)
+  const launches = f.events.filter(event => event.tool === 'agent_launch').map(event => event.args)
+  assert.equal(launches.length, 2)
+  assert.deepEqual(launches[0], {
+    session_name: 'peer-alice-preflight', harness: 'cursor-cli', model: 'fixture-model', reasoning_effort: 'high',
+    cwd: realpathSync(f.options.project), trust_project: true,
+  })
+  assert.deepEqual(f.events.find(event => event.call).call, { tool: 'pty_close', args: { session_id: 'peer-alice-preflight' } })
+  const launch = launches[1]
+  assert.equal(launch.harness, 'cursor-cli')
+  assert.equal(launch.model, 'fixture-model')
+  assert.equal(launch.reasoning_effort, 'high')
+  assert.equal(launch.env_vars.includes('CURSOR_HOME'), false)
+  assert.equal(f.events.some(event => event.resolve), false)
+  const config = JSON.parse(readFileSync(join(f.options.project, '.cursor', 'mcp.json'), 'utf8'))
+  assert.deepEqual(config.mcpServers.room, { command: 'node', args: [join(packageRoot, 'room', 'client.mjs')] })
+})
+
+test('Cursorの公開事前確認が失敗した時は既存席へ触れない', async t => {
+  const f = fixture(t, 'cursor')
+  f.dependencies.aiterm.structured = async (tool, args) => {
+    assert.equal(tool, 'agent_launch')
+    return { session_id: args.session_name, startup: { status: 'not_ready', reason: 'catalog失敗' } }
+  }
+  await assert.rejects(launchSeat(f.options, f.dependencies), { code: 'SEAT_STARTUP_NOT_READY' })
+  assert.equal(f.events.some(event => event.leave), false)
+  assert.deepEqual(f.events.find(event => event.call).call, { tool: 'pty_close', args: { session_id: 'peer-alice-preflight' } })
 })

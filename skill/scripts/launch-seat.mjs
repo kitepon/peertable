@@ -14,7 +14,7 @@ import { resolveWindowsCommand } from './platform/windows/resolve-lattice-comman
 import { beginSeatLaunch, endSeatLaunch } from './seat-launch-phase.mjs'
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
-const harnessIds = { claude: 'claude-code', codex: 'codex-cli', grok: 'grok-cli' }
+const harnessIds = { claude: 'claude-code', codex: 'codex-cli', grok: 'grok-cli', cursor: 'cursor-cli' }
 
 function prepareHarness(project, name, harness, env, script, home) {
   if (harness === 'grok' || harness === 'codex') {
@@ -28,6 +28,38 @@ function prepareHarness(project, name, harness, env, script, home) {
     } else if (harness === 'grok') fail('SEAT_GROK_AUTH_MISSING', 'Grokの認証がありません')
     if (harness === 'grok') script('grok-seat-config.mjs', [project, join(env[key], 'config.toml')], { env })
     else script('ensure-codex-room-mcp.mjs', ['ensure', project, packageRoot], { env })
+  } else if (harness === 'cursor') {
+    // Cursor Agent CLIはprojectの.cursor/mcp.jsonを読む。席情報は起動envを継承するため、
+    // 設定を席ごとに書き換えずroom定義だけをPeertableが管理する。
+    script('ensure-cursor-room-mcp.mjs', ['ensure', project, packageRoot], { env })
+  }
+}
+
+async function preflightCursor(project, name, model, effort, env, dependencies) {
+  const sessionId = `peer-${name}-preflight`
+  const ownAiterm = !dependencies.aiterm
+  const aiterm = dependencies.aiterm ?? new AitermClient({ env })
+  let attempted = false
+  let sessionStarted = false
+  try {
+    if ((await aiterm.sessions()).some(session => session.session_id === sessionId))
+      fail('SEAT_SESSION_CONFLICT', `${sessionId} が既に存在します`)
+    attempted = true
+    const launch = await aiterm.structured('agent_launch', {
+      session_name: sessionId, harness: 'cursor-cli', model, reasoning_effort: effort,
+      cwd: project, trust_project: true,
+    }, 'aiterm.agent-launch-result.v1')
+    sessionStarted = launch.session_id === sessionId
+    if (launch.session_id !== sessionId || launch.startup?.status !== 'ready') {
+      fail('SEAT_STARTUP_NOT_READY', `${name} のCursor model確認が完了していません: ${launch.startup?.reason ?? 'startup応答なし'}`)
+    }
+  } finally {
+    if (sessionStarted || (attempted && (await aiterm.sessions()).some(session => session.session_id === sessionId))) {
+      await aiterm.call('pty_close', { session_id: sessionId })
+      if ((await aiterm.sessions()).some(session => session.session_id === sessionId))
+        fail('SEAT_PREFLIGHT_SESSION_FAILED', `${sessionId} が停止後も残っています`)
+    }
+    if (ownAiterm) await aiterm.close()
   }
 }
 
@@ -53,22 +85,25 @@ export async function launchSeat(options, dependencies = {}) {
   if (!harnessIds[harness]) fail('SEAT_LAUNCH_HARNESS_UNSUPPORTED', harness)
   script('upgrade-team-assets.mjs', [project], { env })
   const state = readSetup(project)
-  // 非対話のモデル実測は、既存席を畳む前に行う。
-  const preflightArgs = harness === 'codex' ? ['exec', '--model', model, '--skip-git-repo-check', 'ping']
-    : harness === 'grok' ? ['--model', model, '--reasoning-effort', effort, '-p', 'ping'] : ['--model', model, '-p', 'ping']
-  const preflight = (dependencies.resolveCommand ?? resolveWindowsCommand)(harness, preflightArgs)
-  const preflightEnv = { ...env }
-  let preflightHome
-  try {
-    if (harness === 'grok') {
-      preflightHome = mkdtempSync(join(tmpdir(), 'peertable-model-'))
-      copyFileSync(join(home, '.grok', 'auth.json'), join(preflightHome, 'auth.json'))
-      chmodSync(join(preflightHome, 'auth.json'), 0o600)
-      preflightEnv.GROK_HOME = preflightHome
-      script('grok-seat-config.mjs', [project, join(preflightHome, 'config.toml')], { env: preflightEnv })
-    }
-    execute(preflight.command, preflight.argv, { cwd: tmpdir(), env: preflightEnv, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] })
-  } finally { if (preflightHome) rmSync(preflightHome, { recursive: true, force: true }) }
+  // 既存席を畳む前にmodelを実測する。Cursorのcatalog・ID方言はAitermだけが所有する。
+  if (harness === 'cursor') await preflightCursor(project, name, model, effort, env, dependencies)
+  else {
+    const preflightArgs = harness === 'codex' ? ['exec', '--model', model, '--skip-git-repo-check', 'ping']
+      : harness === 'grok' ? ['--model', model, '--reasoning-effort', effort, '-p', 'ping'] : ['--model', model, '-p', 'ping']
+    const preflight = (dependencies.resolveCommand ?? resolveWindowsCommand)(harness, preflightArgs)
+    const preflightEnv = { ...env }
+    let preflightHome
+    try {
+      if (harness === 'grok') {
+        preflightHome = mkdtempSync(join(tmpdir(), 'peertable-model-'))
+        copyFileSync(join(home, '.grok', 'auth.json'), join(preflightHome, 'auth.json'))
+        chmodSync(join(preflightHome, 'auth.json'), 0o600)
+        preflightEnv.GROK_HOME = preflightHome
+        script('grok-seat-config.mjs', [project, join(preflightHome, 'config.toml')], { env: preflightEnv })
+      }
+      execute(preflight.command, preflight.argv, { cwd: tmpdir(), env: preflightEnv, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'pipe'] })
+    } finally { if (preflightHome) rmSync(preflightHome, { recursive: true, force: true }) }
+  }
 
   // 登録前に中断した席も、公開envで同じroomの本人と確認して撤去する。
   await leave(project, name)
