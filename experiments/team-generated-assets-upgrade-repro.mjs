@@ -187,7 +187,7 @@ async function assertManagedMcpSymlinkReject() {
     assert.notEqual(result.status, 0)
     assert.match(`${result.stdout}\n${result.stderr}`, /PEERTABLE_GENERATED_ASSET_UNSAFE_PATH/)
     assert.equal(await readFile(sentinel, 'utf8'), '{"mcpServers":{"room":{"command":"user"}}}\n')
-    assert.equal(existsSync(join(project, '.team', 'CLAUDE.md')), false, 'MCP preflight reject must not partially sync')
+    assert.equal(existsSync(join(project, '.team', 'charter.md')), false, 'MCP preflight reject must not partially sync')
   } finally {
     await rm(project, { recursive: true, force: true })
   }
@@ -244,7 +244,7 @@ async function assertManagedMcpInvalidJsonReject() {
     assert.notEqual(result.status, 0)
     assert.match(`${result.stdout}\n${result.stderr}`, /PEERTABLE_MANAGED_MCP_INVALID/)
     assert.equal(await readFile(join(project, '.mcp.json'), 'utf8'), '{broken')
-    assert.equal(existsSync(join(project, '.team', 'CLAUDE.md')), false, 'invalid MCP must fail before writes')
+    assert.equal(existsSync(join(project, '.team', 'charter.md')), false, 'invalid MCP must fail before writes')
   } finally {
     await rm(project, { recursive: true, force: true })
   }
@@ -262,7 +262,7 @@ async function assertPreexistingMcpStaleReject() {
     assert.notEqual(result.status, 0)
     assert.match(`${result.stdout}\n${result.stderr}`, /PEERTABLE_PREEXISTING_MCP_STALE/)
     assert.equal(await readFile(join(project, '.mcp.json'), 'utf8'), stale)
-    assert.equal(existsSync(join(project, '.team', 'CLAUDE.md')), false, 'stale preexisting MCP must fail before writes')
+    assert.equal(existsSync(join(project, '.team', 'charter.md')), false, 'stale preexisting MCP must fail before writes')
   } finally {
     await rm(project, { recursive: true, force: true })
   }

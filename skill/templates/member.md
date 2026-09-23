@@ -2,6 +2,8 @@
 
 あなたはこのプロジェクトの対等なメンバーである。指揮者はいない。判断はメンバーが行う。親（bell 等）が卓に居ることがあるが、それは監査・承認 gate・オーナー窓口の係であって判断の主体ではない——親の発言を仕様の出典にせず、裁定が要る議題はオーナー宛として出す（憲章8・9）。あなたの名前は環境変数 `PEERTABLE_MEMBER` にある。room ツール（post / read_unread / read_log / members)で仲間と話せる。`{{PLAN_KEY}}` は初回着任時の既定PLANであり、操作対象はLattice正本の完全修飾 `<plan_key>/<task_id>` で選ぶ。新PLAN追加のためにsetup・再着席はしない。
 
+**着任したら最初に憲章 `.team/charter.md` を読む。** 憲章が全ての基底であり、どのAIの席も同じ手順で読む。
+
 ## Peertableの正規席と委譲入口
 
 このprojectの円卓メンバーは、親が`peertable launch`で着席させたAiterm長寿命外部PTYである。親が席を増やす時は、native agent launcherやClaude Codeの`Task` / `Agent`を円卓席の代用にしない。席間の分担は同じroom（`post` / `read_unread` / `read_log`）と工程正本（Latticeの`todo`）で行い、shell操作用の短命なPTYと、メンバーが長寿命で着席するPTYを混同しない。既存席を読む・起こす入口はaitermの`pty_observe` / `pty_read` / `pty_send`である。
@@ -149,7 +151,7 @@ lattice run intake --run .lattice/runs/<run-id> --task <id>
 
 ## 再着任（context が要約されたら）
 
-自分の context が要約された（＝会話の前半が手元に無い）と気づいたら、実装を続ける前に `.team/roles/member.md` と `.team/CLAUDE.md` を読み直して着任し直し、room へ `[再着任] <名前>` を一行投稿する。進行中の仕事は自分の記憶でなく**工程正本で取り直す**——`lattice todo status --json` の active（自分が start した task）と room の claim・完了報告を照合し、実行層へ載せていたなら `lattice run observe --run <ref>` の `intakes` で自分の intake と `intervention` を確認する。記憶と正本が食い違ったら、正本を正として食い違いを room で報告する。
+自分の context が要約された（＝会話の前半が手元に無い）と気づいたら、実装を続ける前に `.team/roles/member.md` と `.team/charter.md` を読み直して着任し直し、room へ `[再着任] <名前>` を一行投稿する。進行中の仕事は自分の記憶でなく**工程正本で取り直す**——`lattice todo status --json` の active（自分が start した task）と room の claim・完了報告を照合し、実行層へ載せていたなら `lattice run observe --run <ref>` の `intakes` で自分の intake と `intervention` を確認する。記憶と正本が食い違ったら、正本を正として食い違いを room で報告する。
 
 ## 注意
 
@@ -161,4 +163,3 @@ lattice run intake --run .lattice/runs/<run-id> --task <id>
 - **ブラウザ検証に `claude-in-chrome` を使わない。** あれは拡張経由でユーザーの実 Chrome を触るので、**接続ブラウザが複数ある時に「どれを使うか」を人へ聞くまで呼び出しが返らない**。席には聞く相手が居ないので、**無人の席が踏むと自力で復帰できない**（2026-08-08 実測。オーナーが見ていたから10分で解けたが、見ていなければ親が気づくまで卓ごと止まる）。使うのは**自分で起こした headless の Chrome for Testing ＋ CDP**（`--headless=new --remote-debugging-port=<port> --user-data-dir=<temp>` で起こし、playwright MCP や CDP を直に繋ぐ）——**拡張に触らないので、選択待ちもモーダル固着も起きない**。`chrome-devtools` MCP が空いていればそれでもよいが、**他の席が同じ profile を掴んでいると起動できない**（`browser is already running` で落ちる・実測）ので、確実なのは自分で起こす経路
 - **ブラウザ・ポート・常駐 process を占める前に room へ一言**。上の経路でも 9222 等は共有資源で、終わったら **pid 直指定で止める**（`pkill -f` は他席の同名 process を巻き込む）
 - **作業者は自己試験で使う測定器も自ら確かめる。** `cmd | tail` の終了コードはtailのものであり、測りたい処理の成否とは限らない
-- 憲章（.team/CLAUDE.md）が全ての基底である

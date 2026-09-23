@@ -187,7 +187,7 @@ function main() {
   const state = loadState(project)
 
   const common = [
-    ['.team/CLAUDE.md', 'skill/templates/charter.md', 0o644],
+    ['.team/charter.md', 'skill/templates/charter.md', 0o644],
     ['.team/roles/parent.md', 'skill/templates/parent.md', 0o644],
     ['.team/scripts/alarm-set.sh', 'skill/scripts/alarm-set.sh', 0o755],
     ['.team/scripts/alarm-write.mjs', 'skill/scripts/alarm-write.mjs', 0o755],
@@ -224,7 +224,8 @@ function main() {
     }
     return { path: item.relativePath, action: current.equals(item.content) ? 'mode-updated' : 'updated', sha256: sha256(item.content) }
   })
-  const obsolete = ['.team/scripts/start.sh', '.team/scripts/start-event.mjs']
+  // 憲章は旧名CLAUDE.mdだとClaude専用に見えるため、どのAIにも中立なcharter.mdへ移した。
+  const obsolete = ['.team/scripts/start.sh', '.team/scripts/start-event.mjs', '.team/CLAUDE.md']
     .map(relativePath => ({ relativePath, ...validateTargetPath(project, relativePath) }))
 
   // 全対象の安全性・template・差分を先に確定してから、管理allowlistだけへ書く。

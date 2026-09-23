@@ -147,7 +147,7 @@ try {
   assert.equal(await status(tracked.project), trackedBefore);
   assert.equal(await readFile(path.join(tracked.project, '.git', 'info', 'exclude'), 'utf8'), tracked.excludeBefore);
   assert.equal(await exists(path.join(tracked.project, '.mcp.json')), false);
-  assert.equal(await exists(path.join(tracked.project, '.team', 'CLAUDE.md')), false);
+  assert.equal(await exists(path.join(tracked.project, '.team', 'charter.md')), false);
   assert.equal(await exists(path.join(tracked.project, '.team', 'setup-state.json')), false);
 
   const existing = await makeFixture(temporaryRoot, 'existing-team', { existingTeam: true });
@@ -163,7 +163,7 @@ try {
   assert.equal(await status(existing.project), existingBefore);
   assert.equal(await readFile(path.join(existing.project, '.git', 'info', 'exclude'), 'utf8'), existing.excludeBefore);
   assert.equal(await exists(path.join(existing.project, '.mcp.json')), false);
-  assert.equal(await exists(path.join(existing.project, '.team', 'CLAUDE.md')), false);
+  assert.equal(await exists(path.join(existing.project, '.team', 'charter.md')), false);
   assert.equal(await exists(path.join(existing.project, '.team', 'setup-state.json')), false);
 
   const clean = await makeFixture(temporaryRoot, 'clean-team');
