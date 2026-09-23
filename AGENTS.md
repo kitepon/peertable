@@ -22,7 +22,7 @@ Peertableは単独cloneで利用・診断・release・rollbackできる製品で
 - **過剰設計を禁止する。** 過度なセキュリティ・安全対策・失敗チェック機構を作らない。自プロジェクト内で完結する処理は、チェックで守るのではなくそもそも失敗しないように書く。チェック機構は外部プログラムに依存する境界だけに置く
 - 初期検証ゲートは完結済み。以後の挙動変更は関連するfocused testを伴わせる
 - **push はPeertable自身の既定契約として行う。** 作業後は fetch→照合→focused test→対象限定commit→push で製品repoへ真実を返す
-- **npm publish と本番反映は完遂に含める。** 既定ブランチの祖先であることは `verify-release-commit` が強制する。公開済みnpm版は書き換えず、欠陥はfix-forwardする。緊急退避は既知正常versionを明示installし、復旧後に最新へ戻す。room本番は旧image tagと永続volumeを使う [deploy/README.md](deploy/README.md) のrollbackだけを使う
+- **npm publish と本番反映は完遂に含める。** publishは既定ブランチへ着地したrelease commitへ`v<version>` tagをpushし、`.github/workflows/publish.yml`がnpm Trusted Publishingで行う。手元からの`npm publish`はしない。既定ブランチの祖先であることは `verify-release-commit` が強制する。公開済みnpm版は書き換えず、欠陥はfix-forwardする。緊急退避は既知正常versionを明示installし、復旧後に最新へ戻す。room本番は旧image tagと永続volumeを使う [deploy/README.md](deploy/README.md) のrollbackだけを使う
 
 ## 構成
 
