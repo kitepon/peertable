@@ -29,7 +29,6 @@ Peertableは単独cloneで利用・診断・release・rollbackできる製品で
 ```
 peertable/
 ├── AGENTS.md             # 本書（聖典）
-├── CLAUDE.md             # @AGENTS.md の 1 行 import のみ
 ├── package.json          # npm: peertable（bin 3 種・files 限定）
 ├── README.md / README.ja.md / LICENSE(MIT)
 ├── docs/00_overview.md   # 現行文書とarchiveの入口
