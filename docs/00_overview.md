@@ -13,7 +13,6 @@ Peertableは単独cloneで動作し、自身のsource、state、schema、着席�
 
 ## Campaign・証拠・履歴
 
-- [Aiterm統合送信APIへの移行計画](plan_aiterm-unified-delivery.md) — 統合配送は公開済み。Cursor実席の受入確認が残るため、現行campaignとして保持。
 - `docs/plan_<campaign>.md` — 現行または状態照合中のcampaignだけ。Latticeが明示適用済みの工程はstoreの状態と照合する。
 - [evidence/](../evidence/) — 完了証拠。記録済み内容を現行手順として読まない。
 - [docs/archive/](archive/) — 完了・supersededした計画と履歴。通常の読書順には含めない。

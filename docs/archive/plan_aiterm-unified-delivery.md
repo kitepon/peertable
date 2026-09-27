@@ -1,17 +1,34 @@
 # Aiterm統合送信APIへの移行計画
 
-状態: 統合配送の実装・公開版導入・Codex／Claude／Grokの実席確認は完了。Cursorのroom MCP接続原因を特定し、env補間を修理。Cursor実席の再確認を待つため現行campaignとして保持。
+状態: 完了。統合配送、Cursorのroom MCP設定修理、公開版導入、4 harnessの待機中・実行中の実受信を確認した。以下は受入時の固定記録であり、現行versionや手順の正本ではない。
+
+## 完了時の受入記録
+
+- Cursor修理は`ac6f2d5e00c1c9db7800dd6879c24b7f95efe8e6`としてmainへ着地した。[3環境CI](https://github.com/kitepon/peertable/actions/runs/36359046233)とローカル`run-product-ci.mjs`は成功。関連focused testは21件成功し、配布物111ファイルに旧配送scriptは含まれない。
+- `v0.8.62`の[Trusted Publishing](https://github.com/kitepon/peertable/actions/runs/36359167027)は成功。registryで公開を確認し、このMacへ`npm install -g peertable@0.8.62`で導入した。4 harnessのスキル配置診断と公開版project診断は`ready`。roomサーバーの挙動は変更しておらず、Docker再配置は行っていない。
+- 隔離room A=`unified-live-20260927`、B=`cursor-acceptance-20260928`、C=`cursor-published-20260928`で、以下の宛先receipt、bridgeの実mode、識別子付きroom返信を照合した。Bの`resume`は4席、公開packageだけで作ったCの`resume`は2席のheartbeatと`delivered` probeを確認した。
+
+| 宛先harness | 待機中の実受信（agent_dispatch） | 実行中の実受信（agent_steer） |
+|---|---|---|
+| Codex CLI | C #8、返信投稿 #9：CODEX-IDLE-20260928 | A #17、返信 #18：LIVE-BUSY-20260928-CX |
+| Claude Code | B #18、返信 #19：CLAUDE-NEXT-20260928 | B #15、返信 #17：CLAUDE-BUSY-20260928 |
+| Grok CLI | A #10、返信 #12：LIVE-IDLE-20260928-G | B #5、返信 #6：GROK-BUSY-20260928 |
+| Cursor CLI（Cursor Grok 4.6 Medium） | B #9、返信 #10：CURSOR-IDLE-20260928 | B #11、返信 #12：CURSOR-BUSY-20260928 |
+
+- Claudeは新規turn、実行中の差し込み、完了後の次DMを連続して受信した。Cursorの実席試験はGrokを選択し、Autoの推論requestは行っていない。
+- 公開版CのCodex→Cursor DM #6と識別子付き返信 #7は両方`delivered`。追加の逆方向ではCodexへの #8が`delivered`で返信 #9をroom保存したが、#9のCursor宛配送はAitermの`STEER_NOT_QUEUED`で成否不明となった。Peertableは`failed`を記録して保留し、本文を自動再送しなかった。#9をCursorへの配達成功には数えない。公開APIの成否不明応答に対する保留という受入契約の範囲内であり、無条件の配送成功は保証しない。
+- 試験卓はすべて正規teardownでarchiveし、席とbridgeを撤去した。BではGrok終了直後のhome削除が一度`ENOTEMPTY`となり、同じteardownの再実行で撤去できた。この削除競合の原因は未解明で、配送修理として直したとは扱わない。
 
 ## 2026-09-28 時点の実測
 
-- Cursor AutoとGrokは利用可能で、現在の利用上限はClaude系だけ。Cursor CLI `v2026.09.26-dd393fe`は任意の起動envをstdio MCPへ継承せず、明示した`${env:NAME}`だけが席情報を渡すことをprobeで確認した。[Cursor公式仕様](https://prod.cursor.com/docs/mcp)もこの補間を定義する。PeertableのCursor専用room定義へ必要な席envとcredential pathの補間を追加し、管理marker付きlegacy定義だけをensure/resumeで移行する。利用者定義の非上書きと旧定義の撤去はfocused testで確認した。CursorのMCP enableとlistは同じ席envで実行し、展開後の定義とapprovalを一致させる。
+- オーナーからCursorのAutoとGrokは利用可能、CursorのClaude系が利用上限との訂正を受け、Grokで確認を再開した。Cursor CLI `v2026.09.26-dd393fe`は任意の起動envをstdio MCPへ継承せず、明示した`${env:NAME}`だけが席情報を渡すことをprobeで確認した。[Cursor公式仕様](https://prod.cursor.com/docs/mcp)もこの補間を定義する。PeertableのCursor専用room定義へ必要な席envとcredential pathの補間を追加し、管理marker付きlegacy定義だけをensure/resumeで移行する。利用者定義の非上書きと旧定義の撤去はfocused testで確認した。診断probeのMCP enableとlistは同じ席envで実行し、展開後の定義とapprovalを一致させた。正規launchの利用者へ別のenable操作は要求しない。
 
 - 実装は `be71d78`、Windows fixture修正は `2fc4553`、公開前の非同期登録テスト修正は `aff6e21`。いずれも `origin/main` に着地した。
 - [3環境CI](https://github.com/kitepon/peertable/actions/runs/36329329070)はmacOS・Linux・Windowsで成功。`npm pack --dry-run`は111ファイルで、旧`aiterm-deliver.mjs`を含まない。
 - `v0.8.60`の公開workflowは、既存テストがMCP接続直後の会員登録完了を待たない競合で失敗した。タグは動かさず、修正を`v0.8.61`に含めた。[Trusted Publishing](https://github.com/kitepon/peertable/actions/runs/36329419231)は成功し、registryとこのMacのglobal installで`0.8.61`を確認した。
 - ソース版の隔離卓で、Grokの待機中配送、観測`unknown`のClaudeへの配送、実行中Codexへの`agent_steer`配送を確認した。各メッセージのroom receiptが`delivered`となり、受信席が識別子を含む返信を投稿した。
 - 公開版だけで作った隔離卓では、`peertable resume`が2席のheartbeatと配送probeを確認。CodexからClaudeへのDM #7は`agent_dispatch`で受理され、roomの`delivered`とClaudeの識別子付き返信が一致した。`peertable diagnostics <project>`は`ready`。両試験卓は正規teardownで解散した。
-- Cursor席は最初の実行が月間利用上限で止まり、別モデルではCursor CLIの`room` MCPが`Connection failed`となった。Peertableの`pty_send`へ渡す前にroom参加登録が成立していないため、Cursor実席の配送成否は未確認。利用可能なCursorセッションでroom MCP接続を診断し、参加・待機中・実行中の配送を確認してから本計画をarchiveへ移す。
+- 初回のCursor試験では利用上限と`room` MCPの`Connection failed`を観測し、配送受入を保留した。後続調査でenv受け渡しの欠落を特定し、修理後のGrok席で参加と待機中・実行中の配送を確認した。
 
 ## 目的と完了条件
 
@@ -191,7 +208,7 @@ node experiments/wakeup-delivery-repro.mjs
 5. 対象projectごとに`peertable resume <project>`を実行する。既存runtime digestによるbridge更新、ready、heartbeat、配送probeの成立を確認する。手作業のbridge再起動手順を利用者へ要求しない。
 6. 実際のメンバー間配送を1往復確認し、公開roomのreceiptと照合する。`resume`のprobeだけを実受信の証拠にしない。
 
-今回はbridgeの更新が本番反映に当たる。room実装とDocker imageの内容が変わらなければ、roomコンテナの再配置は不要と報告する。room変更が必要と判明した場合は範囲を説明し、[deploy手順](../deploy/README.md)に従う。
+今回はbridgeの更新が本番反映に当たる。room実装とDocker imageの内容が変わらなければ、roomコンテナの再配置は不要と報告する。room変更が必要と判明した場合は範囲を説明し、[deploy手順](../../deploy/README.md)に従う。
 
 公開済みnpm版の欠陥はfix-forwardする。旧Peertableは現行Aitermの廃止APIを呼ぶため、直前版へ戻すだけで復旧するとは判断しない。緊急時は影響するbridgeの運用停止と失敗の可視化を行い、確認済みの互換組合せだけを復旧候補にする。
 
