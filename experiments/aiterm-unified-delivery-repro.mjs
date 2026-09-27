@@ -6,10 +6,12 @@ import { once } from 'node:events'
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { delimiter, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { AitermClient } from '../skill/scripts/aiterm-client.mjs'
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)))
+const fixture = join(repo, 'experiments/fixtures/aiterm-unified-mcp.mjs')
 const root = await mkdtemp(join(tmpdir(), 'peertable-unified-'))
 const project = join(root, 'project')
 const bin = join(root, 'bin')
@@ -68,11 +70,17 @@ const stop = async () => {
   if (child.exitCode === null) child.kill('SIGKILL')
 }
 const bridgeLog = []
+const fixtureEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => key.toUpperCase() !== 'PATH'))
+fixtureEnv.PATH = `${bin}${delimiter}${process.env.PATH ?? ''}`
+Object.assign(fixtureEnv, {
+  PEERTABLE_TEST_AITERM_SPEC: specPath,
+  PEERTABLE_TEST_AITERM_CALLS: callsPath,
+  PEERTABLE_TEST_DELIVERY_STATE: statePath,
+  PEERTABLE_PARENT_NAME: 'parent',
+})
 const start = () => {
   child = spawn(process.execPath, [join(repo, 'skill/scripts/wakeup-bridge.mjs'), project], {
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PEERTABLE_TEST_AITERM_SPEC: specPath,
-      PEERTABLE_TEST_AITERM_CALLS: callsPath, PEERTABLE_TEST_DELIVERY_STATE: statePath,
-      PEERTABLE_PARENT_NAME: 'parent' },
+    env: fixtureEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   child.stdout.on('data', data => bridgeLog.push(data.toString()))
@@ -81,9 +89,19 @@ const start = () => {
 try {
   await mkdir(join(project, '.team'), { recursive: true })
   await mkdir(bin)
-  await symlink(join(repo, 'experiments/fixtures/aiterm-unified-mcp.mjs'), join(bin, 'aiterm-mcp'))
+  if (process.platform === 'win32') {
+    await writeFile(join(bin, 'aiterm-mcp.cmd'), `@echo off\r\n"${process.execPath}" "${fixture}" %*\r\n`)
+  } else {
+    await symlink(fixture, join(bin, 'aiterm-mcp'))
+  }
   await writeFile(callsPath, '')
   await setSpec({ state: 'busy' })
+  const probe = new AitermClient({ env: fixtureEnv })
+  try {
+    const observed = await probe.observe(`fixture-probe-${process.pid}-${Date.now()}`)
+    assert.equal(observed.exists, true, '公開MCPが試験fixtureへ接続する')
+    assert.equal(observed.state, 'busy')
+  } finally { await probe.close() }
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
   await writeFile(join(project, '.team/setup-state.json'), JSON.stringify({ room: 'fixture', server_url: `http://127.0.0.1:${server.address().port}` }))
   start()
