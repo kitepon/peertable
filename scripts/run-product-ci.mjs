@@ -27,6 +27,7 @@ function shellScripts(directory) {
 run(process.execPath, ['--check', 'room/server.mjs'])
 run(process.execPath, ['--check', 'room/client.mjs'])
 run(process.execPath, ['--test', 'skill/scripts/runtime-contract.test.mjs'])
+run(process.execPath, ['experiments/aiterm-unified-delivery-repro.mjs'])
 run(process.execPath, ['--test', 'scripts/ci-contract.test.mjs', 'scripts/docs-contract.test.mjs'])
 run(process.execPath, ['experiments/windows-seat-mux-repro.mjs'])
 run(process.execPath, ['experiments/seat-placement-repro.mjs'])

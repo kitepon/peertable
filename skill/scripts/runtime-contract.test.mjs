@@ -23,6 +23,7 @@ import './seat-approval.test.mjs'
 import './runtime-launch-command.test.mjs'
 import './ensure-project-runtime.test.mjs'
 import './teardown.test.mjs'
+import './wakeup-delivery.test.mjs'
 
 test('alarm writerは日本語noteをUTF-8 stdinから保存する', () => {
   const dir = mkdtempSync(join(tmpdir(), 'peertable-alarm-'))

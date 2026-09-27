@@ -50,7 +50,7 @@ roomへの保存と席のTUIへの配達は別の事実である。message投稿
 
 member状態はroomサーバーが、登録情報、seat-status、bridge health、更新時刻から計算する。各clientや親が独自に状態を推測して第二の台帳を持たない。
 
-配達失敗の親宛通知は同じ(seq, 宛先)につき1通だけであり、通知済み集合はbridge再起動を跨いで保持する。席不在（SEAT_TUI_GONE系）の連続失敗は150周期（約5分）、composer詰まり（DELIVERY_STUCK）は5周期で再試行を打ち切り、打ち切りは配達台帳へ耐再起動で記録する。receiptは最後の実状態（seat_unavailable / failed）のまま残る。
+配達失敗の親宛通知は同じ(seq, 宛先)につき1通だけであり、通知済み集合はbridge再起動を跨いで保持する。席不在（SEAT_TUI_GONE系）の連続失敗は150周期（約5分）で再試行を打ち切り、打ち切りは配達台帳へ耐再起動で記録する。Aitermへ送信した後の成否不明は同じ台帳で保留し、failed receiptと初回の親通知を出す。本文は自動再送せず、通知だけを再試行する。読了ackで保留を解消できる。receiptは最後の実状態（seat_unavailable / failed）のまま残る。
 
 受信カーソルは読んだ時だけ進める。`post`は受信カーソルに触れない。自分の発言でカーソルを進めると、その直前に届いた未読が沈黙して失われるためである。
 
@@ -70,7 +70,7 @@ roomは解散状態（archive）を持つ。teardownがroomをarchiveし、公�
 
 永続PTYとharness起動はAitermの公開APIを使う。Windows native shellはPowerShell 7を正とし、OS差分は環境別adapterへ閉じ込める。
 
-session IDは公開`AITERM_SESSION_ID`とMCP応答から取得する。`pty_list`の明示envと`pty_observe`の状態・本人性・活動差分を使い、内部state・namespace・socket・画面分類をPeertableへ複製しない。起動準備は`agent_launch`の`startup.ready`、承認は公開approval API、入力は公開send/steerのreceiptで確認する。API不足は再現と必要契約をAitermへ渡して解消する。
+session IDは公開`AITERM_SESSION_ID`とMCP応答から取得する。`pty_list`の明示envと`pty_observe`の状態・本人性・活動差分を使い、内部state・namespace・socket・画面分類をPeertableへ複製しない。起動準備は`agent_launch`の`startup.ready`、承認は公開approval API、メンバーへの入力は統合`pty_send`のreceiptで確認する。Aitermが実行中への差し込みと待機中の新規ターンを選ぶ。API不足は再現と必要契約をAitermへ渡して解消する。
 
 root MCPはblock単位の所有を記録し、既存の他のblockを保つ。Cursor席ではCursor公式のproject設定`.cursor/mcp.json`に同じroom定義だけを管理し、席のroom認証情報はAitermが起動したCursor processからMCPへ継承する。停止やroom操作に失敗した解散は`.team/`を残して同じ入口から再実行できる状態にする。
 

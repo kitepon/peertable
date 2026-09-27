@@ -17,7 +17,7 @@ installはprojectやroomを探索・再構築しない。更新したprojectへ�
 
 ## 前提と所有範囲
 
-- Node.js 24以降とPeertable、Aiterm 0.33.0以降の公開MCP、使用するharnessの公式CLIと認証、稼働中のroomサーバーが必要。Aitermの導入と診断はAitermの正規入口を使う。
+- Node.js 24以降とPeertable、統合`pty_send`の公開receiptに対応したAiterm MCP、使用するharnessの公式CLIと認証、稼働中のroomサーバーが必要。Aitermの導入と診断はAitermの正規入口を使う。
 - 書込資格はPeertableのcredential解決で読む。通常は `~/.config/peertable.env` に保存する。席へ渡すのは席別credential fileのpathだけで、token本文を起動コマンドへ書かない。
 - Lattice併用はオーナーが明示した場合だけ。単独モードはLatticeに依存しない。
 - スキルを呼んだセッション自身が親として着卓する。専用の親セッションは作らない。
@@ -66,7 +66,7 @@ CodexとGrokの席設定・認証は`.team/seats/`へ分離する。Codexにはr
 
 3 bridgeの順序・更新・再起動はsetup/launch/resumeが所有する。個別bridgeの起動コマンドを先に並べない。任意の常駐監視を導入する場合は`skill/launchd/`の見本を使うが、スキルinstallが勝手に登録することはない。
 
-wakeup bridgeはroomの明示宛先付き新着を公開APIで届ける。Claudeを含む席の配達成立はreceiptで確認する。Codexのbusy中はsteer、Grokは公開観測がidleになるまで待つ。既知承認は公開approval APIのdigestに対して単発応答し、未知の承認をキーで押し通さない。SSEは75秒無受信で再接続し、最終seqから回収する。心拍の最新seqとの差も回収する。ログは`.team/wakeup-bridge.log`。
+wakeup bridgeはroomの明示宛先付き新着をAitermの統合`pty_send`で届ける。Aitermが実行中の差し込みと待機中の新規ターンを選び、Claudeを含む席の配達成立は公開receiptで確認する。成否不明は自動再送せずfailed receiptと親通知を残し、通知失敗時は本文を送らず通知だけを再試行する。既知承認は公開approval APIのdigestに対して単発応答し、未知の承認をキーで押し通さない。SSEは75秒無受信で再接続し、最終seqから回収する。心拍の最新seqとの差も回収する。ログは`.team/wakeup-bridge.log`。
 
 seat-statusは`pty_observe`の状態・本人性・token hint・活動差分と、`pty_list`で公開された同roomの席envを使う。席のランプには預け仕事の活動を合成し、ターン終了の番犬は席本体の状態を使う。画面文言の分類はPeertableへ複製しない。判定不能をidleや死亡に丸めない。
 

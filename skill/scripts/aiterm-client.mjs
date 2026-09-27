@@ -35,6 +35,20 @@ export class AitermClient {
     }
     return result.structuredContent
   }
+  async requireUnifiedSend() {
+    await this.connect()
+    const { tools } = await this.client.listTools()
+    const send = tools.find(tool => tool.name === 'pty_send')
+    const input = send?.inputSchema?.properties
+    const output = send?.outputSchema?.properties
+    if (!input?.session_id || !input?.text || !input?.enter ||
+        output?.schema?.const !== 'aiterm.pty-send-result.v1' ||
+        !['agent_dispatch', 'agent_steer'].every(mode => output?.mode?.enum?.includes(mode))) {
+      throw Object.assign(new Error('PEERTABLE_AITERM_CONTRACT_UNAVAILABLE: Aitermを統合pty_send対応版へ更新してください'), {
+        code: 'PEERTABLE_AITERM_CONTRACT_UNAVAILABLE', tool: 'pty_send',
+      })
+    }
+  }
   async sessions(envKeys = []) {
     const result = await this.structured('pty_list', { env_keys: envKeys }, 'aiterm.pty-list-result.v1')
     return result.sessions

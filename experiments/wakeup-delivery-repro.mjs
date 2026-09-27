@@ -4,7 +4,6 @@ import {
   formatWakeNotice,
   isIdleSelfWake,
   isWakeupBridgeTarget,
-  shouldDeferGrokWake,
 } from '../skill/scripts/wakeup-delivery.mjs'
 
 assert.equal(
@@ -28,11 +27,6 @@ assert.equal(isWakeupBridgeTarget({ name: 'bell', vendor: 'grok' }, { parentName
 assert.equal(isWakeupBridgeTarget({ name: 'bell', vendor: 'claude' }), false)
 assert.equal(isWakeupBridgeTarget({ name: 'bell' }), false)
 assert.equal(isWakeupBridgeTarget(undefined), false)
-
-assert.equal(shouldDeferGrokWake('codex', 'busy'), false)
-assert.equal(shouldDeferGrokWake('grok', 'busy'), true)
-assert.equal(shouldDeferGrokWake('grok', 'idle'), false)
-assert.equal(shouldDeferGrokWake('grok', 'blocked'), false)
 
 assert.equal(isIdleSelfWake({
   from: 'suzune',

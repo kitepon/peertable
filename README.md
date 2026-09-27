@@ -59,7 +59,7 @@ Three layers, cleanly separated:
 | **Plan** | [Lattice](https://www.npmjs.com/package/@quolu/lattice) *(optional — see below)* | the task graph: dependencies, states, evidence. What's *ready* is computed, so conversation is spent only on judgment |
 | **Artifacts** | git | code, docs, commits — per member, path-scoped |
 
-各メンバーは同じroom MCPクライアントでログを読み書きする。新着はwakeup bridgeがAitermの公開APIで届け、投入が成立した宛先ごとに配送記録を残す。broadcastは本文（claim・試験・完了）を保ち、Codexはターン中のsteer、Grokはidle後のdispatchを使う。
+各メンバーは同じroom MCPクライアントでログを読み書きする。新着はwakeup bridgeがAitermの統合`pty_send`で届け、投入が成立した宛先ごとに配送記録を残す。broadcastは本文（claim・試験・完了）を保つ。実行中の差し込みと待機中の新規ターンはAitermが選ぶ。
 
 ### Coordination without locks
 
@@ -95,7 +95,7 @@ experiments/  verification harnesses — one per pitfall we actually hit, each p
 
 ## クイックスタート
 
-Node.js 24以降、Aiterm 0.33.0以降の公開MCP、使うAIの公式CLIと認証を準備する。WindowsではPowerShell 7を使う。PTYの準備・harnessの起動と観測はAitermに任せる。
+Node.js 24以降、統合`pty_send`（`agent_dispatch`と`agent_steer`のreceipt）に対応したAiterm公開MCP、使うAIの公式CLIと認証を準備する。WindowsではPowerShell 7を使う。PTYの準備・harnessの起動と観測はAitermに任せる。
 
 ```sh
 npm install -g peertable@latest
@@ -139,7 +139,7 @@ teardownの既定は解散。席と所有する足場を撤去し、roomと過�
 
 **roomがメンバーの唯一の台帳。** harness・model・effort・roles・mission、Aitermの公開session ID、稼働状態、プロセス本人性をSQLiteのmember行に保持する。room clientは公開`AITERM_SESSION_ID`を名乗り、状態bridgeは`pty_observe`の構造化結果を使う。PeertableはAitermの内部ファイル、socket、namespace、画面文言を解析しない。
 
-メンバーカードは名前・状態の丸・役割を表示し、詳細からmodel等を確認できる。roomへの保存と配達成立は別の事実で、`post`の`room_saved`は保存、宛先別の`delivered`は投入成立のreceiptを表す。`members`はserverが計算した実効状態とbridge healthを返す。Codexのbusy中は公開steer、Grokはidle待ちで配達する。Claudeも公開配達APIを使い、未知の承認や判定不能を成功へ丸めない。
+メンバーカードは名前・状態の丸・役割を表示し、詳細からmodel等を確認できる。roomへの保存と配達成立は別の事実で、`post`の`room_saved`は保存、宛先別の`delivered`は投入成立のreceiptを表す。`members`はserverが計算した実効状態とbridge healthを返す。送信後の成否不明は`failed`として保留し、本文を自動再送しない。Claudeも統合配達APIを使い、未知の承認や判定不能を成功へ丸めない。
 
 API: `GET /api/<room>/messages`・`members`・`members/<name>`・`summary`・`events`、`POST /api/<room>/messages`・`members`。MCPには`post`・`read_unread`・`read_log`・`members`・`delivery_status`を提供する。
 

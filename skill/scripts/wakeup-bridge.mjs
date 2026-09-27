@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // room のSSEを購読し、明示宛先の新着を current member descriptor の通常席 TUI へ
-// 素送信する。専用の起床デーモンではない。親は parent-watch が所有し、ここでは扱わない。
+// 配達する。専用の起床デーモンではない。親は parent-watch が所有し、ここでは扱わない。
 //
 // usage: wakeup-bridge.mjs <project_dir> [legacy-seat...]     起動（前面。nohup で常駐させる）
 //        wakeup-bridge.mjs <project_dir> --stop               停止
@@ -8,27 +8,19 @@
 // 生死の作法は Lattice ADR 0157 に倣う: 自分の pid を記録に置き、起動時に前の記録を掃除し、
 // 止まらなければ黙って諦めず typed error で落ちる。
 //
-// 実測（2026-08-08・Codex CLI v0.146.0）: Codex は**ターン実行中でも素送信を受け付ける**。
-// 送った文言はそのターンの中で読まれ、指示どおりに動いた（steering が効く）。
-// 実測（2026-08-17・Grok Build TUI）: Grok 既定は follow_up_behavior=queue。素送信は
-// 今のターンへ混ざらず入力キューへ積まれ、次の user ターンになる。Grok 席だけ idle を待つ。
-import { execFile } from 'node:child_process'
 import {
   existsSync, readFileSync, renameSync,
   unlinkSync, writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
-import { promisify } from 'node:util'
-import { fileURLToPath } from 'node:url'
 import { resolvePostToken } from './seat-usage.mjs'
 import { AitermClient } from './aiterm-client.mjs'
 import { seatSessionId } from './seat-session.mjs'
 import { passSeatApproval } from './seat-approval.mjs'
-import { BROADCAST_RECIPIENT, formatWakeNotice, isIdleSelfWake, isWakeupBridgeTarget, memberHarness, shouldDeferGrokWake } from './wakeup-delivery.mjs'
+import { BROADCAST_RECIPIENT, deliveryFailureCode, formatWakeNotice, isIdleSelfWake, isWakeupBridgeTarget, memberDeliveryMode, memberHarness } from './wakeup-delivery.mjs'
 import { isSeatLaunching } from './seat-launch-phase.mjs'
 import { bridgeRecordLive } from './bridge-record-live.mjs'
 
-const run = promisify(execFile)
 const [proj, ...rest] = process.argv.slice(2)
 if (!proj) {
   console.error('usage: wakeup-bridge.mjs <project_dir> <seat> [seat...] | <project_dir> --stop')
@@ -179,7 +171,8 @@ const postedReceipts = new Map() // `${seq}:${recipient}` -> `${result}:${reason
 // 既存の通知経路にそのまま乗り、この bridge 自身は親へ配達しないため再帰しない。
 const notifiedFailures = new Set() // `${seq}:${recipient}`（delivered への回復で解除し、再failで再通知）
 const failureStreaks = new Map() // `${seq}:${recipient}` -> 連続失敗数
-async function notifyParentOfFailure(seq, recipient, result, reason) {
+let deliveryStateDirty = false
+async function notifyParentOfFailure(seq, recipient, result, reason, immediate = false) {
   if (!parentName) return
   const key = `${seq}:${recipient}`
   if (result === 'delivered') {
@@ -194,7 +187,7 @@ async function notifyParentOfFailure(seq, recipient, result, reason) {
   // 2回目に達するので、検知は数秒遅れるだけで漏れない。
   const streak = (failureStreaks.get(key) ?? 0) + 1
   failureStreaks.set(key, streak)
-  if (streak < 2) return
+  if (streak < 2 && !immediate) return
   if (notifiedFailures.has(key)) return
   try {
     const res = await fetch(`${url}/api/${encodeURIComponent(room)}/messages`, {
@@ -206,13 +199,13 @@ async function notifyParentOfFailure(seq, recipient, result, reason) {
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     notifiedFailures.add(key)
-    saveDeliveryState()
+    try { saveDeliveryState() } catch (error) { deliveryStateDirty = true; throw error }
   } catch (error) {
     log(`DELIVERY_FAILURE_NOTIFY_FAILED ${JSON.stringify({ seq, recipient, detail: error.message.split('\n')[0] })}`)
   }
 }
-async function postReceipt(seq, recipient, result, reason = null) {
-  await notifyParentOfFailure(seq, recipient, result, reason)
+async function postReceipt(seq, recipient, result, reason = null, immediate = false) {
+  await notifyParentOfFailure(seq, recipient, result, reason, immediate)
   if (receiptSupported === false) return
   const key = `${seq}:${recipient}`
   const value = `${result}:${reason ?? ''}`
@@ -308,21 +301,24 @@ function markReady() {
 function loadDeliveryState() {
   try {
     const saved = JSON.parse(readFileSync(deliveryStatePath, 'utf8'))
-    if (saved.room !== room || saved.server_url !== url) return { primed: false, lastSeq: 0, delivered: new Set(), notified: new Set() }
+    if (saved.room !== room || saved.server_url !== url) return { primed: false, lastSeq: 0, delivered: new Set(), notified: new Set(), held: new Map() }
     return {
       primed: saved.primed === true,
       lastSeq: Number.isSafeInteger(saved.last_seq) && saved.last_seq >= 0 ? saved.last_seq : 0,
       delivered: new Set(Array.isArray(saved.delivered) ? saved.delivered.filter(key => typeof key === 'string') : []),
       notified: new Set(Array.isArray(saved.notified) ? saved.notified.filter(key => typeof key === 'string') : []),
+      held: new Map(Object.entries(saved.held ?? {})),
     }
   } catch {
-    return { primed: false, lastSeq: 0, delivered: new Set(), notified: new Set() }
+    return { primed: false, lastSeq: 0, delivered: new Set(), notified: new Set(), held: new Map() }
   }
 }
 
 const deliveryState = loadDeliveryState()
 let lastSeq = deliveryState.lastSeq
 const delivered = deliveryState.delivered
+const held = deliveryState.held
+const sending = new Set() // 送信前保留から結果確定まで。再起動後は空で、旧保留は再送しない。
 let primed = deliveryState.primed
 // 通知済み集合を耐再起動にする。メモリだけだと bridge が再起動するたび同じ [配達失敗] DM を
 // room へ再投稿する（2026-08-30 実測: 13回の再起動で同一通知が13重複し、公開feedの末尾78件が
@@ -337,8 +333,10 @@ function saveDeliveryState() {
     last_seq: lastSeq,
     delivered: [...delivered].slice(-10_000),
     notified: [...notifiedFailures].slice(-10_000),
+    held: Object.fromEntries(held),
   }) + '\n')
   renameSync(temp, deliveryStatePath)
+  deliveryStateDirty = false
 }
 
 function deliveryKey(seq, seat) {
@@ -360,7 +358,8 @@ function advanceLastSeq() {
   for (;;) {
     const state = deliveryStates.get(lastSeq + 1)
     if (!state) break
-    if (![...state.targets].every(seat => state.delivered.has(seat))) break
+    if (![...state.targets].every(seat => state.delivered.has(seat) ||
+        (held.has(deliveryKey(lastSeq + 1, seat)) && !sending.has(deliveryKey(lastSeq + 1, seat))))) break
     deliveryStates.delete(lastSeq + 1)
     lastSeq += 1
     advanced = true
@@ -368,7 +367,6 @@ function advanceLastSeq() {
   if (advanced) saveDeliveryState()
 }
 
-const deferredBusy = new Set()
 const aiterm = new AitermClient()
 async function passKnownSeatApproval(member, observation) {
   if (!isWakeupBridgeTarget(member, targetOpts)) return false
@@ -391,7 +389,7 @@ async function wake(seat, msgs) {
     error.code = code
     throw error
   }
-  // **席の TUI への打鍵は aiterm の公開 API（pty_send / agent_steer）だけで行う。**
+  // 席への入力と状態に応じた振分けはAitermの公開pty_sendが所有する。
   // PTY の状態（agent が tty の前面か・termios が raw か・貼付の方言・submit の成立）は aiterm が
   // 所有し、bridge は「誰に・いつ・何を届けるか」と receipt だけを持つ（責務境界。2026-09-04
   // オーナー裁定: 0.8.51/0.8.52 で bridge に足した fg／stty は aiterm へ移し、ここからは撤去）。
@@ -400,60 +398,26 @@ async function wake(seat, msgs) {
   if (!observed.exists || ['dead', 'missing'].includes(observed.state) || observed.harness_alive === false) {
     throw Object.assign(new Error(`SEAT_TUI_GONE: ${seat}`), { code: 'SEAT_TUI_GONE' })
   }
-  if (observed.harness_alive === null || observed.state === 'unknown') {
+  if (observed.harness_alive === null) {
     throw Object.assign(new Error(`SEAT_OBSERVATION_UNKNOWN: ${seat}: ${observed.reason}`), { code: 'SEAT_OBSERVATION_UNKNOWN' })
   }
-  const harness = memberHarness(member)
-  if (harness === 'grok') {
-    if (shouldDeferGrokWake(harness, observed.state)) {
-      if (!deferredBusy.has(seat)) {
-        log(`Grok席が実行中なのでidleまで待つ: ${seat} ← ${msgs.length} 件`)
-        deferredBusy.add(seat)
-      }
-      return 'deferred'
-    }
-    deferredBusy.delete(seat)
-  }
+  // 画面分類がunknownでも生存が確認できれば送信時の振分けはAitermへ委ねる。
   if (await passKnownSeatApproval(member, observed)) return 'deferred'
-  const busy = observed.state === 'busy'
-  const deliverScript = fileURLToPath(new URL('./aiterm-deliver.mjs', import.meta.url))
-  const deliverFile = join(proj, '.team', `wakeup-deliver-${process.pid}.txt`)
-  writeFileSync(deliverFile, text)
-  const deliver = async (mode) => {
-    const res = await run(process.execPath, [deliverScript, sessionId, deliverFile, `--mode=${mode}`],
-      { env: process.env, maxBuffer: 4 * 1024 * 1024 })
-    return JSON.parse(String(res.stdout || '{}'))
+  // 呼出し前に保留を永続化する。成功後の保存前にprocessが消えても再送しない。
+  for (const msg of msgs) held.set(deliveryKey(msg.seq, seat), 'SEND_OUTCOME_UNKNOWN')
+  try { saveDeliveryState() } catch (error) {
+    for (const msg of msgs) held.delete(deliveryKey(msg.seq, seat))
+    throw error
   }
-  let mode = harness === 'codex' && busy ? 'steer' : 'dispatch'
+  for (const msg of msgs) sending.add(deliveryKey(msg.seq, seat))
   let receipt
   try {
-    receipt = await deliver(mode)
-    if (receipt?.schema === 'aiterm.agent-steer.v1' && receipt.delivery === 'idle') {
-      // steer した瞬間に idle へ落ちた。dispatch で届け直す（aiterm が ready gate を通す）
-      mode = 'dispatch'
-      receipt = await deliver(mode)
-    }
-  } catch (e) {
-    const detail = String(e?.stderr || e?.message || e).split('\n').filter(Boolean).join(' / ').slice(0, 240)
-    // 起動時 prompt の完了待ち（着席直後の Claude/Codex 席）も「今は受け取れない」であり、次周期に再試行する
-    if (/入力受付状態になりません|起動時 prompt の完了待ち|AGENT_TUI_BACKGROUNDED|AGENT_TTY_COOKED/u.test(detail)) {
-      // 席は在るが今は受け取れない（実行中・ダイアログ・前面回復不能）。次周期に再試行する
-      log(`配達できず次周期に再試行: ${seat} ← ${msgs.length} 件: ${detail}`)
-      return 'deferred'
-    }
-    const error = new Error(`DELIVERY_FAILED: ${seat}: ${detail}`)
-    error.code = 'DELIVERY_FAILED'
-    throw error
-  } finally {
-    try { unlinkSync(deliverFile) } catch { /* 一時fileの掃除失敗は配達判定に影響しない */ }
-  }
-  if (receipt?.submit_residue === true) {
-    // aiterm が composer への残存を観測＝submit 未成立の疑い。受領を確定せず次周期に再試行する
-    log(`DELIVERY_STUCK: ${seat} の composer に本文が残存（aiterm submit_residue=true）。受領を確定せず次周期に再試行する`)
-    const error = new Error(`DELIVERY_STUCK: ${seat}`)
-    error.code = 'DELIVERY_STUCK'
+    receipt = await aiterm.structured('pty_send', { session_id: sessionId, text, enter: true }, 'aiterm.pty-send-result.v1')
+  } catch (error) {
+    error.deliveryUncertain = true
     throw error
   }
+  const mode = memberDeliveryMode(receipt)
   const recovered = Array.isArray(receipt?.pane_input_recovery) && receipt.pane_input_recovery.length
     ? `・回復 ${receipt.pane_input_recovery.join(',')}`
     : ''
@@ -474,7 +438,7 @@ function dispatch(msg) {
   }
   deliveryStates.set(msg.seq, state)
   for (const seat of targets) {
-    if (state.delivered.has(seat)) continue
+    if (state.delivered.has(seat) || held.has(deliveryKey(msg.seq, seat))) continue
     if (!pending.has(seat)) pending.set(seat, new Map())
     pending.get(seat).set(msg.seq, msg)
   }
@@ -503,6 +467,7 @@ async function flushSeat(seat) {
           const state = deliveryStates.get(msg.seq)
           if (state) state.delivered.add(seat)
           delivered.add(deliveryKey(msg.seq, seat))
+          held.delete(deliveryKey(msg.seq, seat))
         }
         // durable保存失敗時はin-memory印を巻き戻す（TUI成功経路517–525と同じ契約。反証1）
         try {
@@ -537,6 +502,8 @@ async function flushSeat(seat) {
       if (!state) continue
       state.delivered.add(seat)
       delivered.add(deliveryKey(msg.seq, seat))
+      held.delete(deliveryKey(msg.seq, seat))
+      sending.delete(deliveryKey(msg.seq, seat))
       receipts.push({ msg, state })
     }
     // lastSeq が先行seqの別宛先失敗で止まっても、今回成功した宛先のreceiptは失わない。
@@ -548,18 +515,23 @@ async function flushSeat(seat) {
         for (const { msg, state } of receipts) {
           state.delivered.delete(seat)
           delivered.delete(deliveryKey(msg.seq, seat))
+          held.set(deliveryKey(msg.seq, seat), 'DELIVERY_STATE_SAVE_FAILED')
         }
+        error.code = 'DELIVERY_STATE_SAVE_FAILED'
+        error.deliveryUncertain = true
         throw error
       }
       for (const { msg } of receipts) queue.delete(msg.seq)
       // TUI 投入が成立した時にだけ server の配送 receipt を delivered にする（決定102）
       for (const { msg } of receipts) await postReceipt(msg.seq, seat, 'delivered')
     }
-    advanceLastSeq()
+    try { advanceLastSeq() } catch (error) {
+      deliveryStateDirty = true
+      log(`DELIVERY_STATE_SAVE_FAILED: ${error.message}`)
+    }
   } catch (error) {
-    // 失敗時はpendingもreceiptもcursorも動かさない。次のmember refreshで
-    // descriptor/PTYが復旧した時、同じseqを同じ宛先へ一度だけ再試行する。
-    const code = typeof error.code === 'string' ? error.code : 'INJECTION_FAILED'
+    // 呼出し後の不確実な結果は再送せず、他席と後続の配送を続ける。
+    const code = deliveryFailureCode(error)
     log(`WAKEUP_BRIDGE_DELIVERY_FAILURE ${JSON.stringify({
       recipient: seat,
       code,
@@ -569,15 +541,28 @@ async function flushSeat(seat) {
     // 席不在系は seat_unavailable、それ以外は failed として server へ現況を残す。
     // 再試行が成立すれば同じ (seq, recipient) を delivered で上書きする
     const result = ['SEAT_TUI_GONE', 'MEMBER_MISSING', 'DESCRIPTOR_MISSING'].includes(code) ? 'seat_unavailable' : 'failed'
+    if (error.deliveryUncertain) {
+      for (const msg of msgs) held.set(deliveryKey(msg.seq, seat), code)
+      for (const msg of msgs) sending.delete(deliveryKey(msg.seq, seat))
+      try { saveDeliveryState() } catch (saveError) {
+        deliveryStateDirty = true
+        log(`DELIVERY_STATE_SAVE_FAILED: ${saveError.message}`)
+      }
+      for (const msg of msgs) queue.delete(msg.seq)
+      for (const msg of msgs) await postReceipt(msg.seq, seat, 'failed', code, true)
+      try { advanceLastSeq() } catch (saveError) {
+        deliveryStateDirty = true
+        log(`DELIVERY_STATE_SAVE_FAILED: ${saveError.message}`)
+      }
+      return
+    }
     for (const msg of msgs) await postReceipt(msg.seq, seat, result, code)
-    // 同一集合の失敗が続いたら再試行を打ち切る。STUCK は5周期（composer汚染を止める）、
-    // 席不在系は150周期≈5分（席の再起動・立て直しは待ち、卓ごと死んだ席だけを見切る）。
+    // 同一集合の席不在が続いたら150周期≈5分で再試行を打ち切る。
     // 打ち切りは delivered 台帳へ耐再起動で記録する——記録しないと lastSeq が前進せず、
     // bridge の再起動ごとに同じ seq の再試行が蘇る（2026-08-30 実測: 席全滅の卓で
     // seq 2件が18時間・3.7万行の SEAT_TUI_GONE を刻み続けた）。failed receipt と
     // 親宛[配達失敗]DMは既に出ており、無限再試行は誰も救わない。
-    const abandonAfter = code === 'DELIVERY_STUCK' ? 5
-      : ['SEAT_TUI_GONE', 'MEMBER_MISSING', 'DESCRIPTOR_MISSING'].includes(code) ? goneAbandonCycles
+    const abandonAfter = ['SEAT_TUI_GONE', 'MEMBER_MISSING', 'DESCRIPTOR_MISSING'].includes(code) ? goneAbandonCycles
       : null
     if (abandonAfter !== null) {
       const key = msgs.map((msg) => msg.seq).join(',')
@@ -607,6 +592,44 @@ async function flushSeat(seat) {
 setInterval(() => {
   for (const [seat, queue] of pending) {
     if (queue.size > 0) flushSeat(seat).catch(error => log(`WAKEUP_BRIDGE_FLUSH_FAILED: ${error.message}`))
+  }
+}, 2000)
+
+// 保留本文は再送しない。既読ackで解消し、親への通知POSTだけを永続化まで再試行する。
+let notifyingHeld = false
+setInterval(async () => {
+  if (notifyingHeld) return
+  notifyingHeld = true
+  try {
+    if (deliveryStateDirty) saveDeliveryState()
+    if (held.size) await refreshMembers()
+    for (const [key, reason] of [...held]) {
+      if (!held.has(key) || sending.has(key)) continue
+      const split = key.indexOf(':')
+      const seq = Number(key.slice(0, split))
+      const recipient = key.slice(split + 1)
+      if (Number(members.get(recipient)?.read_seq ?? 0) >= seq) {
+        held.delete(key)
+        delivered.add(key)
+        deliveryStates.get(seq)?.delivered.add(recipient)
+        try { saveDeliveryState() } catch (error) {
+          held.set(key, reason)
+          delivered.delete(key)
+          deliveryStates.get(seq)?.delivered.delete(recipient)
+          log(`DELIVERY_STATE_SAVE_FAILED: ${error.message}`)
+          continue
+        }
+        pending.get(recipient)?.delete(seq)
+        await postReceipt(seq, recipient, 'delivered', 'acked_read')
+        advanceLastSeq()
+        continue
+      }
+      await postReceipt(seq, recipient, 'failed', reason, true)
+    }
+  } catch (error) {
+    log(`DELIVERY_HELD_SWEEP_FAILED: ${error.message}`)
+  } finally {
+    notifyingHeld = false
   }
 }, 2000)
 
@@ -697,6 +720,7 @@ function onHeartbeat(dataLine) {
 }
 
 let failures = 0
+await aiterm.requireUnifiedSend()
 log(`bridge start: room=${room} seats=${seats.join(',')} pid=${process.pid}`)
 for (;;) {
   try {

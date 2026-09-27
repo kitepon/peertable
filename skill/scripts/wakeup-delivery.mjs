@@ -24,6 +24,23 @@ export function formatWakeNotice(msg) {
   return `[Peertable DM #${msg.seq}] ${msg.from} → ${audience}: ${body}`
 }
 
+export function memberDeliveryMode(receipt) {
+  if (receipt?.schema !== 'aiterm.pty-send-result.v1' || receipt.submit_residue === true ||
+      !['agent_dispatch', 'agent_steer'].includes(receipt.mode)) {
+    const code = receipt?.submit_residue === true ? 'DELIVERY_STUCK' : 'PEERTABLE_AITERM_CONTRACT_UNAVAILABLE'
+    throw Object.assign(new Error(`${code}: mode=${receipt?.mode ?? 'missing'}`), { code, deliveryUncertain: true })
+  }
+  return receipt.mode
+}
+
+export function deliveryFailureCode(error) {
+  const message = String(error?.message ?? '')
+  if (/^(?:aiterm: )?STEER_NOT_QUEUED(?:\s|$)/u.test(message)) return 'STEER_NOT_QUEUED'
+  if (/^(?:aiterm: )?STEER_STILL_QUEUED(?:\s|$)/u.test(message)) return 'STEER_STILL_QUEUED'
+  if (/^(?:aiterm: )?submit_residue=true(?:\s|$)/u.test(message)) return 'DELIVERY_STUCK'
+  return typeof error?.code === 'string' ? error.code : 'INJECTION_FAILED'
+}
+
 /**
  * 親は parent-watch が配達する。通常席の TUI 配達から外す。
  * Codex / Grok の observe 欠落は対象外ではない——配達できない故障であり、黙って飛ばさない。
@@ -31,9 +48,7 @@ export function formatWakeNotice(msg) {
 export function isWakeupBridgeTarget(member, options = {}) {
   if (!member || typeof member.name !== 'string' || member.name.length === 0) return false
   if (member.delivery?.kind === 'parent_watch') return false
-  // Claude 席も bridge の対象にする。channel 通知だけでは idle の席が起きない実測がある
-  // （2026-09-04: 監査席が監査提出 #442 を 10 分読まなかった）。aiterm の dispatch は前の匿名 turn の
-  // Stop 回収が要るので、aiterm-deliver.mjs が receipt の wait_process を切り離して起動する。
+  // Claude 席も bridge の対象にする。channel 通知だけでは idle の席が起きない実測がある。
   const parentName = options.parentName
   if (typeof parentName === 'string' && parentName.length > 0 && member.name === parentName) return false
   const hasPane = Boolean(seatSessionId(member))
@@ -61,9 +76,4 @@ export function isIdleSelfWake(msg) {
   const body = String(msg.body ?? '')
   if (!body.startsWith('[次の行動]')) return false
   return /変化なし|待機継続|黙って待機/.test(body)
-}
-
-/** Grok 既定はキュー投入。busy 中に積むと今のターンへ混ざらない。 */
-export function shouldDeferGrokWake(harness, state) {
-  return harness === 'grok' && state === 'busy'
 }
