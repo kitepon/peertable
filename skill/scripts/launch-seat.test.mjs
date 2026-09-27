@@ -8,6 +8,7 @@ import { launchSeat } from './launch-seat.mjs'
 import { runScript } from './project-scaffold.mjs'
 import { packageRoot } from './install-skill.mjs'
 import { isSeatLaunching } from './seat-launch-phase.mjs'
+import { expectedCursorRoomMcp } from './ensure-cursor-room-mcp.mjs'
 
 function fixture(t, harness = 'claude') {
   const project = mkdtempSync(join(tmpdir(), 'peertable-launch-'))
@@ -195,7 +196,7 @@ test('CursorはAitermの公開launcherで事前確認し、room MCPを配線し�
   assert.equal(launch.env_vars.includes('CURSOR_HOME'), false)
   assert.equal(f.events.some(event => event.resolve), false)
   const config = JSON.parse(readFileSync(join(f.options.project, '.cursor', 'mcp.json'), 'utf8'))
-  assert.deepEqual(config.mcpServers.room, { command: 'node', args: [join(packageRoot, 'room', 'client.mjs')] })
+  assert.deepEqual(config.mcpServers.room, expectedCursorRoomMcp(packageRoot))
 })
 
 test('Cursorの公開事前確認が失敗した時は既存席へ触れない', async t => {

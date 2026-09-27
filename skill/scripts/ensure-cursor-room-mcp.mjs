@@ -12,6 +12,24 @@ import { expectedRoomMcp, isExpectedRoomMcp } from './room-mcp-config.mjs'
 const markerName = 'cursor-room-mcp.managed.json'
 const excludeRule = '/.cursor/mcp.json'
 
+export function expectedCursorRoomMcp(peertableRepo) {
+  const keys = [
+    'PEERTABLE_URL', 'PEERTABLE_ROOM', 'PEERTABLE_MEMBER', 'PEERTABLE_CREDENTIAL_FILE',
+    'PEERTABLE_HARNESS', 'PEERTABLE_VENDOR', 'PEERTABLE_MODEL', 'PEERTABLE_EFFORT',
+    'PEERTABLE_ROLE', 'PEERTABLE_ROLES', 'PEERTABLE_MISSION', 'AITERM_SESSION_ID',
+  ]
+  return { ...expectedRoomMcp(peertableRepo), env: Object.fromEntries(keys.map(key => [key, '${env:' + key + '}'])) }
+}
+
+function isExpectedCursorRoomMcp(current, expected) {
+  return Boolean(current && typeof current === 'object' && !Array.isArray(current)
+    && Object.keys(current).sort().join(',') === 'args,command,env'
+    && isExpectedRoomMcp({ command: current.command, args: current.args }, expected)
+    && current.env && typeof current.env === 'object' && !Array.isArray(current.env)
+    && Object.keys(current.env).sort().join(',') === Object.keys(expected.env).sort().join(',')
+    && Object.entries(expected.env).every(([key, value]) => current.env[key] === value))
+}
+
 const fail = (code, message) => {
   throw Object.assign(new Error(`${code}: ${message}`), { code })
 }
@@ -78,11 +96,17 @@ export function ensureCursorRoomMcp(project, peertableRepo) {
   const paths = cursorConfig(project)
   const marker = readMarker(paths.marker)
   const { exists, config } = readConfig(paths.file)
-  const expected = expectedRoomMcp(peertableRepo)
+  const expected = expectedCursorRoomMcp(peertableRepo)
   const current = config.mcpServers?.room
   if (current !== undefined) {
-    if (!isExpectedRoomMcp(current, expected)) fail('SEAT_CURSOR_ROOM_MCP_CONFLICT', '既存のroom MCP定義が異なります')
-    return { schema: 'peertable.cursor-room-mcp.v1', status: marker ? 'ready' : 'preexisting', file: paths.file }
+    if (isExpectedCursorRoomMcp(current, expected))
+      return { schema: 'peertable.cursor-room-mcp.v1', status: marker ? 'ready' : 'preexisting', file: paths.file }
+    if (marker && isExpectedRoomMcp(current, expectedRoomMcp(peertableRepo))) {
+      config.mcpServers.room = expected
+      atomicWrite(paths.file, config, lstatSync(paths.file).mode & 0o777)
+      return { schema: 'peertable.cursor-room-mcp.v1', status: 'migrated', file: paths.file }
+    }
+    fail('SEAT_CURSOR_ROOM_MCP_CONFLICT', '既存のroom MCP定義が異なります')
   }
   if (marker) fail('SEAT_CURSOR_ROOM_MCP_OWNERSHIP_CONFLICT', 'Peertable管理中のroom MCPが変更されています')
 
@@ -109,8 +133,9 @@ export function removeCursorRoomMcp(project, peertableRepo) {
   if (!marker) return { schema: 'peertable.cursor-room-mcp.v1', status: 'absent', file: paths.file }
   const { exists, config } = readConfig(paths.file)
   if (exists) {
-    const expected = expectedRoomMcp(peertableRepo)
-    if (!isExpectedRoomMcp(config.mcpServers?.room, expected))
+    const current = config.mcpServers?.room
+    if (!isExpectedCursorRoomMcp(current, expectedCursorRoomMcp(peertableRepo))
+        && !isExpectedRoomMcp(current, expectedRoomMcp(peertableRepo)))
       fail('SEAT_CURSOR_ROOM_MCP_OWNERSHIP_CONFLICT', 'Peertable管理中のroom MCPが変更されています')
     delete config.mcpServers.room
     if (Object.keys(config.mcpServers).length === 0) delete config.mcpServers

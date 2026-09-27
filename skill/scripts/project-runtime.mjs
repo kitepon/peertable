@@ -1,10 +1,13 @@
 // setup/resumeは、対象projectの生成物更新とruntimeの確認までを連続して行う。
 import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import { AitermClient } from './aiterm-client.mjs'
 import { RoomApi } from './room-api.mjs'
 import { findSeatSession, seatSessionId } from './seat-session.mjs'
 import { scaffoldProject, ensureProjectRoomMcp, projectPath, readSetup, runScript, writeJson, fail } from './project-scaffold.mjs'
 import { ensureProjectRuntime } from './ensure-project-runtime.mjs'
+import { ensureCursorRoomMcp } from './ensure-cursor-room-mcp.mjs'
+import { packageRoot } from './install-skill.mjs'
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const targets = members => members.filter(member => member.delivery?.kind !== 'parent_watch' && (member.harness ?? member.vendor) && seatSessionId(member))
@@ -72,23 +75,27 @@ export async function resumeProject(options, dependencies = {}) {
   const aiterm = dependencies.aiterm ?? new AitermClient()
   try {
     const sessions = await aiterm.sessions(['PEERTABLE_MEMBER', 'PEERTABLE_ROOM'])
-    const credential = runScript('seat-credential.mjs', ['prepare', project, state.room, 'runtime'])
-    const api = new RoomApi(state, { credential })
+    const script = dependencies.runScript ?? runScript
+    const credential = script('seat-credential.mjs', ['prepare', project, state.room, 'runtime'])
+    const api = dependencies.api ?? new RoomApi(state, { credential })
     const members = await api.members()
     const relaunch = await seatsToResume(aiterm, members, sessions, state.room)
     ensureProjectRoomMcp(project, state)
+    if (existsSync(join(project, '.team', 'cursor-room-mcp.managed.json'))
+        || members.some(member => (member.harness ?? member.vendor) === 'cursor'))
+      ensureCursorRoomMcp(project, packageRoot)
     if (options.plan) {
       state = { ...state, mode: 'lattice', plan_key: options.plan, phases: options.phases ?? [] }
       writeJson(join(project, '.team', 'setup-state.json'), state)
-      runScript('external-pane.mjs', [project, state.room, process.env.PEERTABLE_PUBLIC_URL || state.public_url || state.server_url])
+      script('external-pane.mjs', [project, state.room, process.env.PEERTABLE_PUBLIC_URL || state.public_url || state.server_url])
     }
-    runScript('upgrade-team-assets.mjs', [project])
+    script('upgrade-team-assets.mjs', [project])
     for (const member of relaunch) {
       const { launchSeat } = await import('./launch-seat.mjs')
       await launchSeat({ project, name: member.name, roles: member.roles.join(','), harness: member.harness ?? member.vendor,
         model: member.model, effort: member.effort, mission: member.mission })
     }
-    const runtime = await ensureProjectRuntime(project, { aiterm, env: { ...process.env, PEERTABLE_CREDENTIAL_FILE: credential } })
+    const runtime = await (dependencies.ensureProjectRuntime ?? ensureProjectRuntime)(project, { aiterm, env: { ...process.env, PEERTABLE_CREDENTIAL_FILE: credential } })
     const verified = await verifyProjectRuntime(api, { probe: options.probe !== false })
     return { schema: 'peertable.resume-result.v1', status: 'ready', project, room: state.room, relaunched: relaunch.map(member => member.name), runtime, verified }
   } finally { if (!dependencies.aiterm) await aiterm.close() }

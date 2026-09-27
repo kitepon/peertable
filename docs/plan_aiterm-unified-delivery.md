@@ -1,8 +1,10 @@
 # Aiterm統合送信APIへの移行計画
 
-状態: 統合配送の実装・公開版導入・Codex／Claude／Grokの実席確認は完了。Cursor実席はroom MCP接続と利用上限で受入未確認。完了条件が残るため現行campaignとして保持。
+状態: 統合配送の実装・公開版導入・Codex／Claude／Grokの実席確認は完了。Cursorのroom MCP接続原因を特定し、env補間を修理。Cursor実席の再確認を待つため現行campaignとして保持。
 
 ## 2026-09-28 時点の実測
+
+- Cursor AutoとGrokは利用可能で、現在の利用上限はClaude系だけ。Cursor CLI `v2026.09.26-dd393fe`は任意の起動envをstdio MCPへ継承せず、明示した`${env:NAME}`だけが席情報を渡すことをprobeで確認した。[Cursor公式仕様](https://prod.cursor.com/docs/mcp)もこの補間を定義する。PeertableのCursor専用room定義へ必要な席envとcredential pathの補間を追加し、管理marker付きlegacy定義だけをensure/resumeで移行する。利用者定義の非上書きと旧定義の撤去はfocused testで確認した。CursorのMCP enableとlistは同じ席envで実行し、展開後の定義とapprovalを一致させる。
 
 - 実装は `be71d78`、Windows fixture修正は `2fc4553`、公開前の非同期登録テスト修正は `aff6e21`。いずれも `origin/main` に着地した。
 - [3環境CI](https://github.com/kitepon/peertable/actions/runs/36329329070)はmacOS・Linux・Windowsで成功。`npm pack --dry-run`は111ファイルで、旧`aiterm-deliver.mjs`を含まない。

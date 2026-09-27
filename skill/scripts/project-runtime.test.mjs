@@ -1,6 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { seatsToResume, verifyProjectRuntime } from './project-runtime.mjs'
+import { seatsToResume, verifyProjectRuntime, resumeProject } from './project-runtime.mjs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { expectedRoomMcp } from './room-mcp-config.mjs'
+import { expectedCursorRoomMcp } from './ensure-cursor-room-mcp.mjs'
+import { packageRoot } from './install-skill.mjs'
 
 const member = { name: 'alice', harness: 'codex', aiterm_session_id: 'seat', roles: ['実装者'] }
 const sessions = [{ session_id: 'seat', environment: { PEERTABLE_MEMBER: 'alice', PEERTABLE_ROOM: 'room' } }]
@@ -26,4 +32,34 @@ test('fresh heartbeatと宛先別deliveredを読んで再開の配達を確認�
   assert.deepEqual(await verifyProjectRuntime(api), { heartbeat: 1, probe: 'delivered', seq: 7 })
   assert.equal(calls[0].options.body.to, 'alice')
   assert.equal(calls[1].path, 'deliveries?seq=7')
+})
+
+test('resumeは未登録席の管理markerと生存Cursor席の両方でMCP設定をruntime確認前に更新する', async t => {
+  for (const managedLegacy of [true, false]) {
+    const project = mkdtempSync(join(tmpdir(), 'peertable-resume-cursor-'))
+    t.after(() => rmSync(project, { recursive: true, force: true }))
+    mkdirSync(join(project, '.team'))
+    writeFileSync(join(project, '.team', 'setup-state.json'), JSON.stringify({ room: 'room', server_url: 'http://fixture', mode: 'standalone', room_mcp_managed: true }))
+    if (managedLegacy) {
+      mkdirSync(join(project, '.cursor'))
+      writeFileSync(join(project, '.cursor', 'mcp.json'), JSON.stringify({ mcpServers: { room: expectedRoomMcp(packageRoot) } }))
+      writeFileSync(join(project, '.team', 'cursor-room-mcp.managed.json'), JSON.stringify({ schema: 'peertable.cursor-room-mcp.v1', added_exclude: false }))
+    }
+    const members = managedLegacy ? [] : [{ ...member, harness: 'cursor', status_reason: 'fresh' }]
+    let runtimeChecked = false
+    const result = await resumeProject({ project, probe: false }, {
+      aiterm: { sessions: async () => sessions, observe: async () => ({ exists: true, harness_alive: true, state: 'idle' }) },
+      api: { members: async () => members },
+      runScript: () => 'fixture-credential-path',
+      ensureProjectRuntime: async () => {
+        assert.deepEqual(JSON.parse(readFileSync(join(project, '.cursor', 'mcp.json'))).mcpServers.room, expectedCursorRoomMcp(packageRoot))
+        assert.deepEqual(JSON.parse(readFileSync(join(project, '.mcp.json'))).mcpServers.room, expectedRoomMcp(packageRoot))
+        runtimeChecked = true
+        return {}
+      },
+    })
+    assert.equal(runtimeChecked, true)
+    assert.equal(result.status, 'ready')
+    assert.deepEqual(result.relaunched, [])
+  }
 })

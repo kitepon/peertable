@@ -29,8 +29,7 @@ function prepareHarness(project, name, harness, env, script, home) {
     if (harness === 'grok') script('grok-seat-config.mjs', [project, join(env[key], 'config.toml')], { env })
     else script('ensure-codex-room-mcp.mjs', ['ensure', project, packageRoot], { env })
   } else if (harness === 'cursor') {
-    // Cursor Agent CLIはprojectの.cursor/mcp.jsonを読む。席情報は起動envを継承するため、
-    // 設定を席ごとに書き換えずroom定義だけをPeertableが管理する。
+    // Cursor Agent CLIへは席情報をenv補間で明示する。設定を席ごとに書き換えない。
     script('ensure-cursor-room-mcp.mjs', ['ensure', project, packageRoot], { env })
   }
 }
