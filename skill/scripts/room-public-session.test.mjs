@@ -55,7 +55,13 @@ test('実room clientが公開session IDと席資格で参加・投稿し、serve
     assert.equal(response.ok, true, `${path}: ${response.status}`)
     return response.json()
   }
-  const alice = (await api('members')).members.find(member => member.name === 'alice')
+  const deadline = Date.now() + 5_000
+  let alice
+  while (!alice && Date.now() < deadline) {
+    alice = (await api('members')).members.find(member => member.name === 'alice')
+    if (!alice) await new Promise(resolve => setTimeout(resolve, 50))
+  }
+  assert.ok(alice, 'room clientの会員登録が期限内に完了する')
   assert.equal(alice.aiterm_session_id, env.AITERM_SESSION_ID)
   assert.deepEqual(alice.observe, { aiterm_session_id: env.AITERM_SESSION_ID })
   assert.deepEqual(alice.roles, ['実装'])
