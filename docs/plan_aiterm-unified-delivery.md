@@ -1,6 +1,15 @@
 # Aiterm統合送信APIへの移行計画
 
-状態: 統合配送の実装、レビュー、ローカルCI、Codex・Claude・Grok実席の配達確認は完了。Cursor実席はroom参加登録で停止。既定ブランチへの着地、公開版の導入と公開後確認は未実施。
+状態: 統合配送の実装・公開版導入・Codex／Claude／Grokの実席確認は完了。Cursor実席はroom MCP接続と利用上限で受入未確認。完了条件が残るため現行campaignとして保持。
+
+## 2026-09-28 時点の実測
+
+- 実装は `be71d78`、Windows fixture修正は `2fc4553`、公開前の非同期登録テスト修正は `aff6e21`。いずれも `origin/main` に着地した。
+- [3環境CI](https://github.com/kitepon/peertable/actions/runs/36329329070)はmacOS・Linux・Windowsで成功。`npm pack --dry-run`は111ファイルで、旧`aiterm-deliver.mjs`を含まない。
+- `v0.8.60`の公開workflowは、既存テストがMCP接続直後の会員登録完了を待たない競合で失敗した。タグは動かさず、修正を`v0.8.61`に含めた。[Trusted Publishing](https://github.com/kitepon/peertable/actions/runs/36329419231)は成功し、registryとこのMacのglobal installで`0.8.61`を確認した。
+- ソース版の隔離卓で、Grokの待機中配送、観測`unknown`のClaudeへの配送、実行中Codexへの`agent_steer`配送を確認した。各メッセージのroom receiptが`delivered`となり、受信席が識別子を含む返信を投稿した。
+- 公開版だけで作った隔離卓では、`peertable resume`が2席のheartbeatと配送probeを確認。CodexからClaudeへのDM #7は`agent_dispatch`で受理され、roomの`delivered`とClaudeの識別子付き返信が一致した。`peertable diagnostics <project>`は`ready`。両試験卓は正規teardownで解散した。
+- Cursor席は最初の実行が月間利用上限で止まり、別モデルではCursor CLIの`room` MCPが`Connection failed`となった。Peertableの`pty_send`へ渡す前にroom参加登録が成立していないため、Cursor実席の配送成否は未確認。利用可能なCursorセッションでroom MCP接続を診断し、参加・待機中・実行中の配送を確認してから本計画をarchiveへ移す。
 
 ## 目的と完了条件
 
