@@ -40,7 +40,9 @@
   "after": {
     "node_version": "v24.20.0",
     "isolated_product_focused_test": { "passed": 1, "failed": 0, "skipped": 0 },
-    "ci_failed_job_rerun": "requested"
+    "ci_failed_job_rerun": "passed",
+    "ci_url": "https://github.com/kitepon/peertable/actions/runs/36459298039",
+    "native_os_ci": { "darwin": "passed", "linux": "passed", "win32": "passed" }
   },
   "product_source_changed_for_node_assertion": false,
   "interpretation": "配送の照合失敗ではない。Nodeの上流修理を公式installerで適用し、Windowsの失敗jobだけ再検証する。旧版のassertionを成功として扱わない"
