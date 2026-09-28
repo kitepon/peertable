@@ -18,7 +18,7 @@ runnerは1回の呼出しで次を連続して行う。
 4. 配布物の`room/server.mjs`で試験専用roomを起動する。tokenは`PEERTABLE_TOKEN_SOURCE_FILE`経由で標準のseat-credential経路へ渡す。
 5. Aitermの公開MCP（`aiterm-mcp`）でPTYを開き、通常HOME・通常認証のまま`claude`/`codex`を起動する。Aitermの結果は宣言済みschemaのstructuredContentだけを読み、人間向けtextは解釈しない。`pty_open`は出力schemaを持たないため、指定したnameのsessionを`pty_observe`のstructured結果（`session_id`一致・`exists:true`）で確かめ、確かめられなければ`ACCEPTANCE_AITERM_SESSION_ID_MISSING`で止まる。試験dirの信頼dialogだけを肯定し、未知のdialogでは止まる。
 6. 実親に`parent_join`を1回呼ばせ、`verified`を待ってからscenarioを実測する。
-7. 後片付けを逆順で行う。harness終了、製品自身のendpoint停止の観測（30秒）、Codexの試験dir信頼entry削除、PTY close、room停止、`connect --remove`、設定の意味比較。各段の結果は`cleanupFailure`が完了条件と照合する。harness未終了、所有processの残存、endpoint未停止、pane・room processの残存、信頼entryの残存、connect解除の失敗、意味比較の不一致、Codex `config.toml`本文の不一致は、それぞれ原因code付きの`failed`になり、runは失敗で終わる。退避tarは`connect_remove`の完了条件をすべて満たした時だけ消す。製品が親終了後30秒以内にendpointを止めなかった場合と、停止済みendpointの索引が残った場合は、`findings`へ記録する。
+7. 後片付けを逆順で行う。harness終了、製品自身のendpoint停止の観測（30秒）、Codexの試験dir信頼entry削除、PTY close、room停止、`connect --remove`、設定の意味比較。各段の結果は`cleanupFailure`が完了条件と照合する。harness未終了、所有processの残存、endpoint未停止、pane・room processの残存、信頼entryの残存、connect解除の失敗、意味比較の不一致、Codex `config.toml`本文の不一致は、それぞれ原因code付きの`failed`になり、runは失敗で終わる。退避tarは`connect_remove`の完了条件をすべて満たした時だけ消す。製品が親終了後30秒以内にendpointを止めなかった場合（runnerが止める）と、停止済みendpointの索引が残った場合（runnerが自分の試験entryだけを外す）は、後片付け自体は続けるが、`findings`へ記録し、`endpoint_stop`を`PRODUCT_ENDPOINT_NOT_SELF_STOPPED`・`PRODUCT_ENDPOINT_STOPPED_BY_RUNNER`・`PRODUCT_STOPPED_ENDPOINT_INDEX_LEFT`の`failed`にしてrunを失敗で終える。
 
 Codexだけ、session層の`-c`を2つ足す。MCPへtoken参照先を渡す`mcp_servers.peertable_parent.env_vars`と、無人実行で更新dialogを出さない`check_for_update_on_startup=false`である。Codexのtrust dialogは`-c`では回避できないため、起動時に受諾する。書かれた`projects.<試験dir>`は、終了後に公式`config/batchWrite`で削除する。
 
