@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
@@ -19,10 +20,12 @@ const specPath = join(root, 'spec.json')
 const callsPath = join(root, 'calls.jsonl')
 const statePath = join(project, '.team/wakeup-bridge-delivery.json')
 const seats = ['claude', 'codex', 'grok', 'cursor']
-const members = seats.map(name => ({ name, harness: name, aiterm_session_id: `session-${name}`, read_seq: 0 }))
+const actualParent = { name: 'parent', harness: 'codex', delivery: { kind: 'parent_receiver', harness: 'codex', endpoint_id: randomUUID() } }
+const members = [...seats.map(name => ({ name, harness: name, aiterm_session_id: `session-${name}`, read_seq: 0 })), actualParent]
 const messages = []
 const receipts = new Map()
 const notifications = []
+const noticeAttempts = []
 const streams = new Set()
 let failNoticeOnce = true
 let child
@@ -58,6 +61,7 @@ const server = createServer(async (request, response) => {
   } else if (request.method === 'POST' && path.pathname.endsWith('/messages')) {
     const chunks = []; for await (const chunk of request) chunks.push(chunk)
     const data = JSON.parse(Buffer.concat(chunks).toString())
+    if (data.from === 'wakeup') noticeAttempts.push(data)
     if (data.from === 'wakeup' && failNoticeOnce) { failNoticeOnce = false; send(500, {}); return }
     notifications.push(data)
     send(200, { seq: 999 })
@@ -76,7 +80,8 @@ Object.assign(fixtureEnv, {
   PEERTABLE_TEST_AITERM_SPEC: specPath,
   PEERTABLE_TEST_AITERM_CALLS: callsPath,
   PEERTABLE_TEST_DELIVERY_STATE: statePath,
-  PEERTABLE_PARENT_NAME: 'parent',
+  // 旧envを無関係な名前にし、room台帳の親だけを通知先へ選ぶことを検証する。
+  PEERTABLE_PARENT_NAME: 'env-not-the-room-parent',
 })
 const start = () => {
   child = spawn(process.execPath, [join(repo, 'skill/scripts/wakeup-bridge.mjs'), project], {
@@ -122,13 +127,15 @@ try {
   await waitFor(() => receipts.get(`${heldSeq}:cursor`)?.result === 'failed', 'held receipt')
   assert.equal(receipts.get(`${heldSeq}:cursor`).reason, 'STEER_NOT_QUEUED')
   assert.equal(failNoticeOnce, false, '親への初回POSTが失敗した')
+  assert.equal(noticeAttempts[0].to, actualParent.name, '初回POSTは旧envでなく台帳の親を宛先にする')
   const before = (await calls()).length
   assert.equal(before, 6)
   await stop()
   await setSpec({ state: 'idle' })
   start()
   await waitFor(() => notifications.some(item => item.body.includes(`seq=${heldSeq}`)), '再起動後の親通知再試行')
-  assert.ok(notifications.some(item => item.body.includes(`seq=${heldSeq}`) && item.body.includes('理由=STEER_NOT_QUEUED')))
+  assert.ok(notifications.some(item => item.body.includes(`seq=${heldSeq}`) && item.body.includes('理由=STEER_NOT_QUEUED') && item.to === actualParent.name), '再起動後の再試行も台帳の親へ通知する')
+  assert.ok(noticeAttempts.every(item => item.to === actualParent.name), '失敗したPOSTも含め通知先は台帳の親だけ')
   const state = JSON.parse(await readFile(join(project, '.team/wakeup-bridge-delivery.json')))
   assert.equal(state.held[`${heldSeq}:cursor`], 'STEER_NOT_QUEUED')
   assert.ok(state.notified.includes(`${heldSeq}:cursor`))
