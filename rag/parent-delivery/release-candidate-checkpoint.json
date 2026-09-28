@@ -1,21 +1,22 @@
 {
   "schema": "peertable.parent-release-checkpoint.v1",
-  "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
-  "runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
+  "source_commit": "c97b431cbcb75e07a45cc17de6d688442b736af3",
+  "runtime_digest": "ddaadee7f33139c2a7ea8d08b36d87446b3221b85c817b9a3e1afff34193186f",
   "package_version": "0.8.63",
-  "candidate_state": "withdrawn_rejoin_defect",
+  "candidate_state": "held_for_windows_persistence_diagnosis",
   "source_frozen": false,
-  "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/017bf2c/release-candidate-checkpoint.json",
+  "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/84de74a/release-candidate-checkpoint.json",
   "product_ci": {
-    "status": "success",
-    "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
-    "head_commit": "d9cb8d59f63d667763b7d195c1b61e9191041e25",
-    "url": "https://github.com/kitepon/peertable/actions/runs/36482248916",
+    "status": "failure",
+    "source_commit": "c97b431cbcb75e07a45cc17de6d688442b736af3",
+    "head_commit": "c97b431cbcb75e07a45cc17de6d688442b736af3",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36485234948",
     "native_os": {
       "darwin": "passed",
       "linux": "passed",
-      "win32": "passed"
-    }
+      "win32": "failed"
+    },
+    "failure_evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
   },
   "focused_verification": {
     "darwin_process_exit": {
@@ -51,6 +52,20 @@
       "health_delay_ms": 10,
       "formal_acceptance_credit": 0,
       "evidence": "rag/parent-delivery/codex-probe-timer-repair-diagnosis.json"
+    },
+    "rejoin_probe_record_preservation": {
+      "passed": 1,
+      "failed": 0
+    },
+    "native_probe_fault_controller": {
+      "passed": 32,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "codex_spawn_lease_controller": {
+      "passed": 23,
+      "failed": 0,
+      "live_acceptance_credit": 0
     }
   },
   "documentation_tests": {
@@ -59,21 +74,21 @@
     "skipped": 0
   },
   "package": {
-    "status": "fixture_installed",
-    "sha256": "9f01372357e2b302f5fb241ab3e79fd78d7424ad13e047c4c214c5831eb198c8",
+    "status": "fixture_installed_acceptance_held",
+    "sha256": "823336e4397dabc77001d03dc57089822e1b3e48fbd2b4248623323007796329",
     "files": 133,
     "dry_run_files": 133,
-    "installed_runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
+    "installed_runtime_digest": "ddaadee7f33139c2a7ea8d08b36d87446b3221b85c817b9a3e1afff34193186f",
     "registry_install": false,
     "skill_placement": {
       "status": "required",
       "reason": "専用prefixのfixture導入はignore-scriptsを使い、既存のglobalスキル配置を変更していない。registryのglobal installは公開後に行う。"
     },
     "parent_connections": {
-      "codex": "registered",
-      "claude": "registered",
-      "cursor": "registered",
-      "grok": "registered"
+      "codex": "registered_fixed_candidate_for_diagnostic",
+      "claude": "previous_candidate",
+      "cursor": "previous_candidate",
+      "grok": "previous_candidate"
     }
   },
   "product_acceptance": {
@@ -87,11 +102,13 @@
     "checkpoint_counts_as_live_acceptance": false
   },
   "lease": {
-    "status": "withdrawal_requested",
+    "status": "withdrawn_monitors_finished_cleanup_review_pending",
     "reported_live_before_withdrawal": 2,
     "passed": 0,
     "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
-    "reason": "製品runtimeの再登録欠陥で候補撤回。原記録を保持し、所有試験だけを停止する。"
+    "reason": "製品runtimeの再登録欠陥で候補撤回。原記録を保持し、所有試験だけを停止する。",
+    "active": 0,
+    "cleanup_status": "worker報告は自己processゼロ。rootの原記録監査は進行中。"
   },
   "gui_observation": {
     "status": "blocked",
@@ -114,5 +131,6 @@
     }
   },
   "repair_commit": "bce891b2cbf3a77afa7ab738e19f965e7ac9808c",
-  "withdrawal_evidence": "rag/parent-delivery/codex-probe-rejoin-diagnosis.json"
+  "withdrawal_evidence": "rag/parent-delivery/codex-probe-rejoin-diagnosis.json",
+  "controller_observation_limit_ms": 1500
 }

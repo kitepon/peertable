@@ -57,3 +57,7 @@ Codexは`Stop`/`PostToolUse` hookの出力を`<hook_prompt>`要素へ入れ、�
 focused test: `node --test experiments/parent-product-acceptance/evidence.test.mjs experiments/parent-product-acceptance/scenarios.test.mjs`
 
 lease単独runは`scenarios-lease-run.mjs`へ導入物・tarball SHA・製品source/digest/version・`--runner-commit`を渡す。短時間runとroom/processを分離し、実際の製品期限まで待つ。通常HOMEと公式認証を維持し、global設定や認証を長時間fixtureへ複製しない。実行moduleに未commit差分があればprovenance照合で止まる。
+
+Codexのprobe期限試験は`scenarios-queue-fault.mjs`で、正規MCPのreceiver検証後に自己watcherが生成した初回app-serverだけをOS停止する。製品のspool・時計・RPC応答は変更しない。原RPC、同CIDのMCP completed item、PID/start、実deadlineとspool/room healthを保存する。期限failureの観測上限は全OS共通1500msで、実lagを保存し、期限前・時刻欠落・health不一致・上限超過は失敗にする。Windowsの実OS停止APIは未確認であり、試験手順の実装を実機合格と扱わない。
+
+Codexの通常lease試験は起動前に自己processへ読取りobserverを設定し、短命app-serverの実spawnから公式queue/add request/responseとcloseまでを同じPID/startで記録する。OS停止は行わない。20msのprocess samplingで見逃した接続を成功に数えず、配送ID・受付ID・実接続終了・同identity消失が一致する原証拠を要求する。複数配送は別の実接続へ照合する。

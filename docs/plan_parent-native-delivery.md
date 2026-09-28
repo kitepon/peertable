@@ -395,3 +395,7 @@ macOSの短命process終了時の成功・空出力の誤分類と、Linux Grok�
 controllerはCursorの公式postToolUseが確定した入力全体を照合する。Windows Grokの公式罫線内の空promptは原画面fixtureで判定する。Claudeのhook無効化は同じ実会話を公式CLIの自己run設定でresumeし、共有設定を保持して無効化・復元の実因果を測定する。controllerのfocused合格だけで正式受入を埋めない。
 
 現行manifestの正式受入は再測定中で、長時間leaseの合格もまだ無い。Linux Cursorは本人ログイン待ち、Desktop/IDEはJevの画面取得の解決または操作ツール変更の回答待ちである。新候補の3 OS製品CI、全必須面の実機受入、main着地、npm公開・registry導入・本番反映を順に完了する。
+
+正式probe期限試験のcontrollerは、製品の実30秒期限と失敗の観測時刻を分ける。全OS・全harnessに共通の観測上限は既存focused timer試験と同じ1500msとし、失敗の実lagを原値で保存する。期限前、時刻欠落、health不一致、上限超過をtyped failureにし、製品deadlineを延ばして合格へ丸めない。Windowsの所有child停止APIと各harnessの故障発火が実測されていない行は、引き続き未合格とする。
+
+再登録修理後のWindows CIでは、Bakery ticketのatomic置換で実`EPERM`が発生した。[原記録](../rag/parent-delivery/windows-rename-ci-diagnosis.json)を保持し、同runtimeの先行CI成功を今回の失敗解決へ代用しない。Linux Grokの初回probeとWindows Cursorのlock timeoutも撤回候補のrawを保ち、原因を照合する。現行候補の正式配送試験と公開は、その境界の再現調査中である。

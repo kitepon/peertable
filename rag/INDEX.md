@@ -12,3 +12,6 @@
 - [Codex初回probeの実期限超過](parent-delivery/codex-probe-deadline-diagnosis.json) — 実app-serverの停止・自然timeout・room healthを照合。30秒期限への14.478秒の遅延を保持する修理診断。
 - [Codex probe timer修理後の実診断](parent-delivery/codex-probe-timer-repair-diagnosis.json) — 同じOS障害で実期限10ms後のroom failedを観測し、生timeline・PID・Git blobを独立照合。正式受入への算入は0件。
 - [Codex同会話での再登録失敗](parent-delivery/codex-probe-rejoin-diagnosis.json) — 自然timeout後の正規再登録でもfailed probeが不変となる実再現。開始時controller bytesと製品Git blobを照合し、正式合格へ算入しない。
+
+- [Windows競合CIのrename失敗](parent-delivery/windows-rename-ci-diagnosis.json) — transaction ticketの実EPERMを保存し、原因をfocused再現で調査中。[実Node版のlibuv一次原文](parent-delivery/sources/node-v24.20.0-libuv-win-fs.metadata.json)は原因を断定する証拠と分ける。
+- [Claude同会話のhook無効化・復帰](parent-delivery/claude-own-session-hook-diagnosis.json) — 公式session settingsと同CIDの3 MCP結果を原transcriptへ独立照合。復帰後の本文配送はこの準備診断では検証していない。
