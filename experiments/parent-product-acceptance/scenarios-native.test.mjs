@@ -6,13 +6,42 @@ import { createInterface } from 'node:readline'
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { competitorProof, queueConnectionProof, observedQueueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver, nativeLeaseRegistration, bindingContextProof, bindingToolError } from './scenarios-native.mjs'
+import { competitorProof, queueConnectionProof, observedQueueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver, nativeLeaseRegistration, bindingContextProof, bindingToolError, codexProbeRecoveryProof, probeDeadlineObservationBudget } from './scenarios-native.mjs'
 import { processIdentity, sameProcess, processDescendsFrom } from '../../skill/scripts/parent-platform.mjs'
 import { scenarioPlan } from './scenarios.mjs'
 import { digest } from '../../skill/scripts/parent-delivery.mjs'
 
 const event = { session_id: 'own', turn_id: 'turn', hook_event_name: 'PostToolUse', tool_use_id: 'tool' }
 const pair = (pid, value = event, stdout = '{}', code = 0) => [{ phase: 'started', pid, event: value }, { phase: 'completed', pid, event: value, stdout, code }]
+
+test('probe待機予算は実deadlineから算出し、製品の30秒と120秒を複製しない', () => {
+  assert.equal(probeDeadlineObservationBudget(31000, 1000), 31500)
+  assert.equal(probeDeadlineObservationBudget(121000, 1000), 121500)
+  assert.equal(probeDeadlineObservationBudget(1000, 2000), 500)
+  assert.equal(probeDeadlineObservationBudget(1000, 3000), 1)
+  assert.throws(() => probeDeadlineObservationBudget(undefined, 0), { code: 'ACCEPTANCE_QUEUE_PROBE_DEADLINE_MISSING' })
+})
+
+test('同CID正規rejoinは新probeの原文/後続返答/healthと旧failed履歴保持を照合する', () => {
+  // 実CLIの代用にはしない。復旧記録の誤相関と本文の丸めを拒否するfocused。
+  const owner = { pid: 10, started: '親開始' }, old = { delivery_id: 'old-delivery', digest: '旧digest', event: { type: 'parent_probe', event_id: 'probe:old', body: '旧<&>\r\n本文' }, state: 'failed' }, dm = { delivery_id: 'unresolved-dm', event: { type: 'message', body: '未知DM' }, state: 'unknown' }
+  const before = { endpoint_id: 'own', caller: { conversation: 'CID', owner }, cursor: 9, state: 'failed', runtime: 'failed', error_code: 'PARENT_PROBE_TIMEOUT', probe_id: 'old', records: [old, dm] }
+  const next = { delivery_id: 'new-delivery', digest: '新digest', event: { type: 'parent_probe', event_id: 'probe:new', body: '原<&>\r\nnew', room: 'room', from: 'peertable', to: '親' }, state: 'submitted', queued_submission_id: 'queue', accepted_at: '2026-09-29T00:00:00Z', queue_thread: 'CID' }
+  const after = { ...structuredClone(before), state: 'verified', runtime: 'armed', error_code: null, probe_id: 'new', records: [{ ...structuredClone(old), resolved_by: next.delivery_id }, structuredClone(dm), next] }
+  const join = { order: 3, session: 'CID', turn_id: 'join-turn', result: { endpoint_id: 'own', state: 'receiving' } }, delivery = { delivery_id: next.delivery_id, digest: next.digest, ...next.event, session: 'CID', turn_id: 'probe-turn', order: 4 }, reply = { session: 'CID', turn_id: 'probe-turn', order: 5, text: 'newを受信' }
+  const health = { bridges: { parent_receiver: { state: 'up', endpoints: [{ endpoint_id: 'own', state: 'armed', detail: JSON.stringify({ endpoint_id: 'own', state: 'verified', error_code: null }) }] } } }, value = { before, after, join, seen: { deliveries: [delivery], replies: [reply] }, health }
+  assert.equal(codexProbeRecoveryProof(value).literal_delivery.body, next.event.body)
+  const reject = (edit, code) => { const candidate = structuredClone(value); edit(candidate); assert.throws(() => codexProbeRecoveryProof(candidate), { code }) }
+  reject(v => { v.after.probe_id = 'old' }, 'ACCEPTANCE_QUEUE_RECOVERY_NEW_PROBE_MISSING')
+  reject(v => { v.after.caller.owner.started = '再利用PID' }, 'ACCEPTANCE_QUEUE_RECOVERY_IDENTITY_MISMATCH')
+  reject(v => { v.after.records[0].event.body = '旧<&>\n本文' }, 'ACCEPTANCE_QUEUE_RECOVERY_HISTORY_CHANGED')
+  reject(v => { v.after.records[1].resolved_by = next.delivery_id }, 'ACCEPTANCE_QUEUE_RECOVERY_HISTORY_CHANGED')
+  reject(v => { v.after.cursor++ }, 'ACCEPTANCE_QUEUE_RECOVERY_HISTORY_CHANGED')
+  reject(v => { v.seen.deliveries[0].body = '原<&>\nnew' }, 'ACCEPTANCE_QUEUE_RECOVERY_LITERAL_MISSING')
+  reject(v => { v.seen.deliveries.push(v.seen.deliveries[0]) }, 'ACCEPTANCE_QUEUE_RECOVERY_LITERAL_MISSING')
+  reject(v => { v.seen.replies[0].turn_id = '別turn' }, 'ACCEPTANCE_QUEUE_RECOVERY_NOT_VERIFIED')
+  reject(v => { v.health.bridges.parent_receiver.state = 'failed' }, 'ACCEPTANCE_QUEUE_RECOVERY_NOT_VERIFIED')
+})
 
 test('競合証拠は同eventの異なる実processに限定し、event合算と二重完了を拒否する', () => {
   const options = { session: 'own', delivery: { turn_id: 'turn' } }

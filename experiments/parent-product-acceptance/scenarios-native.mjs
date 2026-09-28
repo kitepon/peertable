@@ -9,7 +9,7 @@ import { createScenarioContext, completedNativeInput, completedNativeInputProof 
 import { createNativeFixtureFactory, waitOwnedFixtureExit } from './scenarios-fixtures.mjs'
 import { sha256 } from './evidence.mjs'
 import { createBackgroundSurfaceAdapters, nativeInvocation } from './scenarios-surfaces.mjs'
-import { installQueueProbeFault, queueProbeReceiverProof, watchQueueProbeState, queueProbeTimeoutProof, codexProbeJoinBoundary, installQueueConnectionObserver, observedQueueConnections } from './scenarios-queue-fault.mjs'
+import { installQueueProbeFault, queueProbeReceiverProof, watchQueueProbeState, queueProbeTimeoutProof, codexProbeJoinBoundary, installQueueConnectionObserver, observedQueueConnections, QUEUE_PROBE_OBSERVATION_LIMIT_MS } from './scenarios-queue-fault.mjs'
 
 const fail = (code, message, detail) => { throw Object.assign(new Error(message), { code, detail }) }
 const rows = file => existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)) : []
@@ -75,6 +75,34 @@ export function observedQueueConnectionProof(connections, checks) {
   })
   if (bound.length >= 2 && new Set(bound.map(item => `${item.connection.owner.pid}:${item.connection.owner.started}`)).size < 2) fail('ACCEPTANCE_QUEUE_CONNECTION_NOT_UPDATED', '複数配送で新しい公式接続を確認できません')
   return bound
+}
+
+// 配布物が保存した実期限を使う。30秒/120秒をcontrollerへ複製しない。
+export function probeDeadlineObservationBudget(deadline, now = Date.now()) {
+  if (!Number.isFinite(deadline)) fail('ACCEPTANCE_QUEUE_PROBE_DEADLINE_MISSING', '実probe_deadlineがありません')
+  return Math.max(1, deadline - now + QUEUE_PROBE_OBSERVATION_LIMIT_MS)
+}
+
+// 再登録は新しいsynthetic probeだけを解決先とし、旧記録・本文・cursorを保持する。
+export function codexProbeRecoveryProof({ before, after, join, seen, health }) {
+  const session = before.caller?.conversation
+  if (before.state !== 'failed' || before.error_code !== 'PARENT_PROBE_TIMEOUT' || !before.probe_id) fail('ACCEPTANCE_QUEUE_RECOVERY_INITIAL_FAILURE_MISSING', '復旧前の実probe期限failureがありません')
+  if (after.endpoint_id !== before.endpoint_id || after.caller?.conversation !== session || after.caller?.owner?.pid !== before.caller.owner.pid || after.caller?.owner?.started !== before.caller.owner.started || join.session !== session || join.result.endpoint_id !== before.endpoint_id) fail('ACCEPTANCE_QUEUE_RECOVERY_IDENTITY_MISMATCH', '正規再登録の会話/endpoint/親本人が変わっています')
+  const previous = before.records.find(record => record.event.type === 'parent_probe' && record.event.event_id === `probe:${before.probe_id}`)
+  const preserved = previous && after.records.find(record => record.delivery_id === previous.delivery_id)
+  const current = after.records.find(record => record.event.type === 'parent_probe' && record.event.event_id === `probe:${after.probe_id}`)
+  if (!previous || previous.state !== 'failed' || previous.resolved_by || !current || after.probe_id === before.probe_id || current.delivery_id === previous.delivery_id || current.state !== 'submitted' || !current.queued_submission_id || !current.accepted_at || current.queue_thread !== session) fail('ACCEPTANCE_QUEUE_RECOVERY_NEW_PROBE_MISSING', '失敗probeと異なる新probeの公式受付がありません')
+  const { resolved_by: resolvedBy, ...retained } = preserved ?? {}
+  if (!isDeepStrictEqual(previous, retained) || resolvedBy !== current.delivery_id || after.cursor !== before.cursor || before.records.filter(record => record.event.type !== 'parent_probe' && ['failed', 'unknown'].includes(record.state)).some(record => !isDeepStrictEqual(record, after.records.find(item => item.delivery_id === record.delivery_id)))) fail('ACCEPTANCE_QUEUE_RECOVERY_HISTORY_CHANGED', '旧failed原記録/cursorまたは別DM記録が変更されています')
+  const delivered = seen.deliveries.filter(item => item.delivery_id === current.delivery_id)
+  const delivery = delivered[0]
+  if (delivered.length !== 1 || delivery.session !== session || !delivery.turn_id || delivery.body !== current.event.body || delivery.digest !== current.digest || delivery.room !== current.event.room || delivery.from !== current.event.from || delivery.to !== current.event.to || delivery.preview || delivery.order <= join.order) fail('ACCEPTANCE_QUEUE_RECOVERY_LITERAL_MISSING', '新probeの同会話への原文配送が1件に確定しません')
+  const reply = seen.replies.find(item => item.session === session && item.turn_id === delivery.turn_id && item.order > delivery.order && item.text.includes(after.probe_id))
+  const endpoint = health.bridges?.parent_receiver?.endpoints?.find(item => item.endpoint_id === before.endpoint_id)
+  let detail
+  try { detail = typeof endpoint?.detail === 'string' ? JSON.parse(endpoint.detail) : endpoint?.detail } catch { fail('ACCEPTANCE_QUEUE_HEALTH_DETAIL_CORRUPT', '公式GETmembersのdetailがJSONではありません') }
+  if (!reply || after.state !== 'verified' || after.runtime !== 'armed' || after.error_code || health.bridges?.parent_receiver?.state !== 'up' || endpoint?.state !== 'armed' || detail?.endpoint_id !== before.endpoint_id || detail.state !== 'verified' || detail.error_code !== null) fail('ACCEPTANCE_QUEUE_RECOVERY_NOT_VERIFIED', '新probeの後続返答と実spool/healthの復旧が揃いません')
+  return { related_session: session, endpoint_id: before.endpoint_id, old_probe_id: before.probe_id, new_probe_id: after.probe_id, original_failed_record: previous, preserved_failed_record: preserved, submitted_probe_record: current, official_join: join, literal_delivery: delivery, literal_reply: reply, health_endpoint: endpoint, cursor_preserved: true }
 }
 
 // 公式MCP包装のJSONだけを開き、本文の正規化や自由文からのerror推測をしない。
@@ -672,7 +700,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     own.receiver = queueProbeReceiverProof({ events: own.fault.events(), pause, expectedSource, expectedCommand: s.shellCommand(process.execPath, [join(s.pkg, 'skill/scripts/parent-hook.mjs'), 'codex']) })
     own.join = await s.until('同CIDの公式MCP join結果', () => codexProbeJoinBoundary({ file: target.file, session: target.meta.parent_session, project: fixture.project, name: fixture.name, endpointId: target.spool.id }), 15000, 50)
     writeFileSync(evidenceFile, JSON.stringify({ runner, source: target.meta, pause, receiver: own.receiver, join: own.join }, null, 2))
-    return s.result(s, 'own_probe_not_consumed', 'official_queue', { related_session: target.meta.parent_session, turn_id: own.join.turn_id, native_tool_use_id: own.join.native_tool_use_id, endpoint_id: target.spool.id, parent_owner: pause.caller.owner, watcher_owner: pause.watcher, child_owner: pause.owner, probe_deadline: pause.spool_before.probe_deadline, receiver_prepared_before_first_queue: own.receiver, original_artifact: evidenceFile, runner })
+    return { ...s.result(s, 'own_probe_not_consumed', 'official_queue', { parent_session: target.meta.parent_session, related_session: target.meta.parent_session, turn_id: own.join.turn_id, native_tool_use_id: own.join.native_tool_use_id, endpoint_id: target.spool.id, parent_owner: pause.caller.owner, watcher_owner: pause.watcher, child_owner: pause.owner, probe_deadline: pause.spool_before.probe_deadline, receiver_prepared_before_first_queue: own.receiver, original_artifact: evidenceFile, runner }), related_sessions: [target.meta.parent_session] }
   }
   actions.probe_timeout_observe = async (_, s) => {
     const own = state(s).probeDeadline
@@ -684,17 +712,40 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
       health = await own.target.api('members')
       const endpoint = health.bridges?.parent_receiver?.endpoints?.find(item => item.endpoint_id === own.target.spool.id)
       return saved.state === 'failed' && saved.runtime === 'failed' && saved.error_code === 'PARENT_PROBE_TIMEOUT' && endpoint?.state === 'failed'
-    }, 45000, 50)
+    }, probeDeadlineObservationBudget(own.pause.spool_before.probe_deadline), 50)
     await s.until('35秒OS停止の自然終了/再開記録', () => own.fault.terminal(), 40000, 100)
     const evidence = { runner: own.runner, source: own.target.meta, related_session: own.target.meta.parent_session, pause: own.pause, receiver: own.receiver, join: own.join, state_observations: own.stateObserver.rows, health, terminal: own.fault.terminal(), rpc_os_events: own.fault.events(), transcript_raw: readFileSync(own.target.file, 'utf8'), watch_log: readFileSync(join(own.target.spool.root, 'watch.log'), 'utf8') }
     writeFileSync(own.evidenceFile, JSON.stringify(evidence, null, 2))
     // 実測lagを保持し、共通controllerの観測上限だけを適用する。
     const proof = queueProbeTimeoutProof({ pause: own.pause, observations: own.stateObserver.rows, health })
-    return s.result(s, 'probe_timeout_typed_failed', 'official_queue', { ...proof, related_session: own.target.meta.parent_session, turn_id: own.join.turn_id, original_artifact: own.evidenceFile, runner: own.runner })
+    own.failedState = structuredClone(own.target.spool.read())
+    return { ...s.result(s, 'probe_timeout_typed_failed', 'official_queue', { ...proof, parent_session: own.target.meta.parent_session, related_session: own.target.meta.parent_session, turn_id: own.join.turn_id, original_artifact: own.evidenceFile, runner: own.runner }), related_sessions: [own.target.meta.parent_session] }
   }
   actions.deadline_restore = async (_, s) => {
     const pending = state(s).deadline
     if (pending) for (const release of pending.releases) writeFileSync(release, '{}')
+    const own = state(s).probeDeadline
+    if (own) {
+      if (!own.failedState) fail('ACCEPTANCE_QUEUE_RECOVERY_INITIAL_FAILURE_MISSING', '同runの期限failure観測を完了していません')
+      await own.fault.close()
+      const beforeOrder = readFileSync(own.target.file, 'utf8').split('\n').length - 2
+      const startedAt = new Date().toISOString(), artifact = s.artifactFor(s, 'probe-rejoin-original')
+      await own.fixture.submit(`Peertable parent_joinをproject=${own.fixture.project} name=${own.fixture.name}で1回だけ呼び、結果を原文で報告してください。同会話の期限障害からの正規復旧です。自動再試行・設定変更はしないでください。`)
+      const joined = await s.until('同CIDの正規再join公式完了', () => codexProbeJoinBoundary({ file: own.target.file, session: own.target.meta.parent_session, project: own.fixture.project, name: own.fixture.name, endpointId: own.target.spool.id, after: beforeOrder }), 120000, 100)
+      const target = await own.fixture.refreshTarget()
+      let snapshot
+      const proof = await s.until('新probeの原文/後続返答/同endpoint health復旧', async () => {
+        snapshot = { at: new Date().toISOString(), before: own.failedState, after: target.spool.read(), join: joined, seen: target.observe(), health: await target.api('members') }
+        writeFileSync(artifact, JSON.stringify({ runner: own.runner, source: target.meta, started_at: startedAt, ...snapshot, rpc_os_events: own.fault.events(), transcript_raw: readFileSync(target.file, 'utf8') }, null, 2))
+        if (!snapshot.seen.replies.some(reply => reply.session === target.meta.parent_session && reply.order > joined.order && reply.text.includes(snapshot.after.probe_id)) || snapshot.health.bridges?.parent_receiver?.endpoints?.find(item => item.endpoint_id === target.spool.id)?.state !== 'armed') return null
+        return codexProbeRecoveryProof(snapshot)
+      }, 120000, 100)
+      s.context.registerEndpoint('deadline-original', self(s))
+      s.context.registerEndpoint('probe-timeout', target)
+      s.context.registerEndpoint('self', target)
+      own.target = target
+      return { ...s.result(s, 'new_join_verified', 'official_queue', { ...proof, parent_session: target.meta.parent_session, related_turn_id: proof.literal_delivery.turn_id, turn_id: proof.literal_reply.turn_id, runner: own.runner, original_artifact: artifact, subsequent_delivery_endpoint: target.spool.id }), related_sessions: [target.meta.parent_session] }
+    }
     const target = await rejoinEndpoint(s)
     return s.result(s, 'new_join_verified', 'harness_transcript', { parent_session: target.meta.parent_session, endpoint_id: target.spool.id, state: target.spool.read().state })
   }
