@@ -17,7 +17,7 @@
   "raw_log": "/private/tmp/peertable-windows-rename-c97b431/ci-failed.log",
   "raw_log_sha256": "dbbc60e991f86efaeaf99c3008ae9057cc3e1c4d6373a60507971db5cf8272d8",
   "baseline_same_runtime_ci": "https://github.com/kitepon/peertable/actions/runs/36484812856",
-  "diagnosis_status": "rootがWin32 API対照と実Node保持readerの原記録を照合。Windows OS adapterを修理し、診断packでfocused31件合格。新Git候補の3 OS CIと正式実機受入は未完了。",
+  "diagnosis_status": "rootがWin32 API対照と実Node保持readerの原記録を照合。Windows OS adapterを修理し、診断packでfocused31件合格。修理版の3 OS CIも合格。Windows Cursor排他待ちの別原因照合と正式実機受入は未完了。",
   "limitations": [
     "元CIでreader handleを直接追跡しておらず、元CIのhandle保持processの特定は未確認",
     "診断packは未commit修理の原bytes。正式受入credit0",
@@ -267,7 +267,14 @@
       ]
     },
     "cleanup_environment_raw_sha256": "1b368634d21a35fac3108a59a4cf17d44512467380eec5487d99ab92e0dba252",
-    "remote_readonly_environment_raw_sha256": "201c5eb8a017497f489e1681f25972560be8b3d0c6317bcfcae09e252d2344e3"
+    "remote_readonly_environment_raw_sha256": "201c5eb8a017497f489e1681f25972560be8b3d0c6317bcfcae09e252d2344e3",
+    "followup_ci": {
+      "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+      "url": "https://github.com/kitepon/peertable/actions/runs/36488941014",
+      "darwin": "passed",
+      "linux": "passed",
+      "win32": "passed"
+    }
   },
   "raw_fingerprints": {
     "ci-win-eperm/move-replace-probe.ps1": "cd2385a3ecef71be6308bf8ba4ffc8edc05c2f347d7ba38a8c91ee66c7a0e7b8",

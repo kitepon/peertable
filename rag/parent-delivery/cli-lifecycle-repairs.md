@@ -72,4 +72,4 @@ Cursorのidle確認には[公式stop仕様](https://cursor.com/docs/hooks#stop)�
 
 ## Windowsの保持readerとatomic置換
 
-[実APIと製品packの対照](windows-rename-ci-diagnosis.json)では、通常renameが保持reader下で失敗し、POSIX互換renameで旧fd保持と新pathの置換が成立した。製品のOS adapterはWindows標準APIを直接呼び、PowerShellの起動を更新ごとに挟まない。API非対応や権限失敗は原Windows errorを保持して返す。新候補の3 OS CIと正式実機は未完了。
+[実APIと製品packの対照](windows-rename-ci-diagnosis.json)では、通常renameが保持reader下で失敗し、POSIX互換renameで旧fd保持と新pathの置換が成立した。製品のOS adapterはWindows標準APIを直接呼び、PowerShellの起動を更新ごとに挟まない。API非対応や権限失敗は原Windows errorを保持して返す。修理版の3 OS CIは合格した。Windows Cursor排他待ちの原因照合と正式実機は未完了。

@@ -1,22 +1,22 @@
 {
   "schema": "peertable.parent-release-checkpoint.v1",
-  "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
-  "runtime_digest": "19cceff45965f64a0733b9bc8f207fca58a2295b8d0c54ad1e0deb72f573c5b1",
+  "source_commit": "c97b431cbcb75e07a45cc17de6d688442b736af3",
+  "runtime_digest": "ddaadee7f33139c2a7ea8d08b36d87446b3221b85c817b9a3e1afff34193186f",
   "package_version": "0.8.63",
-  "candidate_state": "diagnostic_candidate_windows_cursor_lock_pending",
+  "candidate_state": "held_for_probe_and_windows_repair_verification",
   "source_frozen": false,
-  "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/c97b431/release-candidate-checkpoint.json",
+  "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/84de74a/release-candidate-checkpoint.json",
   "product_ci": {
-    "status": "success",
-    "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
-    "head_commit": "980cbebc1acab7461daa064abec8814b410f0137",
-    "url": "https://github.com/kitepon/peertable/actions/runs/36488941014",
+    "status": "failure",
+    "source_commit": "c97b431cbcb75e07a45cc17de6d688442b736af3",
+    "head_commit": "c97b431cbcb75e07a45cc17de6d688442b736af3",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36485234948",
     "native_os": {
       "darwin": "passed",
       "linux": "passed",
-      "win32": "passed"
+      "win32": "failed"
     },
-    "previous_failure_evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
+    "failure_evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
   },
   "focused_verification": {
     "darwin_process_exit": {
@@ -66,17 +66,6 @@
       "passed": 23,
       "failed": 0,
       "live_acceptance_credit": 0
-    },
-    "windows_atomic_replace": {
-      "passed": 31,
-      "failed": 0,
-      "formal_acceptance_credit": 0,
-      "diagnostic_pack_only": true
-    },
-    "native_deadline_and_rejoin_controller": {
-      "passed": 25,
-      "failed": 0,
-      "live_acceptance_credit": 0
     }
   },
   "documentation_tests": {
@@ -85,18 +74,18 @@
     "skipped": 0
   },
   "package": {
-    "status": "fixture_installed_diagnostics_only",
-    "sha256": "9fc56bbce1f49015e49de9ca4110303ca83f7acd8b3e6b66e4b3d9f57b71bdad",
-    "files": 135,
-    "dry_run_files": 135,
-    "installed_runtime_digest": "19cceff45965f64a0733b9bc8f207fca58a2295b8d0c54ad1e0deb72f573c5b1",
+    "status": "fixture_installed_acceptance_held",
+    "sha256": "823336e4397dabc77001d03dc57089822e1b3e48fbd2b4248623323007796329",
+    "files": 133,
+    "dry_run_files": 133,
+    "installed_runtime_digest": "ddaadee7f33139c2a7ea8d08b36d87446b3221b85c817b9a3e1afff34193186f",
     "registry_install": false,
     "skill_placement": {
       "status": "required",
       "reason": "専用prefixのfixture導入はignore-scriptsを使い、既存のglobalスキル配置を変更していない。registryのglobal installは公開後に行う。"
     },
     "parent_connections": {
-      "codex": "previous_candidate",
+      "codex": "registered_fixed_candidate_for_diagnostic",
       "claude": "previous_candidate",
       "cursor": "previous_candidate",
       "grok": "previous_candidate"
@@ -146,11 +135,11 @@
   "controller_observation_limit_ms": 1500,
   "repairs": {
     "initial_probe_timeout": {
-      "state": "focused_and_three_os_ci_passed_live_pending",
+      "state": "implemented_focused_passed_live_pending",
       "evidence": "rag/parent-delivery/linux-grok-probe-latency-diagnosis.json"
     },
     "windows_atomic_replace": {
-      "state": "diagnostic_focused_and_three_os_ci_passed_native_diagnosis_pending",
+      "state": "diagnostic_pack_focused_passed_new_git_ci_pending",
       "evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
     },
     "codex_rejoin": {
