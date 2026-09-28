@@ -5,6 +5,7 @@ import { homedir } from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
+import { createHash } from 'node:crypto'
 
 const fail = (code, message) => { throw Object.assign(new Error(message), { code }) }
 // hook専用の確定行だけを読む。harnessの起動adapterへ逆依存せず、未確定末尾を保留する。
@@ -54,6 +55,20 @@ export function grokControlledTaskEnd(seen, request, { sameProcess }) {
   return { id, session, finished: true, outcome: operation, delivered: products.some(value => value.outcome === 'ready'), output: result.output, artifact: result.output_file, exit_code: snapshot.exit_code, signal: snapshot.signal, task_snapshot: snapshot, control, reader_tool_use_id: reader.id, official_reader: reader }
 }
 
+// 背景制御通知も同taskの公式全量readerから取得する。任意Readや別会話の出力は採用しない。
+export function assertNativeTaskRead({ harness, id, session, endpointId, project, read, completed, toolUses }) {
+  const result = read.result, reader = toolUses.find(use => use.id === read.reader_tool_use_id && use.session === session)
+  if (read.session !== session || result.endpoint_id !== endpointId || !reader) fail('ACCEPTANCE_NATIVE_TASK_RESULT_OWNER', '同task/CID/endpointの公式readerではありません')
+  if (harness === 'cursor') {
+    const path = join(homedir(), '.cursor/projects', project.replace(/[^a-zA-Z0-9]+/gu, '-').replace(/^-+/u, ''), 'terminals', `${id}.txt`)
+    if (reader.name !== 'Read' || !isDeepStrictEqual(reader.input, { path }) || read.output_file !== path || !Buffer.isBuffer(read.raw_bytes)) fail('ACCEPTANCE_CURSOR_NATIVE_FULL_READ', 'Cursor公式taskファイルの全量Readではありません')
+  } else {
+    const snapshot = completed.raw_output, output = read.raw_output
+    if (snapshot.owner_session_id !== session || reader.name !== 'get_command_or_subagent_output' || !isDeepStrictEqual(reader.input, { task_ids: [String(id)] }) || reader.order <= completed.order || output.status !== 'completed' || output.truncated !== false || output.output !== snapshot.output || output.output_file !== snapshot.output_file || output.raw_output_bytes !== snapshot.output_total_bytes || Buffer.byteLength(output.output, 'utf8') !== snapshot.output_total_bytes) fail('ACCEPTANCE_GROK_NATIVE_FULL_READ', 'Grok同会話/taskの完了snapshotと全量readerが一致しません')
+  }
+  return reader
+}
+
 export async function createBackgroundSurfaceAdapters({ pkg, tokenFile, backgroundObserverFactory }) {
   if (!backgroundObserverFactory) {
     try { backgroundObserverFactory = (await import('./background-harness.mjs')).createBackgroundHarnessObserver }
@@ -100,7 +115,8 @@ export async function createBackgroundSurfaceAdapters({ pkg, tokenFile, backgrou
             const completed = records.find(task => task.raw_output?.completed === true)
             if (harness === 'grok' && !completed) fail('ACCEPTANCE_GROK_NATIVE_TASK_END_MISSING', '実taskの完了snapshotがありません')
             const result = read.result
-            return { id: String(id), session, finished: true, outcome: result.outcome === 'timeout' && result.error_code === 'PARENT_RECEIVER_EXPIRED' ? 'timeout' : result.outcome, output: result, artifact: read.output_file, exit_code: completed?.raw_output?.exit_code ?? null, delivered: result.outcome === 'ready', reader_tool_use_id: read.reader_tool_use_id }
+            const reader = assertNativeTaskRead({ harness, id, session, endpointId: fixture.target.spool.id, project: fixture.project, read, completed, toolUses: seen.toolUses })
+            return { id: String(id), session, finished: true, outcome: result.outcome === 'timeout' && result.error_code === 'PARENT_RECEIVER_EXPIRED' ? 'timeout' : result.outcome, output: result, artifact: read.output_file, exit_code: completed?.raw_output?.exit_code ?? null, delivered: result.outcome === 'ready', reader_tool_use_id: read.reader_tool_use_id, official_reader: reader, native_task_completion: completed?.raw_output ?? null, native_read_bytes_sha256: harness === 'cursor' ? createHash('sha256').update(read.raw_bytes).digest('hex') : createHash('sha256').update(read.raw_output.output, 'utf8').digest('hex') }
           },
           async request(operation, { id, session }) {
             if (operation === 'timeout') return { operation: '通常製品leaseの実期限まで待機', id: String(id), session, timeout_shortened: false }

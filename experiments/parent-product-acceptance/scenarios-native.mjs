@@ -119,6 +119,21 @@ export function assertOwnedReceiver(owner, { target, fixture, sameProcess, proce
   return { endpoint_id: target.spool.id, project: fixture.project, parent_session: target.meta.parent_session, caller_owner: current.caller.owner, receiver_role: role, receiver_owner: owner }
 }
 
+// lease開始はprobe配送だけで判定せず、公式背景toolの完成済み登録と存命ownerまで待つ。
+export function nativeLeaseRegistration(target, { sameProcess, processDescendsFrom }) {
+  const current = target.spool.read(), waiter = current.waiter
+  if (current.state === 'failed' || current.runtime === 'failed') fail(current.error_code ?? 'ACCEPTANCE_LEASE_REGISTER_FAILED', '専用受信登録が失敗しました')
+  if (current.state !== 'verified' || current.runtime !== 'armed' || !waiter?.owner || !sameProcess(waiter.owner)) return null
+  if (target.meta.harness === 'claude') return { state: current, waiter, registration: null }
+  const native = waiter.native_task
+  if (!native || !sameProcess(native.process_identity) || !processDescendsFrom(waiter.owner, native.process_identity)) return null
+  const seen = target.observe(), expectedName = target.meta.harness === 'cursor' ? 'Shell' : 'run_terminal_command'
+  const use = seen.toolUses.find(use => use.name === expectedName && use.session === target.meta.parent_session && isDeepStrictEqual(use.input, native.input?.input))
+  const task = use && seen.tasks?.find(task => task.tool_use_id === use.id && String(task.task_id ?? task.id) === native.id && task.pid === native.pid)
+  if (!use?.turn_id || !task || native.input?.name !== expectedName) return null
+  return { state: current, waiter, registration: { tool_use_id: use.id, turn_id: use.turn_id, task_id: native.id, input: use.input, owner: native.process_identity, native_task: task } }
+}
+
 // 再開は停止時の所有証拠を使う。native親の終了でown receiverの回収を妨げない。
 export function assertOwnedResume(owner, { target, fixture, held, sameProcess, endpoints }) {
   const proof = held?.proof, sameIdentity = (a, b) => a && b && a.pid === b.pid && a.started === b.started
@@ -433,17 +448,19 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
   }
 
   actions.lease_expiry_arm = async (_, s) => {
-    const target = self(s), fixture = fixtureFor(target), before = target.spool.read()
+    const target = self(s), fixture = fixtureFor(target)
+    let before = target.spool.read()
     if (s.harness === 'codex') {
       const artifact = s.artifactFor(s, 'queue-connections'), monitor = monitorQueueConnections({ watcher: before.watcher, executable: before.caller.owner.executable, processIdentity: s.processIdentity, sameProcess: s.sameProcess, artifact })
       state(s).lease = { before, fixture, monitor, artifact, armed_at: new Date().toISOString() }
       return s.result(s, 'own_finite_lease', 'os_process', { mechanism: '公式queue接続更新', watcher: before.watcher, process_artifact: artifact, product_connection_source: join(s.pkg, 'skill/scripts/parent-receivers/codex.mjs') })
     }
-    if (!before.waiter?.owner || !s.sameProcess(before.waiter.owner)) fail('ACCEPTANCE_LEASE_OWNER_MISSING', '製品受信processのlease開始を確認できません')
+    const registered = await s.until('公式受信slotの実登録と存命owner', () => nativeLeaseRegistration(target, s), 120000, 100)
+    before = registered.state
     const controller = fixture.adapter.taskController
-    state(s).lease = { before, fixture, armed_at: new Date().toISOString(), controller }
+    state(s).lease = { before, fixture, armed_at: new Date().toISOString(), controller, registration: registered.registration }
     // 製品の有限leaseを短縮・時計改変しない。正式runは実際の期限まで待つ。
-    return s.result(s, 'own_finite_lease', s.harness === 'claude' ? 'official_hook' : 'native_task', { endpoint_id: target.spool.id, owner: before.waiter.owner, native_task: before.waiter.native_task ?? null, lease_source: join(s.pkg, `skill/scripts/parent-receivers/${s.harness === 'claude' ? 'claude' : 'background'}.mjs`) })
+    return s.result(s, 'own_finite_lease', s.harness === 'claude' ? 'official_hook' : 'native_task', { endpoint_id: target.spool.id, owner: before.waiter.owner, native_task: before.waiter.native_task ?? null, official_registration: registered.registration, lease_source: join(s.pkg, `skill/scripts/parent-receivers/${s.harness === 'claude' ? 'claude' : 'background'}.mjs`) })
   }
   actions.lease_expiry_observe = async (_, s) => {
     const lease = state(s).lease, target = self(s)
@@ -458,7 +475,9 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
       return s.result(s, 'finite_lease_control_not_body', 'official_queue', { mechanism: '公式queue接続更新', connection: closed, queued_submission_id: first.receipt.queued_submission_id, accepted_at: first.receipt.accepted_at, queue_snapshot: await lease.fixture.rpc('thread/queue/list', { threadId: target.meta.parent_session, limit: 100 }), process_artifact: lease.artifact, control_notification_required: false })
     }
     // 期限前配送で最初のslotが終了し、親が作る次slotの実expiryを観測する。
-    const waiter = await s.until('期限前配送後の次受信slot', () => { const current = target.spool.read().waiter; return current && current.owner.pid !== lease.before.waiter.owner.pid && s.sameProcess(current.owner) ? current : null }, 60000)
+    const next = await s.until('期限前配送後の次受信slotの実登録', () => { const registered = nativeLeaseRegistration(target, s), current = registered?.waiter; return current && (current.owner.pid !== lease.before.waiter.owner.pid || current.owner.started !== lease.before.waiter.owner.started) ? registered : null }, 120000, 100)
+    const waiter = next.waiter
+    lease.next_registration = next.registration
     const file = s.artifactFor(s, 'lease-control-output'), transcriptBefore = target.observe().rows
     let output
     if (s.harness === 'claude') {
@@ -470,8 +489,11 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
       if (output.outcome !== 'timeout' || !JSON.stringify(output.output).includes('PARENT_RECEIVER_EXPIRED')) fail('ACCEPTANCE_LEASE_CONTROL_MISSING', '公式期限通知を取得できません')
       writeFileSync(file, JSON.stringify(output))
     }
+    await s.until('有限lease受信processの実終了', () => !s.sameProcess(waiter.owner), 30000, 100)
+    const expiredObservedAt = new Date().toISOString()
+    if (!Number.isFinite(Date.parse(waiter.started_at))) fail('ACCEPTANCE_LEASE_START_TIME_MISSING', '実slotの開始時刻がありません')
     if (target.observe().deliveries.some(delivery => delivery.body?.includes('peertable.parent-control.v1') || delivery.body?.includes('PARENT_RECEIVER_EXPIRED'))) fail('ACCEPTANCE_LEASE_CONTROL_AS_BODY', '制御通知がroom本文へ混入しました')
-    return s.result(s, 'finite_lease_control_not_body', s.harness === 'claude' ? 'harness_transcript' : 'native_task', { expired_owner: waiter.owner, output_artifact: file, endpoint_id: target.spool.id, cursor: target.spool.read().cursor })
+    return s.result(s, 'finite_lease_control_not_body', s.harness === 'claude' ? 'harness_transcript' : 'native_task', { expired_owner: waiter.owner, official_registration: next.registration, expired_native_task: waiter.native_task ?? null, lease_started_at: waiter.started_at, expired_observed_at: expiredObservedAt, observed_elapsed_ms: Date.parse(expiredObservedAt) - Date.parse(waiter.started_at), output_artifact: file, endpoint_id: target.spool.id, cursor: target.spool.read().cursor })
   }
 
   // この3障害は同じglobal所有hookの実効状態を変える必要がある。共有状態の無断変更は禁止。

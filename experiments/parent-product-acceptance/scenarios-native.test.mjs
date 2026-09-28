@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver } from './scenarios-native.mjs'
+import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver, nativeLeaseRegistration } from './scenarios-native.mjs'
 import { processIdentity, sameProcess, processDescendsFrom } from '../../skill/scripts/parent-platform.mjs'
 import { scenarioPlan } from './scenarios.mjs'
 
@@ -124,4 +124,19 @@ test('実processで独立receiverを停止し、親が先に終了しても再�
   assert.equal((await pauseOwnedReceiver(owner, { ...options, resume: true })).operation, 'resume'); assert.equal(paused.size, 0)
   const receiverGone = new Promise(resolve => receiver.once('exit', resolve)); receiver.stdin.end(); await receiverGone
   assert.equal(sameProcess(owner), false)
+})
+
+
+test('lease開始はverified後の未登録期間を待ち、公式tool/task登録と本人を照合する', () => {
+  const owner = { pid: 200, started: 'own開始' }, input = { command: '完成済み', cwd: '/専用' }, native = { id: 'own-task', pid: owner.pid, process_identity: owner, input: { name: 'Shell', input } }
+  const current = { state: 'verified', runtime: 'rearm_pending', waiter: null }, use = { id: 'use', turn_id: 'turn', name: 'Shell', session: 'own', input }, task = { id: 'own-task', tool_use_id: 'use', pid: owner.pid }
+  const target = { spool: { read: () => current }, meta: { harness: 'cursor', parent_session: 'own' }, observe: () => ({ toolUses: [use], tasks: [task] }) }
+  const options = { sameProcess: () => true, processDescendsFrom: () => true }
+  assert.equal(nativeLeaseRegistration(target, options), null)
+  current.runtime = 'armed'; current.waiter = { owner, native_task: native }
+  assert.equal(nativeLeaseRegistration(target, options).registration.task_id, 'own-task')
+  use.session = '他会話'; assert.equal(nativeLeaseRegistration(target, options), null)
+  use.session = 'own'; task.pid = 999; assert.equal(nativeLeaseRegistration(target, options), null)
+  current.state = 'failed'; current.error_code = '実製品error'
+  assert.throws(() => nativeLeaseRegistration(target, options), { code: current.error_code })
 })

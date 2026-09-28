@@ -3,9 +3,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { tmpdir, homedir } from 'node:os'
 import { join } from 'node:path'
-import { nativeInvocation, grokControlledTaskEnd, createBackgroundSurfaceAdapters, resolveOfficialCli } from './scenarios-surfaces.mjs'
+import { nativeInvocation, grokControlledTaskEnd, createBackgroundSurfaceAdapters, resolveOfficialCli, assertNativeTaskRead } from './scenarios-surfaces.mjs'
 import * as platform from '../../skill/scripts/parent-platform.mjs'
 const { shellCommand } = platform
 
@@ -90,4 +90,27 @@ test('通常導入の4公式CLIを正規pathと実version応答で解決する',
     assert.ok(actual.executable); assert.ok(actual.version)
     assert.ok(!/not found|error/iu.test(actual.version))
   }
+})
+
+
+test('期限通知のCursor Readはown native taskファイルの全量に限定する', () => {
+  const project = '/専用 lease project', id = 'task', session = 'own', endpointId = 'endpoint', path = join(homedir(), '.cursor/projects', project.replace(/[^a-zA-Z0-9]+/gu, '-').replace(/^-+/u, ''), 'terminals', `${id}.txt`)
+  const reader = { id: 'read-use', session, name: 'Read', input: { path } }, read = { reader_tool_use_id: reader.id, session, result: { endpoint_id: endpointId }, output_file: path, raw_bytes: Buffer.from('元bytes') }
+  const options = { harness: 'cursor', id, session, endpointId, project, read, toolUses: [reader] }
+  assert.equal(assertNativeTaskRead(options), reader)
+  reader.input.limit = 1
+  assert.throws(() => assertNativeTaskRead(options), { code: 'ACCEPTANCE_CURSOR_NATIVE_FULL_READ' })
+  delete reader.input.limit; read.session = '他会話'
+  assert.throws(() => assertNativeTaskRead(options), { code: 'ACCEPTANCE_NATIVE_TASK_RESULT_OWNER' })
+})
+
+test('期限通知のGrok readerは同会話taskの完了snapshotと全文byte数を照合する', () => {
+  const { seen, request } = fixture(), reader = seen.toolUses[1], completed = seen.tasks[0]
+  const read = { session: request.session, reader_tool_use_id: reader.id, result: { endpoint_id: 'own-endpoint' }, raw_output: reader.output.Result }
+  const options = { harness: 'grok', ...request, endpointId: 'own-endpoint', project: '/専用', read, completed, toolUses: seen.toolUses }
+  assert.equal(assertNativeTaskRead(options), reader)
+  reader.input.timeout_ms = 1
+  assert.throws(() => assertNativeTaskRead(options), { code: 'ACCEPTANCE_GROK_NATIVE_FULL_READ' })
+  delete reader.input.timeout_ms; read.raw_output.raw_output_bytes += 1
+  assert.throws(() => assertNativeTaskRead(options), { code: 'ACCEPTANCE_GROK_NATIVE_FULL_READ' })
 })
