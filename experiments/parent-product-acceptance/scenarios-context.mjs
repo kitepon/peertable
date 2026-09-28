@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { judgeAudience, sha256 } from './evidence.mjs'
 import { isDeepStrictEqual } from 'node:util'
 import { scenarioPlan, scenarioNames } from './scenarios.mjs'
+import { readJsonl } from './harness.mjs'
 
 const fail = (code, detail) => { throw Object.assign(new Error(detail), { code }) }
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -147,8 +148,14 @@ export function nativeReceiveReaderAllowed(use, registrations, tasks, session) {
   return registration.native_task.input?.name === 'run_terminal_command' && use.name === 'get_command_or_subagent_output' && isDeepStrictEqual(use.input, { task_ids: [registration.native_task.id] })
 }
 
+// 公式completion hookのCID/generationと対象last replyを照合する。UIのfooterだけでは完了にしない。
+export function cursorIdleCompletion(events, last, session) {
+  if (!last || last.session !== session || !last.turn_id) fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', '対象Cursor応答の会話/generationがありません')
+  return events.find(row => row.event?.hook_event_name === 'stop' && row.event.status === 'completed' && row.event.conversation_id === session && row.event.generation_id === last.turn_id) ?? null
+}
+
 export async function createScenarioContext(options) {
-  const { meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, proxy, bin, nativeActions = {}, screen } = options
+  const { meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, proxy, bin, nativeActions = {}, screen, nativeStopFile } = options
   const importInstalled = name => import(pathToFileURL(join(pkg, 'skill/scripts', name)).href)
   const { PAGE_CHARS } = await importInstalled('parent-delivery.mjs')
   const { sameProcess, processIdentity, processDescendsFrom, shellCommand } = await importInstalled('parent-platform.mjs')
@@ -286,14 +293,26 @@ export async function createScenarioContext(options) {
     const last = seen.replies.at(-1)
     await until('実親idle', async () => {
       const view = await screen(), current = observe()
-      const prompt = meta.harness === 'claude' ? /^\s*❯\s/mu : /^\s*›\s/mu
+      if (meta.harness === 'cursor') {
+        if (!nativeStopFile) fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', 'Cursorの専用stop hook保存先がありません')
+        const events = existsSync(nativeStopFile) ? readJsonl(readFileSync(nativeStopFile, 'utf8'), nativeStopFile).rows.map(item => item.row) : []
+        const completed = cursorIdleCompletion(events, last, meta.parent_session)
+        if (!completed || sameProcess(processIdentity(completed.pid))) return null
+        faultState.set(`${scope.runId}:idle_stop`, completed)
+        return current.replies.length === count && current.replies.at(-1)?.turn_id === last.turn_id && /Add a follow-up/u.test(view)
+      }
+      if (meta.harness === 'grok') {
+        const ended = readJsonl(readFileSync(file, 'utf8'), file).rows.map(item => item.row.params?.update).filter(update => update?.sessionUpdate === 'turn_completed').at(-1)
+        if (ended?.prompt_id !== last.turn_id) return null
+      }
+      const prompt = ['claude', 'grok'].includes(meta.harness) ? /^\s*❯\s/mu : /^\s*›\s/mu
       return prompt.test(view) && current.replies.at(-1)?.order === last.order
     }, 120000, 1000)
     // promptが作業中にも表示される実装があるため、native task終了の記録も必要にする。
     const ended = meta.harness === 'codex' ? codexTurns(file).get(last.turn_id) : null
     if (meta.harness === 'codex' && (!ended || ended.end_kind !== 'task_complete' || ended.completed_order < last.order)) fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', '対象last turnのtask_completeを確認できません')
     faultState.set(`${scope.runId}:idle`, { turn: last.turn_id, order: last.order, rows: seen.rows })
-    return result(scope, 'idle_without_input', 'harness_transcript', { idle_turn: last.turn_id, reply_order: last.order })
+    return result(scope, 'idle_without_input', 'harness_transcript', { idle_turn: last.turn_id, reply_order: last.order, official_stop: faultState.get(`${scope.runId}:idle_stop`) ?? null })
   }
   actions.idle_observe = async (_, scope) => {
     const before = faultState.get(`${scope.runId}:idle`), latest = scope.checks.at(-1)

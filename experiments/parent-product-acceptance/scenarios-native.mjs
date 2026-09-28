@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process'
 import { createScenarioContext } from './scenarios-context.mjs'
 import { createNativeFixtureFactory, waitOwnedFixtureExit } from './scenarios-fixtures.mjs'
 import { sha256 } from './evidence.mjs'
-import { createBackgroundSurfaceAdapters } from './scenarios-surfaces.mjs'
+import { createBackgroundSurfaceAdapters, nativeInvocation } from './scenarios-surfaces.mjs'
 
 const fail = (code, message, detail) => { throw Object.assign(new Error(message), { code, detail }) }
 const rows = file => existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)) : []
@@ -106,18 +106,32 @@ export function verifyRelatedIsolation({ primary, secondary, checks, messages })
   return { primary: { room: primary.meta.room, session: primary.meta.parent_session, endpoint: primary.spool.id }, secondary: { room: secondary.meta.room, session: secondary.meta.parent_session, endpoint: secondary.spool.id } }
 }
 
-// OS適合はここだけ。対象PID+開始identityを毎回照合し、native親自身や共有受信を停止しない。
-export async function pauseOwnedReceiver(owner, { parent, sameProcess, processDescendsFrom, paused, resume = false }) {
-  if (!owner || !sameProcess(owner) || owner.pid === parent.pid || !processDescendsFrom(owner, parent)) fail('ACCEPTANCE_PROCESS_FAULT_OWNER', '専用親の受信processではありません')
+// 独立watcherの所有権は親子treeで推測せず、own endpointの保存identityとcaller本人で確認する。
+export function assertOwnedReceiver(owner, { target, fixture, sameProcess, processDescendsFrom, endpoints }) {
+  const parent = target?.meta.parent_process, current = target?.spool.read()
+  const sameIdentity = (a, b) => a && b && a.pid === b.pid && a.started === b.started
+  if (!fixture || target.fixture !== fixture || target.spool.project !== fixture.project || target.spool.id !== current?.endpoint_id || !parent?.started || !owner?.started || owner.pid === parent.pid || !sameProcess(parent) || !sameProcess(owner)) fail('ACCEPTANCE_PROCESS_FAULT_OWNER', '専用fixtureの存命親/endpoint/受信identityではありません')
+  if (current.harness !== fixture.harness || current.caller?.harness !== fixture.harness || current.caller?.conversation !== target.meta.parent_session || !sameIdentity(current.caller?.owner, parent)) fail('ACCEPTANCE_PROCESS_FAULT_CALLER', '受信endpointのcallerと実会話/親本人が一致しません')
+  const role = sameIdentity(current.watcher, owner) ? 'watcher' : sameIdentity(current.waiter?.owner, owner) ? 'waiter' : null
+  if (!role || role === 'waiter' && !processDescendsFrom(owner, parent)) fail('ACCEPTANCE_PROCESS_FAULT_OWNER', 'own spoolの受信processではありません')
+  const shared = endpoints.filter(endpoint => endpoint.id !== target.spool.id && endpoint.read().runtime !== 'stopped' && [endpoint.read().watcher, endpoint.read().waiter?.owner].some(other => sameIdentity(other, owner)))
+  if (shared.length) fail('ACCEPTANCE_PROCESS_FAULT_SHARED', '他endpointと共有する受信processは停止しません', { endpoints: shared.map(endpoint => endpoint.id) })
+  return { endpoint_id: target.spool.id, project: fixture.project, parent_session: target.meta.parent_session, caller_owner: current.caller.owner, receiver_role: role, receiver_owner: owner }
+}
+
+// OS適合はここだけ。公式spoolのPID+開始identityを操作直前に照合し、任意PIDへ作用しない。
+export async function pauseOwnedReceiver(owner, { target, fixture, sameProcess, processDescendsFrom, paused, resume = false }) {
+  const { endpointsFor } = await import(pathToFileURL(join(fixture.pkg, 'skill/scripts/parent-caller.mjs')).href)
+  const proof = assertOwnedReceiver(owner, { target, fixture, sameProcess, processDescendsFrom, endpoints: endpointsFor() })
   if (process.platform !== 'win32') process.kill(owner.pid, resume ? 'SIGCONT' : 'SIGSTOP')
   else {
     // Windows公式thread API。列挙するのは検証済みown PIDのthreadだけ。
     const script = `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class PeertableOwnThreads{[DllImport("kernel32.dll")]public static extern IntPtr OpenThread(uint a,bool b,uint c);[DllImport("kernel32.dll")]public static extern uint SuspendThread(IntPtr h);[DllImport("kernel32.dll")]public static extern uint ResumeThread(IntPtr h);[DllImport("kernel32.dll")]public static extern bool CloseHandle(IntPtr h);}';$p=Get-Process -Id ${owner.pid};foreach($t in $p.Threads){$h=[PeertableOwnThreads]::OpenThread(2,$false,$t.Id);if($h -eq [IntPtr]::Zero){throw 'own thread open failed'};try{$r=[PeertableOwnThreads]::${resume ? 'ResumeThread' : 'SuspendThread'}($h);if($r -eq 4294967295){throw 'own thread control failed'}}finally{[void][PeertableOwnThreads]::CloseHandle($h)}}`
-    execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { stdio: 'pipe' })
+    execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], { stdio: 'pipe' })
   }
-  if (resume) paused.delete(owner.pid); else paused.set(owner.pid, owner)
+  if (resume) paused.delete(owner.pid); else paused.set(owner.pid, { owner, target, fixture })
   if (!sameProcess(owner)) fail('ACCEPTANCE_PROCESS_FAULT_DISAPPEARED', '一時停止/再開の対象が終了しました')
-  return { owner, operation: resume ? 'resume' : 'suspend', at: new Date().toISOString() }
+  return { ...proof, operation: resume ? 'resume' : 'suspend', at: new Date().toISOString() }
 }
 
 // 残る境界を呼出し側の任意callbackへ押し出さず、このmodule内の公式操作に固定する。
@@ -177,7 +191,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     const before = observerRows(fixture).length
     state(s).final = { fixture, release, before, nonce }
     await fixture.submit(`最終応答と終了境界の試験です。toolを追加せず、符号${nonce}を含む短い最終応答をしてください。`)
-    const event = await s.until('実Stop hookの到着', () => observerRows(fixture).slice(before).find(row => row.event.hook_event_name === 'Stop' && nativeSession(row.event) === self(s).meta.parent_session), 120000, 50)
+    const event = await s.until('実Stop hookの到着', () => observerRows(fixture).slice(before).find(row => ['Stop', 'stop'].includes(row.event.hook_event_name) && (s.harness !== 'cursor' || row.event.status === 'completed') && nativeSession(row.event) === self(s).meta.parent_session), 120000, 50)
     if (!s.sameProcess(s.processIdentity(event.pid))) fail('ACCEPTANCE_FINAL_HOOK_NOT_LIVE', '公式Stopの実processがありません')
     state(s).final.event = event
     // 専用observerは同時起動した所有hookを妨げない。配送を挟んで終了するraceを作る。
@@ -243,6 +257,18 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
   actions.session_clear = async (_, s) => {
     const old = self(s), fixture = fixtureFor(old), before = observerRows(fixture).length
     s.context.registerEndpoint('old', old)
+    if (['cursor', 'grok'].includes(s.harness)) {
+      const beforeEvents = fixture.adapter.hookEvents().length
+      await fixture.stop(); await fixture.launch()
+      const marker = `NEW_SESSION_${randomUUID()}`, command = s.shellCommand(process.execPath, ['-e', `console.log(${JSON.stringify(marker)})`])
+      const input = s.harness === 'cursor' ? { command, cwd: fixture.project } : { command, description: '専用新会話の実相関確認', background: false, timeout: 0 }
+      await fixture.submit(`新会話の実相関試験です。${s.harness === 'cursor' ? 'Shell' : 'run_terminal_command'}へ次の入力を渡し、出力をそのまま報告してください。Peertable joinはまだ呼ばないでください。input: ${JSON.stringify(input)}`)
+      const event = await s.until('新CLIの実hook CID', () => fixture.adapter.hookEvents().slice(beforeEvents).find(row => nativeSession(row.event) && nativeSession(row.event) !== old.meta.parent_session && JSON.stringify(row.event).includes(marker)), 120000, 100)
+      const newSession = nativeSession(event.event), file = await s.until('新会話の公式transcript', () => fixture.adapter.transcript(newSession), 30000, 100)
+      const reply = await s.until('新CLIの実会話応答', () => fixture.adapter.read(file, { session: newSession }).replies.find(reply => reply.text.includes(marker) && reply.turn_id), 120000, 100)
+      state(s).session = { old, fixture, clear: event, newSession }
+      return s.result(s, 'new_conversation_identity', 'harness_transcript', { old_session: old.meta.parent_session, related_session: newSession, related_turn_id: reply.turn_id, new_transcript: file, official_event_artifact: fixture.adapter.hookFile, mechanism: 'own CLI終了→公式CLI新規起動' })
+    }
     const command = s.harness === 'claude' ? '/clear' : s.harness === 'codex' ? '/new' : fixture.adapter.clear
     if (!command) sourceUnconfirmed(s.harness, '公式新会話command')
     await fixture.submit(command)
@@ -304,7 +330,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
         for (;;) {
           if (monitor.canceled) return
           const ready = target.spool.read().records.find((record, index) => index >= monitor.before && record.state === 'ready' && record.event.seq > 0)
-          if (ready) { monitor.suspended = { record: ready, operation: await pauseOwnedReceiver(owner, { parent: target.meta.parent_process, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused }) }; return }
+          if (ready) { monitor.suspended = { record: ready, operation: await pauseOwnedReceiver(owner, { target, fixture, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused }) }; return }
           await new Promise(resolve => setTimeout(resolve, 5))
         }
       })().catch(error => { monitor.error = error })
@@ -312,7 +338,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
       if (!owner || !s.sameProcess(owner)) fail('ACCEPTANCE_RECEIVER_NOT_LIVE', '専用watcherが存命ではありません')
       return s.result(s, 'own_receiver_suspension_armed', 'os_process', { owner, observation: 'ready保存の実境界を観測するmonitorの準備', monitor_started_at: new Date().toISOString() })
     }
-    const operation = await pauseOwnedReceiver(owner, { parent: target.meta.parent_process, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused })
+    const operation = await pauseOwnedReceiver(owner, { target, fixture, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused })
     state(s).recovery = { fixture, target, owner, operation }
     return s.result(s, 'own_receiver_suspended', 'os_process', operation)
   }
@@ -323,7 +349,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     const before = s.recordFor(post)
     if (before?.state !== 'ready' || before.event.body !== post.body || before.claim) fail('ACCEPTANCE_READY_NOT_RETAINED', 'claim前のready原文を確認できません')
     const old = recovery.owner
-    await pauseOwnedReceiver(old, { parent: recovery.target.meta.parent_process, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused, resume: true })
+    await pauseOwnedReceiver(old, { target: recovery.target, fixture: recovery.fixture, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused, resume: true })
     process.kill(old.pid, 'SIGKILL'); await s.until('停止した受信process消失', () => !s.sameProcess(old), 10000, 50)
     const target = await join(s)
     if (target.spool.id !== recovery.target.spool.id || s.recordFor(post).event.body !== post.body) fail('ACCEPTANCE_READY_RESTART_BINDING', 'readyとendpointを継承しませんでした')
@@ -490,7 +516,8 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     if (!fixture.adapter.reconnectMcp) sourceUnconfirmed(s.harness, '通常CLIの公式MCP再接続command', { parent_session: target.meta.parent_session })
     const before = target.spool.read(), tarball = mode === 'same' ? lifecycle.currentTarball : lifecycle.nextTarball
     const argv = ['install', '--prefix', lifecycle.prefix, '--ignore-scripts', '--no-audit', '--no-fund', tarball]
-    const output = execFileSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', argv, { encoding: 'utf8', shell: process.platform === 'win32' })
+    const invocation = nativeInvocation(process.platform === 'win32' ? 'npm.cmd' : 'npm', argv, { shellCommand: s.shellCommand })
+    const output = execFileSync(invocation.executable, invocation.argv, { encoding: 'utf8' })
     const installed = JSON.parse(readFileSync(join(s.pkg, 'package.json'), 'utf8'))
     if (mode === 'same' && installed.version !== s.meta.package_version || mode === 'new' && installed.version === s.meta.package_version) fail('ACCEPTANCE_LIFECYCLE_VERSION', '要求した同版/新版の導入が不一致です')
     const after = target.spool.read()
@@ -508,7 +535,8 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     const { endpointsFor } = await import(pathToFileURL(join(s.pkg, 'skill/scripts/parent-caller.mjs')).href)
     if (!endpointsFor().some(endpoint => endpoint.project !== fixture.project && endpoint.read().harness === s.harness && endpoint.read().runtime !== 'stopped')) fail('ACCEPTANCE_TEARDOWN_SHARED_CONNECTION_SCOPE', '通常global接続を保持する別fixtureが必要です')
     const bin = join(lifecycle.prefix, 'node_modules/.bin', process.platform === 'win32' ? 'peertable.cmd' : 'peertable')
-    const output = execFileSync(bin, ['teardown', fixture.project], { cwd: fixture.project, env: { ...process.env, PEERTABLE_TOKEN_SOURCE_FILE: lifecycle.tokenFile }, encoding: 'utf8', shell: process.platform === 'win32' })
+    const invocation = nativeInvocation(bin, ['teardown', fixture.project], { shellCommand: s.shellCommand })
+    const output = execFileSync(invocation.executable, invocation.argv, { cwd: fixture.project, env: { ...process.env, PEERTABLE_TOKEN_SOURCE_FILE: lifecycle.tokenFile }, encoding: 'utf8' })
     const messages = (await target.api('messages')).messages
     if (!s.sameProcess(target.meta.parent_process) || original.some(before => !messages.some(after => isDeepStrictEqual(before, after)))) fail('ACCEPTANCE_TEARDOWN_PARENT_OR_HISTORY', 'teardownで親またはroom履歴を失いました')
     fixture.configuration.assertHooksUnchanged()
@@ -532,7 +560,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     if (current?.work) { writeFileSync(current.work.release, '{}'); if (current.work.owner) await waitOwnedFixtureExit({ readEndpoints: () => [], knownOwners: [current.work.owner], indexExists: () => false, sameProcess: s.sameProcess, timeout: 30000 }) }
     if (current?.final) { writeFileSync(current.final.release, '{}'); if (current.final.monitor) { current.final.monitor.canceled = true; await current.final.monitor.promise } }
     if (current?.recovery?.monitor) { current.recovery.monitor.canceled = true; await current.recovery.monitor.promise }
-    for (const owner of paused.values()) if (s.sameProcess(owner)) await pauseOwnedReceiver(owner, { parent: self(s).meta.parent_process, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused, resume: true })
+    for (const held of paused.values()) if (s.sameProcess(held.owner)) await pauseOwnedReceiver(held.owner, { target: held.target, fixture: held.fixture, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused, resume: true })
     // queue撤去はこのfixtureが公式APIで作成したIDだけ。利用者/Aiterm実設定を削除しない。
     for (const entry of current?.foreign?.queue ?? []) await current.foreign.fixture.rpc('thread/queue/delete', { threadId: self(s).meta.parent_session, queuedSubmissionId: entry.id })
     if (current?.lease?.monitor) {
@@ -557,7 +585,8 @@ export async function createNativeScenarioContext(name, options) {
   let primary
   try {
     primary = await factory.open({ harness: options.sourceMeta.harness, name: `scenario-${name}-${randomUUID().slice(0, 8)}`, prepare: async fixture => {
-      if (['final_race', 'session_change', 'foreign_ownership'].includes(name)) await fixture.addObserver({ events: name === 'session_change' ? ['SessionStart'] : ['Stop', 'PostToolUse'] })
+      if (['final_race', 'session_change', 'foreign_ownership'].includes(name) && !(name === 'session_change' && ['cursor', 'grok'].includes(fixture.harness))) await fixture.addObserver({ events: fixture.harness === 'cursor' ? ['stop', 'postToolUse'] : name === 'session_change' ? ['SessionStart'] : ['Stop', 'PostToolUse'] })
+      if (fixture.harness === 'cursor' && ['idle', 'consecutive', 'no_external_tools'].includes(name)) await fixture.addObserver({ events: ['stop'] })
       if (['claim_race', 'slot_race'].includes(name)) await fixture.addProductCompetitors({ count: 2 })
       if (name === 'compatibility_hooks') await fixture.addProductCompetitors({ count: 1, compatibilityHarness: options.sourceMeta.harness === 'claude' ? 'codex' : 'claude' })
     } })

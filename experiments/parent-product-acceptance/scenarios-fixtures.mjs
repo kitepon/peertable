@@ -186,7 +186,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         const nativeEvents = events ?? (harness === 'cursor' ? ['preToolUse', 'postToolUse', 'afterMCPExecution'] : ['PreToolUse', 'PostToolUse', 'Stop'])
         fixture.modify(file, before => {
           const value = before ? JSON.parse(before.toString('utf8').replace(/^\uFEFF/u, '')) : { ...(harness === 'cursor' ? { version: 1 } : {}), hooks: {} }
-          for (const event of nativeEvents) { const entry = harness === 'cursor' ? { command } : { hooks: [{ type: 'command', command, timeout: 86400 }] }; value.hooks[event] = [...(value.hooks[event] ?? []), entry] }
+          for (const event of nativeEvents) { const entry = harness === 'cursor' ? { command, timeout: 86400 } : { hooks: [{ type: 'command', command, timeout: 86400 }] }; value.hooks[event] = [...(value.hooks[event] ?? []), entry] }
           return Buffer.from(JSON.stringify(value, null, 2) + '\n')
         })
         if (harness === 'codex') await fixture.trustProjectHooks()
@@ -240,7 +240,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         const meta = { ...sourceMeta, harness, room, parent_session: fixture.session, parent_process: fixture.owner, endpoint_id: spool.id, harness_version: adapter.resolveCli().version }
         const sessionAtJoin = fixture.session
         const boundObserve = () => { const seen = adapter.read(file, { session: sessionAtJoin, spool }); return seen.deliveries ? seen : { ...seen, deliveries: seen.injections.flatMap(row => parseDelivered(row.text).map(delivery => ({ ...delivery, order: row.order, session: row.session ?? sessionAtJoin, turn_id: row.turn_id, hook: row.hook, boundary: { encoding: row.encoding ?? 'none' } }))), replies: seen.replies.map(reply => ({ ...reply, session: reply.session ?? sessionAtJoin })) } }
-        fixture.target = { meta, spool, api: apiFor(room), observe: boundObserve, submit: fixture.submit, file, screen: () => fixture.aiterm.screen(fixture.pty), fixture }
+        fixture.target = { meta, spool, api: apiFor(room), observe: boundObserve, submit: fixture.submit, file, nativeStopFile: fixture.observer?.observations, screen: () => fixture.aiterm.screen(fixture.pty), fixture }
         return fixture.target
       }
       fixture.join = async (previousEndpoint = null) => { await fixture.submit(`Peertable parent_joinをproject=${project} name=${name}で1回呼んでください。同じ会話のroom配送の確認符号を原文のまま報告し、受信を継続してください。Cursor/Grokの背景登録とparent_readは製品receiptの完成済み入力を公式toolへ渡してください。`); return fixture.refreshTarget(previousEndpoint) }

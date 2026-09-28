@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { scenarios as inventory } from '../../scripts/parent-delivery-acceptance.mjs'
 import { scenarioNames, scenarioPlan, runScenario, validateBoundary, validateNativeCheck } from './scenarios.mjs'
-import { createScenarioProxy, nativeReadPages, assembleNativePages, noToolsReception, codexTurns, assertCodexBusy, nativeReceiveToolAllowed, nativeReceiveReaderAllowed } from './scenarios-context.mjs'
+import { createScenarioProxy, nativeReadPages, assembleNativePages, noToolsReception, codexTurns, assertCodexBusy, nativeReceiveToolAllowed, nativeReceiveReaderAllowed, cursorIdleCompletion } from './scenarios-context.mjs'
 
 const check = () => ({ run_id: 'run', scenario: 'package', status: 'passed', body_equal: true, count: 1, nonce: 'unique', harness: 'claude', original: { room: 'room', from: 'probe', to: 'bell', seq: 1, body: '日本語 & 字面&gt;' }, received: { room: 'room', from: 'probe', to: 'bell', seq: 1, body: '日本語 & 字面&gt;' }, delivery: { session: 'session', turn_id: 'turn', order: 2 }, reply: { session: 'session', turn_id: 'turn2', order: 3, text: 'unique' }, receipt: { result: 'delivered', receipt_revision: 1 } })
 const checkScope = { runId: 'run', scenario: 'package', session: 'session' }
@@ -152,4 +152,14 @@ test('全量readerは製品の実taskと公式Read/get出力の相関がある�
   const get = { ...read, name: 'get_command_or_subagent_output', input: { task_ids: ['task'] } }
   assert.equal(nativeReceiveReaderAllowed(get, [registration], [task], 's'), true)
   assert.equal(nativeReceiveReaderAllowed({ ...get, input: { ...get.input, timeout_ms: 1 } }, [registration], [task], 's'), false)
+})
+
+
+test('Cursorのidleは対象会話/generationの公式completed stopだけを採用する', () => {
+  const last = { session: 'own', turn_id: '最新generation' }
+  const entry = { pid: 123, event: { hook_event_name: 'stop', status: 'completed', conversation_id: 'own', generation_id: last.turn_id } }
+  assert.equal(cursorIdleCompletion([entry], last, 'own'), entry)
+  for (const changed of [{ generation_id: '過去generation' }, { conversation_id: '別会話' }, { status: 'aborted' }, { hook_event_name: 'postToolUse' }]) assert.equal(cursorIdleCompletion([{ ...entry, event: { ...entry.event, ...changed } }], last, 'own'), null)
+  assert.equal(cursorIdleCompletion([{ event: {} }], last, 'own'), null)
+  assert.throws(() => cursorIdleCompletion([entry], { ...last, session: '別会話' }, 'own'), { code: 'ACCEPTANCE_IDLE_NATIVE_END_MISSING' })
 })

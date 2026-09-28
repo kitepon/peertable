@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError } from './scenarios-native.mjs'
+import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver } from './scenarios-native.mjs'
 import { processIdentity, sameProcess } from '../../skill/scripts/parent-platform.mjs'
 import { scenarioPlan } from './scenarios.mjs'
 
@@ -74,4 +74,20 @@ test('join失敗は公式parent-errorだけから判定し、既存endpointや�
   assert.equal(productToolError(`説明中の ${error.error_code}`, error.error_code), null)
   assert.equal(productToolError({ ...error, state: 'verified' }, error.error_code), null)
   assert.equal(productToolError({ ...error, error_code: '別code' }, error.error_code), null)
+})
+
+
+test('独立watcherはown spoolとcaller本人で確認し、他endpoint共有とidentity差を拒否する', () => {
+  const parent = { pid: 100, started: '親開始' }, owner = { pid: 200, started: 'watcher開始' }
+  const fixture = { project: '/専用project', harness: 'codex' }
+  const state = { endpoint_id: 'own', harness: 'codex', runtime: 'armed', caller: { harness: 'codex', conversation: 'own会話', owner: parent }, watcher: owner }
+  const target = { fixture, meta: { parent_process: parent, parent_session: 'own会話' }, spool: { project: fixture.project, id: 'own', read: () => state } }
+  const options = { target, fixture, sameProcess: () => true, processDescendsFrom: () => false, endpoints: [] }
+  assert.equal(assertOwnedReceiver(owner, options).receiver_role, 'watcher')
+  assert.throws(() => assertOwnedReceiver({ ...owner, started: '再利用PID' }, options), { code: 'ACCEPTANCE_PROCESS_FAULT_OWNER' })
+  assert.throws(() => assertOwnedReceiver(owner, { ...options, endpoints: [{ id: '他endpoint', read: () => ({ runtime: 'armed', watcher: owner }) }] }), { code: 'ACCEPTANCE_PROCESS_FAULT_SHARED' })
+  state.caller.conversation = '別会話'
+  assert.throws(() => assertOwnedReceiver(owner, options), { code: 'ACCEPTANCE_PROCESS_FAULT_CALLER' })
+  state.caller.conversation = 'own会話'; state.watcher = null; state.waiter = { owner }
+  assert.throws(() => assertOwnedReceiver(owner, options), { code: 'ACCEPTANCE_PROCESS_FAULT_OWNER' })
 })
