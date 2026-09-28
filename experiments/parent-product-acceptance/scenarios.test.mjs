@@ -71,7 +71,7 @@ test('fixture proxyで実HTTP source断とreceipt障害を分け、復旧する'
   const backend = createServer((req, res) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, path: req.url })) })
   await new Promise(resolve => backend.listen(0, '127.0.0.1', resolve))
   const proxy = await createScenarioProxy({ backend: `http://127.0.0.1:${backend.address().port}` })
-  t.after(async () => { await proxy.close(); await new Promise(resolve => backend.close(resolve)) })
+  t.after(async () => { assert.deepEqual(await proxy.close(), { closed: true }); await new Promise(resolve => backend.close(resolve)) })
   assert.equal((await fetch(`${proxy.url}/api/room/messages`)).status, 200)
   proxy.disconnectSource()
   assert.equal((await fetch(`${proxy.url}/api/room/messages`)).status, 503)
@@ -139,4 +139,3 @@ test('受信維持Shellは完成済み入力・実task ID・PID・所有相関�
   assert.equal(nativeReceiveToolAllowed({ ...use, session: 'other-session' }, [registration], 's'), false)
   assert.equal(nativeReceiveToolAllowed(use, [{ ...registration, owner_verified: false }], 's'), false)
 })
-

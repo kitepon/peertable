@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 親配送の正式受入runner。npm packの配布物をlocal prefixへ導入し、通常CLIの実親で配送を実測する。
-// usage: node run.mjs --harness claude|codex --source <40桁> --digest <64桁> --version <x.y.z> [--scenarios audience] [--out <dir>] [--model <id>]
+// usage: node run.mjs --harness claude|codex --source <40桁> --digest <64桁> --version <x.y.z> [--scenarios audience,idle,...] [--out <dir>] [--model <id>]
 import { chmodSync, rmSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, appendFileSync, copyFileSync, realpathSync } from 'node:fs'
 import { tmpdir, homedir, platform } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -12,6 +12,8 @@ import { isDeepStrictEqual } from 'node:util'
 import { openAiterm } from './aiterm.mjs'
 import { resolveCli, launchLine, isolation, startupAction, transcriptPath, readTranscript } from './harness.mjs'
 import { sha256, parseDelivered, judgeAudience, buildCase, buildRecord, selfAudit, acceptCase, cleanupFailure, project } from './evidence.mjs'
+import { scenarioNames, runScenario } from './scenarios.mjs'
+import { createScenarioContext, createScenarioProxy } from './scenarios-context.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, value, index, all) => value.startsWith('--') ? [...pairs, [value.slice(2), all[index + 1]?.startsWith('--') ? true : all[index + 1] ?? true]] : pairs, []))
@@ -20,8 +22,9 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const osName = platform()
 const harness = args.harness
 const scenarios = String(args.scenarios ?? 'audience').split(',')
-const known = ['audience']
-for (const name of scenarios) if (!known.includes(name)) fail('ACCEPTANCE_SCENARIO_NOT_IMPLEMENTED', `未実装scenarioは実行も成績作成もしません: ${name}`)
+const known = ['audience', ...scenarioNames]
+for (const name of scenarios) if (!known.includes(name)) fail('ACCEPTANCE_SCENARIO_UNKNOWN', `正本にないscenarioです: ${name}`)
+if (new Set(scenarios).size !== scenarios.length) fail('ACCEPTANCE_SCENARIO_DUPLICATE', '同じscenarioを1回のrunで重複指定できません')
 if (!['claude', 'codex'].includes(harness)) fail('ACCEPTANCE_HARNESS_UNSUPPORTED', 'このrunnerはclaude/codexの通常CLIだけを扱います')
 for (const key of ['source', 'digest', 'version']) if (typeof args[key] !== 'string') fail('ACCEPTANCE_ARGS', `--${key} が必要です`)
 
@@ -56,6 +59,9 @@ try {
   const installedDigest = runtimeDigest()
   const clientVersion = run(process.execPath, [join(pkg, 'room/client.mjs'), '--version']).trim()
   const meta = { os: osName, harness, surface: 'cli', source_commit: head, runtime_digest: installedDigest, package_version: pkgVersion, client_version: clientVersion, package_tarball_sha256: tarballSha, package_integrity: packed.integrity, node_version: process.version, isolation: isolation(harness) }
+  // 固定した製品sourceと、実行した試験controllerの内容は別々に記録する。
+  meta.controller = { files_sha256: Object.fromEntries(['run.mjs', 'aiterm.mjs', 'harness.mjs', 'evidence.mjs', 'scenarios.mjs', 'scenarios-context.mjs']
+    .map(name => [name, sha256(readFileSync(new URL(name, import.meta.url)))])) }
   log('package', meta)
   if (installedDigest !== args.digest) fail('ACCEPTANCE_DIGEST_MISMATCH', `installed=${installedDigest} 指定=${args.digest}`)
   if (pkgVersion !== args.version || clientVersion !== args.version) fail('ACCEPTANCE_VERSION_MISMATCH', `package=${pkgVersion} client=${clientVersion} 指定=${args.version}`)
@@ -96,8 +102,13 @@ try {
   await api('members', { name: 'probe', harness: 'codex' })
   meta.room = room
 
+  // 障害を注入するHTTP境界は試験親だけが通る。投稿・観測APIはroomへ直接接続する。
+  const proxy = scenarios.some(name => ['source_reconnect', 'receipt_retry'].includes(name))
+    ? await createScenarioProxy({ backend: base, artifact: join(privateDir, 'scenario-proxy.jsonl') }) : null
+  if (proxy) cleanup('scenario_proxy', () => proxy.close())
+
   const projectDir = join(out, `project-${randomUUID()}`); mkdirSync(join(projectDir, '.team'), { recursive: true })
-  writeFileSync(join(projectDir, '.team', 'setup-state.json'), JSON.stringify({ room, server_url: base, mode: 'adhoc' }))
+  writeFileSync(join(projectDir, '.team', 'setup-state.json'), JSON.stringify({ room, server_url: proxy?.url ?? base, mode: 'adhoc' }))
   const tokenFile = join(privateDir, 'peertable.env'); writeFileSync(tokenFile, `PEERTABLE_POST_TOKEN=${token}\n`, { mode: 0o600 })
 
   // 5. 通常CLIをAiterm公開PTYで起動し、起動dialogへ既定の肯定操作だけを返す。
@@ -215,6 +226,20 @@ try {
     const audiences = Object.fromEntries(judged.map(item => [item.label, { count: item.count, body_equal: item.body_equal, status: item.status }]))
     writeCase(evidence, { audiences })
   }
+  const additional = scenarios.filter(name => name !== 'audience')
+  if (additional.length) {
+    const context = await createScenarioContext({ meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, proxy, bin, screen: () => aiterm.screen(pty) })
+    log('scenario_adapters', { supported: context.supported, missing: context.missing })
+    for (const name of additional) {
+      log('scenario_start', { scenario: name })
+      const measured = await runScenario(name, context)
+      const seen = await until('transcript末尾の確定', () => { const value = observe(); return value.pending_tail === 0 ? value : null }, 30000, 1000)
+      copyFileSync(file, join(privateDir, `transcript-${meta.parent_session}.jsonl`))
+      const evidence = buildCase({ meta, scenario: name, checks: measured.checks, observations: measured.observations,
+        extra: { run_id: measured.run_id, trace: measured.trace, boundaries: measured.boundaries, transcript_rows: seen.rows, turns_seen: seen.turns } })
+      writeCase(evidence)
+    }
+  }
 } catch (error) {
   if (screenOnError) await screenOnError().catch(capture => summary.errors.push({ code: capture.code ?? 'ACCEPTANCE_SCREEN_CAPTURE_FAILED', message: capture.message }))
   summary.errors.push({ code: error.code ?? 'ACCEPTANCE_FAILED', message: error.message })
@@ -236,7 +261,7 @@ try {
   console.log(JSON.stringify({ kind: 'summary', status: summary.status, out, cases: summary.cases.map(item => ({ id: item.id, status: item.status, gate_errors: item.gate_errors })), errors: summary.errors, findings: summary.findings }))
 }
 
-function writeCase(evidence, extra) {
+function writeCase(evidence, extra = {}) {
   const relative = `rag/parent-delivery/live/${evidence.case_id}.json`
   const target = join(publicDir, relative); mkdirSync(dirname(target), { recursive: true })
   writeFileSync(target, JSON.stringify(evidence, null, 2) + '\n')

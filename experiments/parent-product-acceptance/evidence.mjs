@@ -76,6 +76,7 @@ export function buildCase({ meta, scenario, checks, observations, extra = {} }) 
     package_tarball_sha256: meta.package_tarball_sha256, harness_version: meta.harness_version, node_version: meta.node_version,
     parent_session: meta.parent_session, parent_process: meta.parent_process, endpoint_id: meta.endpoint_id, room: meta.room,
     owner_input_required: false, isolation: meta.isolation,
+    ...(meta.controller ? { controller: meta.controller } : {}),
     observations, receipts: checks.map(check => check.receipt).filter(Boolean),
     body_checks: checks.filter(check => check.received).map(check => ({ label: check.label, original: check.original, received: check.received })),
     checks, ...extra,
@@ -106,6 +107,7 @@ export function cleanupFailure(label, result) {
     codex_folder_trust_remove: [[result.remaining_trust_entries !== 0, 'ACCEPTANCE_TRUST_ENTRY_LEFT']],
     pty_close: [[result.pane_alive_after !== false, 'ACCEPTANCE_PANE_ALIVE'], [!['closed', 'already_closed'].includes(result.outcome), 'ACCEPTANCE_PTY_NOT_CLOSED']],
     room_server: [[result.alive_after !== false, 'ACCEPTANCE_ROOM_ALIVE']],
+    scenario_proxy: [[result.closed !== true, 'ACCEPTANCE_PROXY_NOT_CLOSED']],
     connect_remove: [[!result.removed?.length || result.removed.some(item => !item.endsWith(':removed')), 'ACCEPTANCE_CONNECT_REMOVE_FAILED'], [result.semantic_equal !== true, 'ACCEPTANCE_CONFIG_NOT_RESTORED'], [result.config_text_equal === false, 'ACCEPTANCE_CONFIG_TEXT_CHANGED']],
   }[label]
   if (!rules) throw typed('ACCEPTANCE_CLEANUP_UNKNOWN', `完了条件の無い後片付けです: ${label}`)

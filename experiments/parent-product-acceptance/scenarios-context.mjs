@@ -47,7 +47,7 @@ export async function createScenarioProxy({ backend, artifact }) {
     reconnectSource() { sourceBlocked = false; return note('source_restored') },
     failReceipts() { receiptBlocked = true; return note('receipt_blocked') },
     restoreReceipts() { receiptBlocked = false; return note('receipt_restored') },
-    async close() { sourceBlocked = false; receiptBlocked = false; for (const upstream of upstreams) upstream.destroy(); for (const socket of sockets) socket.destroy(); await new Promise(resolve => server.close(resolve)); note('proxy_closed') },
+    async close() { sourceBlocked = false; receiptBlocked = false; for (const upstream of upstreams) upstream.destroy(); for (const socket of sockets) socket.destroy(); await new Promise(resolve => server.close(resolve)); note('proxy_closed'); return { closed: !server.listening } },
   }
 }
 

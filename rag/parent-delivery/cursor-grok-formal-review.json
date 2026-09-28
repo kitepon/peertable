@@ -1,0 +1,96 @@
+{
+  "schema": "peertable.parent-evidence-review.v1",
+  "acquired_at": "2026-09-28T18:31:50.688Z",
+  "confidence": "実測：親が保存済みのnative task出力・公式会話記録・hook世代・room本文を独立照合",
+  "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+  "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+  "package_version": "0.8.63",
+  "controller_files_sha256": {
+    "aud.sh": "be6bcf01af4c3a35e9d22f6746cf4f5983bbcd2697e6a634f0bfe56e5c3e317f",
+    "audf.ps1": "5e717fa3c298ef7bbc7b6fa0647e09005b1f919908d6ec403e4c78cfbd8415c9",
+    "drive.sh": "ba46912f902790ca542349324578a2faf7bfd07055e1dc948a2970dc0353a871",
+    "formal-audience.mjs": "713926df496261473508fc89d2f1b4a0f957c0292ef6e24fc6866baf14f330fb",
+    "lt4.sh": "340b6d4d30c51528f38cf8eedd38983428d3a53870c81a7e6c4d3203e43c7af1",
+    "one-linux.sh": "6d947a7e93d4a782710b021c2dcdf05f76ee0bd1db2be3802094fdff519c3d8a",
+    "one.sh": "526f6ed06e226667ac8050bffb1d82ba5720f4d8e48fdb7325b0a0d330a4c85a",
+    "poll.sh": "0765cd578b1e83a0887cb7ddee4559c556d238c5ae6992f5550b89b84a32e336",
+    "qa3.mjs": "d23c1a5394148b9f195c5363eae053c51041dad45354a583bc29c9206897c576",
+    "res.js": "a2e6e5c2a4fcf12a56f1a87a3304378af048de507ee7062068e62754a44201d2",
+    "run-r2.ps1": "942606f7243c0d8eba614592db1a1651a4bfdfb1e715cc74d01b9a94762ab50a",
+    "scr.sh": "ec001faee6c89a9547c51b0db52bf38b3f3d3d2a53426ce502a0fb8029864372",
+    "st.mjs": "736543dfb35ba7f531684d39e641e65bdc7d60d08d69acf9de8a88ddda8d536a",
+    "w5.ps1": "4361c7b0e1218bf5ba91bd4e28ae078ac965495625e73a41430328f95c52c412",
+    "wone.ps1": "fc2223550012e4f143b4ac40c50266bba6d8ff0a75e559aeb7e69ad7d9f1c962",
+    "wst2.ps1": "688deeed2aff7d632502e2b93619ef9db57ea456bb8d3d9ac5d6daac70cd22de",
+    "wt4.ps1": "60c04053608a185f69f6a806b9ebd6fba9ab3fc58cc9234cf40dfbba4beb1866"
+  },
+  "cases": [
+    {
+      "id": "darwin/cursor/cli/audience",
+      "raw_body_and_native_turns_verified": 3,
+      "raw_assistant_replies_verified": 3,
+      "negative_controls": 2,
+      "tui_full_body_present": {
+        "dm": true,
+        "multiple": true,
+        "all": true
+      }
+    },
+    {
+      "id": "darwin/grok/cli/audience",
+      "raw_body_and_native_turns_verified": 3,
+      "raw_assistant_replies_verified": 3,
+      "negative_controls": 2,
+      "tui_full_body_present": {
+        "dm": true,
+        "multiple": true,
+        "all": true
+      }
+    },
+    {
+      "id": "linux/cursor/cli/audience",
+      "raw_body_and_native_turns_verified": 3,
+      "raw_assistant_replies_verified": 3,
+      "negative_controls": 2,
+      "tui_full_body_present": {
+        "dm": true,
+        "multiple": true,
+        "all": true
+      }
+    },
+    {
+      "id": "linux/grok/cli/audience",
+      "raw_body_and_native_turns_verified": 3,
+      "raw_assistant_replies_verified": 3,
+      "negative_controls": 2,
+      "tui_full_body_present": {
+        "dm": true,
+        "multiple": false,
+        "all": true
+      }
+    },
+    {
+      "id": "win32/cursor/cli/audience",
+      "raw_body_and_native_turns_verified": 3,
+      "raw_assistant_replies_verified": 3,
+      "negative_controls": 2,
+      "tui_full_body_present": {
+        "dm": true,
+        "multiple": true,
+        "all": true
+      }
+    },
+    {
+      "id": "win32/grok/cli/audience",
+      "raw_body_and_native_turns_verified": 3,
+      "raw_assistant_replies_verified": 3,
+      "negative_controls": 2,
+      "tui_full_body_present": {
+        "dm": false,
+        "multiple": false,
+        "all": false
+      }
+    }
+  ],
+  "overall_acceptance_complete": false
+}

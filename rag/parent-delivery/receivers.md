@@ -48,7 +48,9 @@ Cursor/Grokの6 CLIは旧snapshotで5件失敗、Windows Grokの無改造試験�
 
 親のCodex idle長文試験でroomのUTF-8断片decodeによる原文破損が再現された。`readBody`をNodeのstream decoderへ修理し、[HTTP UTF-8再現](../../experiments/http-utf8-body-repro.mjs)で40,097 UTF-16文字の日本語・emojiの途中を5箇所で分割する。POST応答、GET messages、保存logの完全一致をfocused検証する。修理前のnative idle長文試験は失敗証拠として親が保管し、成功へ変更しない。
 
-公開前gateは`npm run verify:parent-delivery`で[実機manifest](product-acceptance.json)を検査する。3 OS・7実行面・25scenarioの525件を要求し、欠落/skip/fixture・証拠file欠落・source digest/version不一致を拒否する。現manifestは空で、公開gateは未達。gateは会話/原文/receipt等の共通証拠を機械照合し、scenario固有の実観測の十分性は親の受入監査でも確認する。実装チェックポイントと全製品受入完了を分ける。
+公開前gateは`npm run verify:parent-delivery`で[実機manifest](product-acceptance.json)を検査する。3 OS・7実行面・25scenarioの525件を要求し、欠落/skip/fixture・証拠file欠落・source digest/version不一致を拒否する。完了件数と残りはmanifestから算出する。gateは会話/原文/receipt等の共通証拠を機械照合し、scenario固有の実観測の十分性は親の受入監査でも確認する。実装チェックポイントと全製品受入完了を分ける。
+
+固定した最終製品sourceで取得したCursor/Grok通常CLIの3 OS audienceは、[親の独立監査](cursor-grok-formal-review.json)でnative task出力または公式`parent_read`結果、room本文、実会話のturn、後続assistant返答を照合してmanifestへ受け入れた。他者間DMと親自身の発言は非配送だった。Linux Grokの複数宛とWindows GrokのTUI画面は取得不足であり、`tui_full_body_present:false`を残す。CLIの受信本文と返答の根拠は保存済みの公式会話記録であり、画面確認の合格とは扱わない。
 
 ## 配布候補の確認
 

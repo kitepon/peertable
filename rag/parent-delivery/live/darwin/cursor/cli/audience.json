@@ -1,0 +1,526 @@
+{
+  "schema": "peertable.parent-live-case.v1",
+  "case_id": "darwin/cursor/cli/audience",
+  "status": "passed",
+  "reasons": [],
+  "native": true,
+  "os": "darwin",
+  "harness": "cursor",
+  "surface": "cli",
+  "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+  "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+  "package_version": "0.8.63",
+  "client_version": "0.8.63",
+  "package_tarball_sha256": "55f7f8789b24f4a316b9b67414b5e96a63a2422110085215dcb5b485c58e6fc6",
+  "harness_version": "2026.09.26-dd393fe",
+  "node_version": "v26.10.0",
+  "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+  "parent_process": {
+    "pid": 83339,
+    "parent": 83138,
+    "started": "Tue Sep 29 02:50:11 2026",
+    "executable": "~/.local/share/cursor-agent/versions/2026.09.26-dd393fe/node",
+    "command": "~/.local/bin/cursor-agent --use-system-ca ~/.local/share/cursor-agent/versions/2026.09.26-dd393fe/index.js --model auto --trust --approve-mcps --force"
+  },
+  "endpoint_id": "ff26e7b4-953c-408f-b47f-f87e32ce4daf",
+  "room": "qa-cg",
+  "owner_input_required": false,
+  "isolation": {
+    "fixture": "dedicated room server + token file, dedicated private QA dir",
+    "home": "normal HOME/auth (no fake HOME)",
+    "harness_config": "project .cursor/.grok fixture hooks+MCP (no global connect)",
+    "install": "npm pack tarball installed with npm install --prefix; product room/client/hook run from the installed package",
+    "model": "Auto",
+    "permission": "--force --approve-mcps --trust"
+  },
+  "observations": [
+    {
+      "kind": "parent_join",
+      "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+      "turn_id": "d25ee893-88c5-4ad7-a316-3df60037f7c9",
+      "tool_use_id": "6b86f959-567b-4647-bcfc-257f6c01d729",
+      "endpoint_id": "ff26e7b4-953c-408f-b47f-f87e32ce4daf",
+      "caller_owner": {
+        "pid": 83339,
+        "parent": 83138,
+        "started": "Tue Sep 29 02:50:11 2026",
+        "executable": "~/.local/share/cursor-agent/versions/2026.09.26-dd393fe/node",
+        "command": "~/.local/bin/cursor-agent --use-system-ca ~/.local/share/cursor-agent/versions/2026.09.26-dd393fe/index.js --model auto --trust --approve-mcps --force"
+      },
+      "call_generation": "d06778fe-598a-4547-bc2a-890488d386c9"
+    },
+    {
+      "kind": "native_background_task_armed",
+      "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+      "turn_id": "d25ee893-88c5-4ad7-a316-3df60037f7c9",
+      "task_id": "910378",
+      "task_pid": 93197,
+      "task_process_started": "Tue Sep 29 02:52:57 2026",
+      "waiter_pid": 93229,
+      "waiter_started": "Tue Sep 29 02:52:57 2026",
+      "runtime": "armed",
+      "task_id_transitions": [
+        "POSITIVE A \"seq\":4 task 910375 -> 910376",
+        "POSITIVE D \"seq\":5 task 910376 -> 910377",
+        "NEGATIVE X \"seq\":6 (expect no delivery to bell)",
+        "POSITIVE M \"seq\":7 task 910377 -> 910378",
+        "NEGATIVE S \"seq\":8 (expect no delivery to bell)",
+        "STATE 910378"
+      ]
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "dm",
+      "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+      "turn_id": "9570920e-3ac1-4e23-89b7-20fec782b32b",
+      "seq": 5,
+      "delivery_id": "77ec67da-355d-4795-bf6a-39d8506947c2",
+      "entry": {
+        "type": "native_task_output_file",
+        "task_id": "910376"
+      },
+      "boundary": {
+        "source": "cursor native background task output terminals/910376.txt",
+        "raw_body_equal": true
+      }
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "dm",
+      "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+      "turn_id": "9570920e-3ac1-4e23-89b7-20fec782b32b",
+      "seq": 5,
+      "reply_excerpt": "受信:\n[Peertable room=qa-cg from=worker to=\"bell\" seq=5]\n本文: QA-D-MCUR: 親だけ宛のDMです。符号 DM-MCUR\n[配送ID=77ec67da-355d-4795-bf6a-39d8506947c2 digest=f1442b218bb4cb5c8d3da1a3ac0b79082188b343cb38cd57b00ecd94cbd"
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "multiple",
+      "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+      "turn_id": "20f73a0b-330f-4eac-8a2f-886c462d5679",
+      "seq": 7,
+      "delivery_id": "3cf29106-c9d7-4e37-9631-f3e4d5e901fb",
+      "entry": {
+        "type": "native_task_output_file",
+        "task_id": "910377"
+      },
+      "boundary": {
+        "source": "cursor native background task output terminals/910377.txt",
+        "raw_body_equal": true
+      }
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "multiple",
+      "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+      "turn_id": "20f73a0b-330f-4eac-8a2f-886c462d5679",
+      "seq": 7,
+      "reply_excerpt": "受信:\n[Peertable room=qa-cg from=worker to=[\"bell\",\"peer2\"] seq=7]\n本文: QA-M-MCUR: 親とpeer2宛の複数宛です。符号 MULTI-MCUR\n[配送ID=3cf29106-c9d7-4e37-9631-f3e4d5e901fb digest=93a370f0088a6636a616e48ce50eaf887199aca0d"
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "all",
+      "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+      "turn_id": "d25ee893-88c5-4ad7-a316-3df60037f7c9",
+      "seq": 4,
+      "delivery_id": "e0799ebb-ddca-41f5-ad7b-cb88f476ad3f",
+      "entry": {
+        "type": "native_task_output_file",
+        "task_id": "910375"
+      },
+      "boundary": {
+        "source": "cursor native background task output terminals/910375.txt",
+        "raw_body_equal": true
+      }
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "all",
+      "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+      "turn_id": "d25ee893-88c5-4ad7-a316-3df60037f7c9",
+      "seq": 4,
+      "reply_excerpt": "受信:\n[Peertable room=qa-cg from=worker to=\"all\" seq=4]\n本文: QA-A-MCUR: 全員宛の確認です。符号 ALL-MCUR\n[配送ID=e0799ebb-ddca-41f5-ad7b-cb88f476ad3f digest=76b094f58485586be3597f63ed6d09ebedc6ff5e46f8bf68dccf2b3aec03"
+    }
+  ],
+  "receipts": [
+    {
+      "seq": 5,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "cursor_native_background_output",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    },
+    {
+      "seq": 7,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "cursor_native_background_output",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    },
+    {
+      "seq": 4,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "cursor_native_background_output",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    }
+  ],
+  "body_checks": [
+    {
+      "label": "dm",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-MCUR: 親だけ宛のDMです。符号 DM-MCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-MCUR: 親だけ宛のDMです。符号 DM-MCUR"
+      }
+    },
+    {
+      "label": "multiple",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-MCUR: 親とpeer2宛の複数宛です。符号 MULTI-MCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-MCUR: 親とpeer2宛の複数宛です。符号 MULTI-MCUR"
+      }
+    },
+    {
+      "label": "all",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-MCUR: 全員宛の確認です。符号 ALL-MCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-MCUR: 全員宛の確認です。符号 ALL-MCUR"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "dm",
+      "recipient": "bell",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-MCUR: 親だけ宛のDMです。符号 DM-MCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-MCUR: 親だけ宛のDMです。符号 DM-MCUR"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-MCUR: 親だけ宛のDMです。符号 DM-MCUR",
+        "delivery_id": "77ec67da-355d-4795-bf6a-39d8506947c2",
+        "digest": "f1442b218bb4cb5c8d3da1a3ac0b79082188b343cb38cd57b00ecd94cbd456b3",
+        "preview": false,
+        "order": 12,
+        "session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+        "turn_id": "9570920e-3ac1-4e23-89b7-20fec782b32b",
+        "boundary": {
+          "source": "cursor native background task output terminals/910376.txt",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "type": "native_task_output_file",
+          "task_id": "910376"
+        }
+      },
+      "reply": {
+        "session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+        "text": "受信:\n[Peertable room=qa-cg from=worker to=\"bell\" seq=5]\n本文: QA-D-MCUR: 親だけ宛のDMです。符号 DM-MCUR\n[配送ID=77ec67da-355d-4795-bf6a-39d8506947c2 digest=f1442b218bb4cb5c8d3da1a3ac0b79082188b343cb38cd57b00ecd94cbd456b3]\n\n---\n\nこのDMは待機プロセスが受け取ったもので、`parent_read` で回収したよ。継続tokenは出ていないから、上が全文。通知が来た2件はどちらも前の報告で対応済みで、失敗した方はパスを書き換えてしまった1回目の起動のもの。次の待機プロセスは、返却されたinputを一字も変えずに登録してあるから、このまま次の配送を待つね。",
+        "order": 15,
+        "turn_id": "9570920e-3ac1-4e23-89b7-20fec782b32b",
+        "entry_uuid": null
+      },
+      "spool": {
+        "delivery_id": "77ec67da-355d-4795-bf6a-39d8506947c2",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "cursor_native_background_output"
+      },
+      "receipt": {
+        "seq": 5,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "cursor_native_background_output",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      },
+      "tui_full_body_present": true
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "multiple",
+      "recipient": "bell",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-MCUR: 親とpeer2宛の複数宛です。符号 MULTI-MCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-MCUR: 親とpeer2宛の複数宛です。符号 MULTI-MCUR"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-MCUR: 親とpeer2宛の複数宛です。符号 MULTI-MCUR",
+        "delivery_id": "3cf29106-c9d7-4e37-9631-f3e4d5e901fb",
+        "digest": "93a370f0088a6636a616e48ce50eaf887199aca0d856775dd97ea0a3c24aa48b",
+        "preview": false,
+        "order": 20,
+        "session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+        "turn_id": "20f73a0b-330f-4eac-8a2f-886c462d5679",
+        "boundary": {
+          "source": "cursor native background task output terminals/910377.txt",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "type": "native_task_output_file",
+          "task_id": "910377"
+        }
+      },
+      "reply": {
+        "session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+        "text": "受信:\n[Peertable room=qa-cg from=worker to=[\"bell\",\"peer2\"] seq=7]\n本文: QA-M-MCUR: 親とpeer2宛の複数宛です。符号 MULTI-MCUR\n[配送ID=3cf29106-c9d7-4e37-9631-f3e4d5e901fb digest=93a370f0088a6636a616e48ce50eaf887199aca0d856775dd97ea0a3c24aa48b]\n\n---\n\n`bell` と `peer2` 宛てのメッセージが届いたから、`parent_read` で回収したよ。継続tokenは出ていないから、上が全文。次の待機プロセスは、返却されたinputを一字も変えずに登録してあるから、このまま次の配送を待つね。",
+        "order": 23,
+        "turn_id": "20f73a0b-330f-4eac-8a2f-886c462d5679",
+        "entry_uuid": null
+      },
+      "spool": {
+        "delivery_id": "3cf29106-c9d7-4e37-9631-f3e4d5e901fb",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "cursor_native_background_output"
+      },
+      "receipt": {
+        "seq": 7,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "cursor_native_background_output",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      },
+      "tui_full_body_present": true
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "all",
+      "recipient": "bell",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-MCUR: 全員宛の確認です。符号 ALL-MCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-MCUR: 全員宛の確認です。符号 ALL-MCUR"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-MCUR: 全員宛の確認です。符号 ALL-MCUR",
+        "delivery_id": "e0799ebb-ddca-41f5-ad7b-cb88f476ad3f",
+        "digest": "76b094f58485586be3597f63ed6d09ebedc6ff5e46f8bf68dccf2b3aec0378ef",
+        "preview": false,
+        "order": 6,
+        "session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+        "turn_id": "d25ee893-88c5-4ad7-a316-3df60037f7c9",
+        "boundary": {
+          "source": "cursor native background task output terminals/910375.txt",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "type": "native_task_output_file",
+          "task_id": "910375"
+        }
+      },
+      "reply": {
+        "session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+        "text": "受信:\n[Peertable room=qa-cg from=worker to=\"all\" seq=4]\n本文: QA-A-MCUR: 全員宛の確認です。符号 ALL-MCUR\n[配送ID=e0799ebb-ddca-41f5-ad7b-cb88f476ad3f digest=76b094f58485586be3597f63ed6d09ebedc6ff5e46f8bf68dccf2b3aec0378ef]\n\n---\n\n`bell` で親として参加したよ（endpoint `ff26e7b4-953c-408f-b47f-f87e32ce4daf`）。上の配送は `parent_read` で回収済みで、継続tokenは出ていないから、これで全文。次の待機プロセスも返却されたinputを一字も変えずに登録してあるから、このまま次の配送を待つね。\n\n1回目の起動で、私がスクリプトのパスを書き換えてしまったの（`proj/../f-prefix` になっていた）。モジュールが見つからずにすぐ終了したから、何も動いていないし副作用もないよ。そのあと返却されたinputどおりのコマンドで起動し直してある。",
+        "order": 9,
+        "turn_id": "d25ee893-88c5-4ad7-a316-3df60037f7c9",
+        "entry_uuid": null
+      },
+      "spool": {
+        "delivery_id": "e0799ebb-ddca-41f5-ad7b-cb88f476ad3f",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "cursor_native_background_output"
+      },
+      "receipt": {
+        "seq": 4,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "cursor_native_background_output",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      },
+      "tui_full_body_present": true
+    }
+  ],
+  "negative_controls": [
+    {
+      "condition": "other_to_other_dm(worker->peer2)",
+      "seq": 6,
+      "room_delivery_keys": [
+        "peer2"
+      ],
+      "bell_in_room_deliveries": false,
+      "in_bell_spool": false,
+      "received_in_harness_record": 0,
+      "reply_mentions": 0
+    },
+    {
+      "condition": "parent_self_post(bell->all)",
+      "seq": 8,
+      "room_delivery_keys": [
+        "worker",
+        "peer2"
+      ],
+      "bell_in_room_deliveries": false,
+      "in_bell_spool": false,
+      "received_in_harness_record": 0,
+      "reply_mentions": 0
+    }
+  ],
+  "negative_controls_ok": true,
+  "tui_full_body_present": {
+    "dm": true,
+    "multiple": true,
+    "all": true
+  },
+  "native_task_records": [
+    {
+      "task_id": "910374",
+      "pid": "84622",
+      "status": "failed",
+      "started_at": "2026-09-28T17:50:31.836Z"
+    },
+    {
+      "task_id": "910375",
+      "pid": "85503",
+      "status": "succeeded",
+      "started_at": "2026-09-28T17:50:47.601Z"
+    },
+    {
+      "task_id": "910376",
+      "pid": "86539",
+      "status": "succeeded",
+      "started_at": "2026-09-28T17:50:58.164Z"
+    },
+    {
+      "task_id": "910377",
+      "pid": "90554",
+      "status": "succeeded",
+      "started_at": "2026-09-28T17:52:17.171Z"
+    },
+    {
+      "task_id": "910378",
+      "pid": "93197",
+      "status": "running",
+      "started_at": "2026-09-28T17:52:57.499Z"
+    }
+  ],
+  "hook_events": {
+    "total": 31,
+    "nonzero_exit": 0,
+    "stdin_prefix_hex": [
+      "7b22636f"
+    ]
+  },
+  "task_output_reader": "model Read of the Cursor-saved terminals/<shell_id>.txt (native task output file) then parent_read",
+  "evidence_files": {
+    "state": "/private/tmp/claude-501/qa-cursor-grok/f-mac-cursor/final-state.json",
+    "hook_events": "/private/tmp/claude-501/qa-cursor-grok/f-mac-cursor/hook-events.jsonl",
+    "tui": "/private/tmp/claude-501/qa-cursor-grok/f-mac-cursor/tui-scrollback.txt"
+  }
+}

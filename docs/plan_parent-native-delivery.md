@@ -379,3 +379,7 @@ Codexの公式hook本文はXMLのtextとして記録される。[一次仕様の
 修理後のmacOS通常CLIで、Claude/CodexのDM・複数宛・ALLについて親の実会話・応答・原文・receiptを再確認し、親終了後の自動停止と共有索引の撤去、他設定の保持を確認した。[修理後の候補観測](../rag/parent-delivery/repaired-cli-candidate-observation.json)は実測commitをそのまま記録し、最終manifestへ流用しない。
 
 最終受入の製品sourceは`43348b8c3557e8abe43e0ee45d3c9b8b19e427f8`へ揃えて測定する。試験制御用の`experiments/`は配布物に含めず、実測した製品sourceとは別にrunnerのcommitを記録する。異なるcommitで得た証拠の`source_commit`を書き換えず、最終対象で実行する。実機で確認した起動dialogと終了確認のrunner修理は統合済みで、関連focused testは9件合格した。
+
+この固定sourceでCursor/Grok通常CLIの3 OS audienceを取得し、[親の独立監査](../rag/parent-delivery/cursor-grok-formal-review.json)で18件の原文・公式turn・同会話の後続返答を生証跡と照合して受け入れた。[最終manifest](../rag/parent-delivery/product-acceptance.json)へ実測のまま保存し、他scenarioやDesktopの成功へ広げない。Linux Grokの複数宛とWindows GrokではTUI画面の取得不足を残した。旧候補の証拠を書き換えて使っていない。
+
+24 scenarioの手順と実操作moduleをCLI runnerへ接続した。作業中・待機・連続配送・tool省略・原文全量・上限超過・source再接続・出力中断・receipt再送・配布物確認は既存contextで実行でき、残る13 scenarioのnative adapterは実装中である。必要adapterのない試験は操作前にtyped errorで止まり、成績を作らない。統合の関連focused testは25件合格した。製品sourceは固定したまま、試験controllerの各fileのSHA-256を証拠へ記録する。

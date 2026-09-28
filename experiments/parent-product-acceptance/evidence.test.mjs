@@ -85,6 +85,8 @@ test('後片付けの未完了は成功へ丸めず原因codeを返す', () => {
   assert.equal(cleanupFailure('endpoint_stop', { owned_alive_after: [], runtime_after: 'stopped' }).code, 'PRODUCT_ENDPOINT_NOT_SELF_STOPPED')
   assert.equal(cleanupFailure('pty_close', { outcome: 'closed', pane_alive_after: null }).code, 'ACCEPTANCE_PANE_ALIVE')
   assert.equal(cleanupFailure('room_server', { alive_after: true }).code, 'ACCEPTANCE_ROOM_ALIVE')
+  assert.equal(cleanupFailure('scenario_proxy', { closed: true }), null)
+  assert.equal(cleanupFailure('scenario_proxy', { closed: false }).code, 'ACCEPTANCE_PROXY_NOT_CLOSED')
   assert.equal(cleanupFailure('codex_folder_trust_remove', { remaining_trust_entries: 1 }).code, 'ACCEPTANCE_TRUST_ENTRY_LEFT')
   assert.equal(cleanupFailure('connect_remove', { removed: ['codex:removed'], semantic_equal: true, config_text_equal: true }), null)
   assert.equal(cleanupFailure('connect_remove', { removed: ['codex:removed'], semantic_equal: true, config_text_equal: false }).code, 'ACCEPTANCE_CONFIG_TEXT_CHANGED')
