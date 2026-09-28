@@ -7,8 +7,9 @@ import { randomUUID } from 'node:crypto'
 import { pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 import { openAiterm } from './aiterm.mjs'
-import { resolveCli, startupAction, readTranscript, transcriptPath } from './harness.mjs'
+import { startupAction, readTranscript, transcriptPath } from './harness.mjs'
 import { parseDelivered, sha256 } from './evidence.mjs'
+import { nativeInvocation, resolveOfficialCli } from './scenarios-surfaces.mjs'
 
 const fail = (code, message) => { throw Object.assign(new Error(message), { code }) }
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -65,7 +66,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
       const project = join(directory, 'project'); mkdirSync(join(project, '.team'), { recursive: true, mode: 0o700 }); writeJson(join(project, '.team/setup-state.json'), { room, server_url: serverUrl, mode: 'adhoc' })
       const configuration = ordinaryConfiguration(harness)
       if (['claude', 'codex'].includes(harness) && !ownsParentConnection(harness)) fail('ACCEPTANCE_FIXTURE_PARENT_NOT_CONNECTED', '通常設定のPeertable所有登録が必要です。fixtureはglobal登録を変更しません')
-      let adapter = surfaceAdapters[harness] ?? (['claude', 'codex'].includes(harness) ? { resolveCli: () => resolveCli(harness), startup: view => startupAction(harness, view), transcript: session => transcriptPath(harness, session), read: file => readTranscript(harness, file) } : null)
+      let adapter = surfaceAdapters[harness] ?? (['claude', 'codex'].includes(harness) ? { resolveCli: () => resolveOfficialCli(harness, platform), startup: view => startupAction(harness, view), transcript: session => transcriptPath(harness, session), read: file => readTranscript(harness, file) } : null)
       const fixture = { directory, project, configuration, pkg, harness, name, room, pty: null, aiterm: null, target: null, session: null, owner: null, paneOwner: null, nativeOwners: [], receiverOwners: [], ready: false, backups: new Map(), closed: false, observations: [], sessionSettings, adapter }
       if (adapter?.bind) adapter = adapter.bind(fixture)
       fixture.adapter = adapter
@@ -217,9 +218,10 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         if (sessionSettings && harness === 'claude') { const settings = join(project, 'session-settings.json'); writeJson(settings, sessionSettings); argv.push('--settings', settings) }
         if (model) argv.push(harness === 'codex' ? '-m' : '--model', model)
         if (resume) argv.unshift(...(harness === 'codex' ? ['resume', resume] : harness === 'claude' ? ['--resume', resume] : adapter.resumeArgs(resume)))
-        writeJson(input, { executable: cli.executable, argv, project, tokenFile })
+        const invocation = nativeInvocation(cli.executable, argv, { shellCommand: platform.shellCommand, interactive: true })
+        writeJson(input, { executable: cli.executable, argv, invocation, project, tokenFile })
         // HOME・認証・model/provider設定はharnessの通常環境のまま。token参照だけを試験roomへ渡す。
-        writeFileSync(launcher, `import {readFileSync} from 'node:fs';import {spawn} from 'node:child_process';const p=JSON.parse(readFileSync(process.argv[2],'utf8'));const child=spawn(p.executable,p.argv,{cwd:p.project,stdio:'inherit',env:{...process.env,PEERTABLE_TOKEN_SOURCE_FILE:p.tokenFile},shell:process.platform==='win32'});child.on('exit',(code)=>process.exit(code??1));\n`, { mode: 0o600 })
+        writeFileSync(launcher, `import {readFileSync} from 'node:fs';import {spawn} from 'node:child_process';const p=JSON.parse(readFileSync(process.argv[2],'utf8'));const child=spawn(p.invocation.executable,p.invocation.argv,{cwd:p.project,stdio:'inherit',env:{...process.env,PEERTABLE_TOKEN_SOURCE_FILE:p.tokenFile}});child.on('exit',(code)=>process.exit(code??1));\n`, { mode: 0o600 })
         if (!fixture.aiterm) fixture.aiterm = await openAiterm()
         if (!fixture.pty) fixture.pty = await fixture.aiterm.open(`pt-fixture-${randomUUID().slice(0, 8)}`, process.platform === 'win32' ? 'pwsh' : undefined)
         await fixture.trackOwnProcesses()
@@ -247,7 +249,12 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         await fixture.trackOwnProcesses()
         if (!fixture.ready || !fixture.owner || !platform.sameProcess(fixture.owner)) return
         const exit = harness === 'claude' ? '/exit' : harness === 'codex' ? '/quit' : adapter.exit
-        if (!exit) return
+        if (!exit) {
+          await fixture.aiterm.close(fixture.pty); fixture.pty = null
+          await waitOwnedFixtureExit({ readEndpoints: () => projectEndpoints(project), sameProcess: platform.sameProcess, knownOwners: [...fixture.nativeOwners, ...fixture.receiverOwners, fixture.paneOwner].filter(Boolean), indexExists: id => existsSync(join(homedir(), '.peertable/parent-receivers/endpoints', `${id}.json`)) })
+          fixture.ready = false; fixture.owner = null; fixture.paneOwner = null
+          return
+        }
         await fixture.submit(exit)
         await until('fixture親終了', () => !platform.sameProcess(fixture.owner), 30000)
       }

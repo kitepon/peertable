@@ -1,11 +1,28 @@
 // Cursor/Grok公式CLIの起動と試験project設定。会話/taskの観測はbackground-harness.mjsへ接続する。
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 
 const fail = (code, message) => { throw Object.assign(new Error(message), { code }) }
+// WindowsはPowerShell 7へargvを渡す。Nodeの既定shellを選ばず、対話stdinは呼出し元のstdioを継承する。
+export function nativeInvocation(executable, args, { platformName = process.platform, shellCommand, interactive = false } = {}) {
+  if (platformName !== 'win32') return { executable, argv: args }
+  const script = `$ErrorActionPreference='Stop'; ${shellCommand(executable, args, 'win32')}; exit $LASTEXITCODE`
+  return { executable: 'pwsh.exe', argv: ['-NoLogo', '-NoProfile', ...(interactive ? [] : ['-NonInteractive']), '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')] }
+}
+
+export function resolveOfficialCli(harness, platform) {
+  const name = { claude: 'claude', codex: 'codex', cursor: 'cursor-agent', grok: 'grok' }[harness]
+  if (!name) fail('ACCEPTANCE_OFFICIAL_CLI_UNSUPPORTED', harness)
+  // CLIの公式shimもPowerShellからそのまま呼ぶ。内部native pathを推測しない。
+  const executable = process.platform === 'win32' ? execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(`$ErrorActionPreference='Stop'; (Get-Command ${platform.psQuote(name)} -ErrorAction Stop).Source`, 'utf16le').toString('base64')], { encoding: 'utf8' }).trim() : platform.resolveExecutable(name)
+  const invocation = nativeInvocation(executable, ['--version'], { shellCommand: platform.shellCommand })
+  const version = execFileSync(invocation.executable, invocation.argv, { encoding: 'utf8' }).trim().split(/\r?\n/u)[0]
+  return { executable, version }
+}
+
 export async function createBackgroundSurfaceAdapters({ pkg, tokenFile, backgroundObserverFactory }) {
   if (!backgroundObserverFactory) {
     try { backgroundObserverFactory = (await import('./background-harness.mjs')).createBackgroundHarnessObserver }
@@ -13,12 +30,7 @@ export async function createBackgroundSurfaceAdapters({ pkg, tokenFile, backgrou
   }
   const { hookEntries, parentRegistration } = await import(pathToFileURL(join(pkg, 'skill/scripts/parent-connect.mjs')).href)
   const platform = await import(pathToFileURL(join(pkg, 'skill/scripts/parent-platform.mjs')).href)
-  const resolve = harness => {
-    const name = harness === 'cursor' ? 'cursor-agent' : 'grok'
-    const executable = platform.resolveExecutable(name)
-    const version = execFileSync(executable, ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' }).trim().split(/\r?\n/u)[0]
-    return { executable, version }
-  }
+  const resolve = harness => resolveOfficialCli(harness, platform)
   const adapters = {}
   for (const harness of ['cursor', 'grok']) adapters[harness] = {
     bind(fixture) {
@@ -79,6 +91,7 @@ export async function createBackgroundSurfaceAdapters({ pkg, tokenFile, backgrou
             fixture.modify(join(fixture.project, '.grok/hooks/peertable-parent.json'), () => Buffer.from(JSON.stringify({ hooks: owned }) + '\n'))
           }
         },
+        hookEvents: () => existsSync(hookFile) ? readFileSync(hookFile, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)) : [],
         hookFile,
       }
     },
