@@ -25,6 +25,29 @@ test('未知scenarioと導入物のpage上限不足をtyped failureにする', (
   assert.throws(() => scenarioPlan('fake'), { code: 'ACCEPTANCE_SCENARIO_UNKNOWN' })
   assert.throws(() => scenarioPlan('original'), { code: 'ACCEPTANCE_PAGE_LIMIT_MISSING' })
 })
+test('束縛期限caseはCodexの実receiver準備期限へ分岐し後半4stepを全harnessで保持する', () => {
+  const codex = scenarioPlan('binding_deadline', { harness: 'codex' })
+  assert.deepEqual(codex.slice(0, 2).map(step => [step.action, step.expectation]), [['receiver_preparation_timeout_arm', 'own_receiver_preparation_pending'], ['receiver_preparation_timeout_observe', 'receiver_preparation_rpc_timeout']])
+  for (const harness of ['claude', 'cursor', 'grok']) {
+    const plan = scenarioPlan('binding_deadline', { harness })
+    assert.deepEqual(plan.slice(0, 2).map(step => step.expectation), ['own_binding_pending', 'binding_timeout_typed_failed'])
+    assert.deepEqual(plan.slice(2), codex.slice(2))
+  }
+})
+test('traceは各stepで検証したartifact/CID/turnを保持し、未使用関連CIDを許可へ流用しない', async () => {
+  const actions = {}, plan = scenarioPlan('package'), primary = 'session', related = '専用CID'
+  for (const [index, step] of plan.entries()) actions[step.action] = async (input, scope) => {
+    const row = { kind: step.expectation, run_id: scope.runId, scenario: scope.scenario, parent_session: index === 0 ? related : primary, turn_id: `turn-${index}`, artifact: `/artifact-${index}`, source: 'harness_transcript' }
+    const result = { expectation: step.expectation, verified: true, observations: [row], related_sessions: index === 0 ? [related, '未使用CID'] : [] }
+    if (step.action === 'deliver') { const item = check(); item.nonce = input.nonce; item.reply.text = input.nonce; result.check = item }
+    return result
+  }
+  const measured = await runScenario('package', { harness: 'claude', session: primary, runId: 'run', pageChars: 1234, actions })
+  assert.equal(measured.page_chars, 1234)
+  assert.deepEqual(measured.trace[0].related_sessions, [related])
+  assert.deepEqual(measured.trace[0].observations, [{ kind: plan[0].expectation, parent_session: related, turn_id: 'turn-0', artifact: '/artifact-0' }])
+  assert.deepEqual(measured.trace[1].related_sessions, [])
+})
 test('adapter未接続時は操作前に停止し、成績を作らない', async () => {
   let calls = 0
   await assert.rejects(runScenario('busy', { harness: 'codex', session: 'session', pageChars: 100, actions: { deliver: () => { calls++ } } }), { code: 'ACCEPTANCE_SCENARIO_ADAPTER_MISSING' })

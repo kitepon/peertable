@@ -40,7 +40,7 @@ export function scenarioPlan(name, { pageChars, harness = 'claude' } = {}) {
     compatibility_hooks: [native('compatibility_arm', 'own_compatible_hook_loaded'), send('互換hook'), native('compatibility_observe', 'one_adapter_one_binding')],
     background_end: [native('background_cancel', 'native_task_cancel_observed'), native('background_timeout', 'native_task_timeout_observed'), native('background_exit', 'native_task_exit_observed'), native('background_observe', 'task_end_not_delivered'), native('receiver_rearm', 'native_receiving_rearmed'), send('背景終了後')],
     lease: [native('lease_expiry_arm', 'own_finite_lease'), send('期限前'), native('lease_expiry_observe', 'finite_lease_control_not_body'), send('再武装待ち', { defer: true }), native('receiver_rearm', 'same_endpoint_cursor_rearmed'), native('pending_recover', 'native_delivery'), send('期限更新後')],
-    binding_deadline: [native('binding_timeout_arm', 'own_binding_pending'), native('binding_timeout_observe', 'binding_timeout_typed_failed'), native('probe_timeout_arm', 'own_probe_not_consumed'), native('probe_timeout_observe', 'probe_timeout_typed_failed'), native('deadline_restore', 'new_join_verified'), send('期限障害復旧後')],
+    binding_deadline: [...(harness === 'codex' ? [native('receiver_preparation_timeout_arm', 'own_receiver_preparation_pending'), native('receiver_preparation_timeout_observe', 'receiver_preparation_rpc_timeout')] : [native('binding_timeout_arm', 'own_binding_pending'), native('binding_timeout_observe', 'binding_timeout_typed_failed')]), native('probe_timeout_arm', 'own_probe_not_consumed'), native('probe_timeout_observe', 'probe_timeout_typed_failed'), native('deadline_restore', 'new_join_verified'), send('期限障害復旧後')],
     slot_race: [native('slot_race_arm', 'own_simultaneous_hooks'), send('slot競合'), native('slot_race_observe', 'single_live_slot'), send('slot継続')],
     lifecycle: [send('更新前'), native('same_version_update', 'same_version_single_registration'), native('new_version_update', 'new_version_history_binding_preserved'), send('更新後'), native('teardown', 'receiver_stopped_parent_alive_history_kept'), native('lifecycle_rejoin', 'new_binding_after_teardown'), send('再導入後')],
     package: [native('package_inspect', 'pack_installed_no_checkout_paths'), send('導入物配送'), native('package_observe', 'pack_native_entry_used')],
@@ -92,13 +92,14 @@ export async function runScenario(name, context) {
       if (nonces.has(result.check.nonce) || result.check.nonce !== nonce) fail('ACCEPTANCE_SCENARIO_EVIDENCE_REUSED', `${name}: 専用の投稿ではありません`)
       nonces.add(nonce); checks.push(result.check)
     }
-    observations.push(...validateBoundary(result, { expectation: item.expectation, session, runId, scenario: name }))
+    const boundaryRows = validateBoundary(result, { expectation: item.expectation, session, runId, scenario: name })
+    observations.push(...boundaryRows)
     if (result.checks) for (const check of result.checks) {
       validateNativeCheck(check, { scenario: name, runId, session: check.parent_session ?? session })
       if (nonces.has(check.nonce)) fail('ACCEPTANCE_SCENARIO_EVIDENCE_REUSED', `${name}: 同じ観測を再使用しています`)
       nonces.add(check.nonce); checks.push(check)
     }
-    trace.push({ step: index, action: item.action, expectation: item.expectation, artifacts: result.observations.map(row => row.artifact), ...(result.related_sessions ? { related_sessions: result.related_sessions } : {}) })
+    trace.push({ step: index, action: item.action, expectation: item.expectation, artifacts: boundaryRows.map(row => row.artifact), related_sessions: [...new Set(boundaryRows.filter(row => row.parent_session !== session).map(row => row.parent_session))], observations: boundaryRows.map(({ kind, parent_session, turn_id, artifact }) => ({ kind, parent_session, turn_id, artifact })) })
   }
   if (!checks.length) fail('ACCEPTANCE_NO_NATIVE_DELIVERY', `${name}: 専用本文の実親受信がありません`)
   if (['consecutive', 'source_reconnect', 'burst'].includes(name) && checks.some((check, index) => index && (check.original.seq <= checks[index - 1].original.seq || check.delivery.order <= checks[index - 1].delivery.order))) fail('ACCEPTANCE_SEQ_ORDER', `${name}: seq順に配送されていません`)

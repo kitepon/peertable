@@ -10,6 +10,7 @@ import { createNativeFixtureFactory, waitOwnedFixtureExit } from './scenarios-fi
 import { sha256 } from './evidence.mjs'
 import { createBackgroundSurfaceAdapters, nativeInvocation } from './scenarios-surfaces.mjs'
 import { installQueueProbeFault, queueProbeReceiverProof, watchQueueProbeState, queueProbeTimeoutProof, codexProbeJoinBoundary, installQueueConnectionObserver, observedQueueConnections, QUEUE_PROBE_OBSERVATION_LIMIT_MS } from './scenarios-queue-fault.mjs'
+import { installReceiverPreparationFault, codexReceiverFailureBoundary, receiverPreparationFailure } from './scenarios-receiver-fault.mjs'
 
 const fail = (code, message, detail) => { throw Object.assign(new Error(message), { code, detail }) }
 const rows = file => existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)) : []
@@ -248,6 +249,41 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
   const recordPending = s => s.pending.filter(item => item.scope.runId === s.runId && item.scope.scenario === s.scenario)
   const confirmOne = s => { const last = s.checks.at(-1); if (!last || last.count !== 1 || last.status !== 'passed') fail('ACCEPTANCE_NATIVE_DELIVERY_MISSING', s.scenario); return last }
   const actions = {}
+
+  actions.receiver_preparation_timeout_arm = async (_, s) => {
+    if (s.harness !== 'codex') sourceUnconfirmed(s.harness, 'Codex同期receiver準備の応答期限')
+    const runner = s.meta.runner
+    if (!/^[0-9a-f]{40}$/u.test(runner?.commit ?? '') || runner.modules_sha256?.['scenarios-receiver-fault.mjs'] !== sha256(readFileSync(new URL('./scenarios-receiver-fault.mjs', import.meta.url))) || runner.modules_sha256?.['scenarios-queue-fault.mjs'] !== sha256(readFileSync(new URL('./scenarios-queue-fault.mjs', import.meta.url)))) fail('ACCEPTANCE_RECEIVER_RUNNER_PROVENANCE_MISSING', 'receiver/probe OS故障moduleの正式controller commit/hashがありません')
+    const own = state(s).receiverDeadline = { runner, evidenceFile: s.artifactFor(s, 'receiver-timeout-original'), cleanupFile: s.artifactFor(s, 'receiver-timeout-cleanup') }
+    own.fixture = await factory.open({ harness: 'codex', initialJoin: false, prepare: async fixture => {
+      own.fixture = fixture; ownedFixtures.add(fixture)
+      own.probeFault = await installQueueProbeFault(fixture, { pkg: s.pkg, artifact: label => s.artifactFor(s, label) })
+      own.fault = await installReceiverPreparationFault(fixture, { pkg: s.pkg, artifact: label => s.artifactFor(s, label) })
+    } })
+    await own.fixture.trackOwnProcesses()
+    const parent = own.fixture.owner
+    own.fault.bindParent(parent)
+    await own.fixture.submit(`Peertable parent_joinをproject=${own.fixture.project} name=${own.fixture.name}で1回だけ呼び、公式結果を原文で報告してください。receiver準備の実応答期限を観測中です。自動再試行・設定変更はしないでください。`)
+    const pause = await s.until('正規MCP初回receiverの自己OS停止', () => own.fault.pause(), 120000, 50)
+    if (pause.parent.pid !== parent.pid || pause.parent.started !== parent.started) fail('ACCEPTANCE_RECEIVER_NATIVE_PARENT_MISMATCH', 'OS停止と起動済み専用親本人が一致しません')
+    own.pause = pause
+    own.file = await s.until('receiver試験の公式会話file', () => own.fixture.adapter.transcript(pause.session), 15000, 50)
+    const seen = own.fixture.adapter.read(own.file), turn = seen.turns.at(-1)
+    writeFileSync(own.evidenceFile, JSON.stringify({ runner, pause, transcript_raw: readFileSync(own.file, 'utf8'), mcp_rpc_events: own.fault.events() }, null, 2))
+    return { ...s.result(s, 'own_receiver_preparation_pending', 'os_process', { parent_session: pause.session, related_session: pause.session, turn_id: turn, parent_owner: parent, mcp_owner: pause.mcp, receiver_owner: pause.owner, original_mcp_request: pause.request, original_artifact: own.evidenceFile, binding_pending_exists: false, endpoint_created: false, runner }), related_sessions: [pause.session] }
+  }
+  actions.receiver_preparation_timeout_observe = async (_, s) => {
+    const own = state(s).receiverDeadline
+    if (!own?.pause) fail('ACCEPTANCE_RECEIVER_FAULT_MISSING', '正規MCP初回receiverの自己停止証拠がありません')
+    const native = await s.until('同CID公式MCP receiver timeout完了', () => codexReceiverFailureBoundary({ file: own.file, session: own.pause.session, arguments: own.pause.request.row.params.arguments }), 45000, 50)
+    const { projectEndpoints } = await import(pathToFileURL(join(s.pkg, 'skill/scripts/parent-runtime.mjs')).href)
+    const endpoints = projectEndpoints(own.fixture.project).map(item => item.id), health = await factory.api(own.fixture.room)('members')
+    const evidence = { runner: own.runner, pause: own.pause, native, endpoints, health, mcp_rpc_events: own.fault.events(), transcript_raw: readFileSync(own.file, 'utf8') }
+    writeFileSync(own.evidenceFile, JSON.stringify(evidence, null, 2))
+    const proof = receiverPreparationFailure({ events: evidence.mcp_rpc_events, pause: own.pause, native, endpoints, health, sameProcess: s.sameProcess })
+    await own.fault.close(); own.verifiedFailure = proof
+    return { ...s.result(s, 'receiver_preparation_rpc_timeout', 'harness_transcript', { ...proof, parent_session: own.pause.session, related_session: own.pause.session, turn_id: native.turn_id, error_code: 'PARENT_CODEX_RPC_TIMEOUT', endpoint_created: false, original_artifact: own.evidenceFile, runner: own.runner }), related_sessions: [own.pause.session] }
+  }
 
   if (['cursor', 'grok'].includes(primary.harness)) {
     actions.work_start = async (_, s) => {
@@ -682,16 +718,20 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     if (!/^[0-9a-f]{40}$/u.test(runner?.commit ?? '') || !runner.modules_sha256?.['scenarios-queue-fault.mjs'] || runner.modules_sha256['scenarios-queue-fault.mjs'] !== sha256(readFileSync(new URL('./scenarios-queue-fault.mjs', import.meta.url)))) fail('ACCEPTANCE_QUEUE_RUNNER_PROVENANCE_MISSING', 'OS故障moduleの正式controller commit/hashがありません')
     const current = state(s), evidenceFile = s.artifactFor(s, 'probe-timeout-original'), cleanupFile = s.artifactFor(s, 'probe-timeout-cleanup')
     current.probeDeadline = { evidenceFile, cleanupFile, runner }
-    const fixture = await factory.open({ harness: 'codex', initialJoin: false, prepare: async fixture => {
+    const prepared = current.receiverDeadline
+    if (prepared && !prepared.verifiedFailure) fail('ACCEPTANCE_RECEIVER_RPC_FAILURE_MISSING', '同runの初回receiver期限failureが未確認です')
+    const fixture = prepared?.fixture ?? await factory.open({ harness: 'codex', initialJoin: false, prepare: async fixture => {
       current.probeDeadline.fixture = fixture
       ownedFixtures.add(fixture)
       current.probeDeadline.fault = await installQueueProbeFault(fixture, { pkg: s.pkg, artifact: label => s.artifactFor(s, label) })
     } })
     const own = current.probeDeadline
+    if (prepared) { own.fixture = fixture; own.fault = prepared.probeFault }
     await fixture.submit(`Peertable parent_joinをproject=${fixture.project} name=${fixture.name}で1回だけ呼び、結果を原文で報告してください。専用processの実probe期限を観測中です。自動再試行・設定変更はしないでください。`)
     const pause = await s.until('専用watcher初回queue接続のOS停止', () => own.fault.pause(), 120000, 50)
     own.pause = pause
     const target = await fixture.refreshTarget(null, { waitForVerified: false })
+    if (prepared && target.meta.parent_session !== prepared.pause.session) fail('ACCEPTANCE_RECEIVER_REJOIN_SESSION_CHANGED', 'receiver期限failure後の正規再joinが別CIDです')
     if (target.spool.id !== pause.endpoint_id || target.meta.parent_session !== pause.caller.conversation || target.meta.parent_process.pid !== pause.caller.owner.pid || target.meta.parent_process.started !== pause.caller.owner.started) fail('ACCEPTANCE_QUEUE_FAULT_CALLER_MISMATCH', '停止境界と実MCP相関のfixture本人が一致しません')
     own.target = target
     s.context.registerEndpoint('probe-timeout', target)
@@ -800,6 +840,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     const errors = []
     try {
     const current = saved.get(s.runId)
+    if (current?.receiverDeadline) { await current.receiverDeadline.fault?.close(); await current.receiverDeadline.probeFault?.close() }
     if (current?.probeDeadline) { current.probeDeadline.stateObserver?.close(); await current.probeDeadline.fault?.close() }
     for (const release of current?.deadline?.releases ?? []) writeFileSync(release, '{}')
     if (current?.work) { writeFileSync(current.work.release, '{}'); if (current.work.owner) await waitOwnedFixtureExit({ readEndpoints: () => [], knownOwners: [current.work.owner], indexExists: () => false, sameProcess: s.sameProcess, timeout: 30000 }) }
@@ -819,6 +860,15 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     }
     } catch (error) { errors.push(error) }
     try { await factory.close() } catch (error) { errors.push(error) }
+    const receiver = saved.get(s.runId)?.receiverDeadline
+    if (receiver) {
+      try {
+        const known = [receiver.pause?.parent, receiver.pause?.mcp, receiver.pause?.owner].filter(Boolean), live = known.filter(owner => s.sameProcess(owner))
+        const cleanup = { at: new Date().toISOString(), runner: receiver.runner, related_session: receiver.pause?.session, known_owners: known, live_owners: live, fixture_closed: receiver.fixture?.closed === true }
+        writeFileSync(receiver.cleanupFile, JSON.stringify(cleanup, null, 2))
+        if (live.length || !cleanup.fixture_closed) fail('ACCEPTANCE_RECEIVER_FAULT_CLEANUP_INCOMPLETE', '自己receiver試験の親/MCP/接続processが残っています')
+      } catch (error) { errors.push(error) }
+    }
     const probe = saved.get(s.runId)?.probeDeadline
     if (probe) {
       try {
