@@ -114,3 +114,16 @@ test('期限通知のGrok readerは同会話taskの完了snapshotと全文byte�
   delete reader.input.timeout_ms; read.raw_output.raw_output_bytes += 1
   assert.throws(() => assertNativeTaskRead(options), { code: 'ACCEPTANCE_GROK_NATIVE_FULL_READ' })
 })
+
+
+// 公式Windows Grok 1.0.41の5〜30秒保存画面。原保存ready-screen.txt SHA256 1a5560e2cd271d39a930fd13d897ecbac9336d16bf796ced89dfd309284de6a4
+const windowsGrok1041Screen = "\n  ≡ main ~/q/diag-startup/proj\n\n\n   ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮\n   │                                                                                                                │\n   │  Grok Build  1.0.41                                                                                            │\n   │                                                                                                                │\n   │  Grok 4.7 is here!                                                                                             │\n   │  Select 'Grok 4.7' under /model.                                                                               │\n   │                                                                                                                │\n   │  New worktree                                                                                          ctrl+w  │\n   │  Resume session                                                                                        ctrl+r  │\n   │  Changelog                                                                                                     │\n   │  Quit                                                                                                  ctrl+q  │\n   │                                                                                                                │\n   ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯\n\n\n\n\n\n   Tip: Try out workflows using /workflows.\n\n  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮\n  │ >                                                                                                                │\n  ╰─────────────────────────────────────────────────────────────────────────────── Grok 4.6 (high) · always-approve ─╯\n\n                                                                                                              [stable]"
+test('公式Windows Grok 1.0.41の罫線内の空promptをstartupとして判定する', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'peertable-grok-startup-')); t.after(() => rmSync(directory, { recursive: true, force: true }))
+  const adapters = await createBackgroundSurfaceAdapters({ pkg: process.cwd(), tokenFile: join(directory, 'token'), backgroundObserverFactory: () => { throw new Error('この試験ではobserverを起動しません') } })
+  const adapter = adapters.grok.bind({ directory, project: join(directory, 'project') })
+  assert.equal(/❯|›|>\s*$/mu.test(windowsGrok1041Screen), false)
+  assert.deepEqual(adapter.startup(windowsGrok1041Screen), { ready: true })
+  assert.equal(adapter.startup(windowsGrok1041Screen.replace(/Grok/gu, '別製品')), null)
+  assert.equal(adapter.startup(windowsGrok1041Screen.replace(/│ >[ \t]*│/u, '│ > 作業中の文字 │')), null)
+})

@@ -98,7 +98,7 @@ export async function createBackgroundSurfaceAdapters({ pkg, tokenFile, backgrou
           if (/authentication required|Sign in to Cursor|not logged in/iu.test(screen)) return { blocked: 'official_auth_required' }
           if (harness === 'cursor' && /Add a follow-up|Cursor Agent/u.test(screen) && /Run Everything/u.test(screen)) return { ready: true }
           if (harness === 'grok' && /trust.*(?:folder|directory)|(?:folder|directory).*trust/iu.test(screen) && /\by\b|Yes/u.test(screen)) return { keys: ['y', 'Enter'], reason: 'own_grok_project_trust' }
-          if (harness === 'grok' && /Grok 4|grok.*build/iu.test(screen) && /❯|›|>\s*$/mu.test(screen)) return { ready: true }
+          if (harness === 'grok' && /Grok 4|grok.*build/iu.test(screen) && (/❯|›|>\s*$/mu.test(screen) || /^[ \t]*│ >[ \t]*│[ \t]*$/mu.test(screen))) return { ready: true }
           return null
         },
         nativeTaskOutputPath: id => harness === 'cursor' ? join(homedir(), '.cursor/projects', fixture.project.replace(/[^a-zA-Z0-9]+/gu, '-').replace(/^-+/u, ''), 'terminals', `${id}.txt`) : null,
