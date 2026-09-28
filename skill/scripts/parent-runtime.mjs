@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { randomUUID } from 'node:crypto'
-import { ParentSpool } from './parent-delivery.mjs'
+import { ParentSpool, armParentState } from './parent-delivery.mjs'
 import { atomicJson, readJson, processIdentity, sameProcess, failure, posixQuote, psQuote } from './parent-platform.mjs'
 import { registerEndpoint, endpointsFor, forgetEndpoint } from './parent-caller.mjs'
 import { ownsParentConnection } from './parent-connect.mjs'
@@ -140,6 +140,8 @@ export async function joinEndpoint(projectArg, name, caller, display = {}) {
   spool.update({ global_connection: ownsParentConnection(caller.harness) })
   await api.request('members', { method: 'POST', body: parentMemberRecord(name, caller.harness, spool.id, display) })
   actorEnvironment(project, name)
+  // Codexはjoin前に公式queueと同期hookの準備を確認済み。初回も実probeの期限を開始する。
+  if (caller.harness === 'codex') spool.transact(armParentState)
   await startEndpoint(spool)
   return spool
 }
