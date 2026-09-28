@@ -54,7 +54,7 @@ Cursor/Grokの6 CLIは旧snapshotで5件失敗、Windows Grokの無改造試験�
 
 ## 配布候補の確認
 
-最新の固定候補のsource、version、digest、製品CI、packと導入診断、公開gateの実行結果は[配布候補のチェックポイント](release-candidate-checkpoint.json)に保存する。3 OSの製品CIと正式tarballからの導入診断は成立したが、実機受入manifestの不足は残る。tarballを専用local prefixへnpmで導入した確認を、registry版のglobal installや本番反映として報告しない。
+最新の固定候補のsource、version、digest、製品CI、packと導入診断、公開gateの実行結果は[配布候補のチェックポイント](release-candidate-checkpoint.json)に保存する。過去候補の3 OS製品CIとtarball導入は確認済みだが、追加の製品修理後は新候補で再確認する。専用prefixの導入確認と共有globalスキルの配置診断を区別し、実機受入manifestの不足を保持する。tarballを専用local prefixへnpmで導入した確認を、registry版のglobal installや本番反映として報告しない。
 
 Cursorの専用Desktop projectは正式tarballから構成した。OS権限の確認は成立したが、Jevの画面取得がwindow非公開・複数windowの相関・OS inventoryのtimeoutで停止し、初回メッセージは未送信である。専用ウィンドウとroom serverは停止した。モデルの利用上限やPeertableの配送不成立と同じ原因にしない。GUI試験の操作ツール変更はオーナーへの確認中であり、CLIの正式受入runnerは独立に準備している。
 

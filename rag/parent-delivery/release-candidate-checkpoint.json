@@ -1,20 +1,18 @@
 {
   "schema": "peertable.parent-release-checkpoint.v1",
-  "source_commit": "356f9c408bfb8a46327651130b513b21b1b2842a",
-  "runtime_digest": "1fd30ff226657e52a40416e2f9b2699631aecaef03307a4b34449cc0787647db",
+  "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
+  "runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
   "package_version": "0.8.63",
-  "candidate_state": "repairing_before_source_freeze",
-  "source_frozen": false,
+  "candidate_state": "verifying_frozen_candidate",
+  "source_frozen": true,
   "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/017bf2c/release-candidate-checkpoint.json",
   "product_ci": {
-    "status": "success",
-    "source_commit": "356f9c408bfb8a46327651130b513b21b1b2842a",
-    "head_commit": "590f5a8b65c0a00b7b0877495da2c6a65428101c",
-    "url": "https://github.com/kitepon/peertable/actions/runs/36478777216",
+    "status": "pending_push",
+    "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
     "native_os": {
-      "darwin": "passed",
-      "linux": "passed",
-      "win32": "passed"
+      "darwin": "pending",
+      "linux": "pending",
+      "win32": "pending"
     }
   },
   "focused_verification": {
@@ -33,6 +31,18 @@
     "scenario_transcript_observation": {
       "passed": 22,
       "failed": 0
+    },
+    "initial_codex_probe_deadline": {
+      "passed": 1,
+      "failed": 0
+    },
+    "source_runtime_and_independent_probe_timer": {
+      "passed": 3,
+      "failed": 0
+    },
+    "native_hook_fault_and_surface_registration": {
+      "passed": 36,
+      "failed": 0
     }
   },
   "documentation_tests": {
@@ -41,9 +51,22 @@
     "skipped": 0
   },
   "package": {
-    "status": "pending_new_product_source",
-    "previous_candidate_only": true,
-    "registry_install": false
+    "status": "fixture_installed",
+    "sha256": "9f01372357e2b302f5fb241ab3e79fd78d7424ad13e047c4c214c5831eb198c8",
+    "files": 133,
+    "dry_run_files": 133,
+    "installed_runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
+    "registry_install": false,
+    "skill_placement": {
+      "status": "required",
+      "reason": "専用prefixのfixture導入はignore-scriptsを使い、既存のglobalスキル配置を変更していない。registryのglobal installは公開後に行う。"
+    },
+    "parent_connections": {
+      "codex": "registered",
+      "claude": "registered",
+      "cursor": "registered",
+      "grok": "registered"
+    }
   },
   "product_acceptance": {
     "manifest": "rag/parent-delivery/product-acceptance.json",
@@ -68,5 +91,16 @@
   },
   "published": false,
   "production_deployed": false,
-  "registry_install": false
+  "registry_install": false,
+  "previous_product_ci": {
+    "status": "success",
+    "source_commit": "356f9c408bfb8a46327651130b513b21b1b2842a",
+    "head_commit": "590f5a8b65c0a00b7b0877495da2c6a65428101c",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36478777216",
+    "native_os": {
+      "darwin": "passed",
+      "linux": "passed",
+      "win32": "passed"
+    }
+  }
 }

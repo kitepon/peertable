@@ -1,0 +1,54 @@
+{
+  "diagnostic_only": true,
+  "product_live": false,
+  "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
+  "runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
+  "parent_session": "01a0e9c6-7238-7480-9c8c-702a9872344e",
+  "endpoint_id": "24947f53-a4a6-470b-a83e-ae960dc0ca83",
+  "parent": {
+    "pid": 70606,
+    "parent": 70592,
+    "started": "Tue Sep 29 05:48:11 2026",
+    "executable": "/Users/kite/.codex/packages/standalone/releases/0.155.1-aarch64-apple-darwin/bin/codex",
+    "command": "/Users/kite/.local/bin/codex -c mcp_servers.peertable_parent.env_vars=[\"PEERTABLE_TOKEN_SOURCE_FILE\"] -c check_for_update_on_startup=false -c mcp_servers.peertable_parent.env_vars=[\"PEERTABLE_TOKEN_SOURCE_FILE\",\"NODE_OPTIONS\",\"PEERTABLE_DIAGNOSTIC_SPAWN_CONFIG\"]"
+  },
+  "watcher": {
+    "pid": 71697,
+    "parent": 70673,
+    "started": "Tue Sep 29 05:48:30 2026",
+    "executable": "/opt/homebrew/Cellar/node/26.10.0_1/bin/node",
+    "command": "/opt/homebrew/Cellar/node/26.10.0_1/bin/node /private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-watch.mjs /Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-timer-fixed/native-fixtures/codex-4eb96a62-281a-4325-9d86-1791109e426f/project fixture-d00ca855 --deliver 24947f53-a4a6-470b-a83e-ae960dc0ca83"
+  },
+  "app_server": {
+    "pid": 71715,
+    "parent": 71697,
+    "started": "Tue Sep 29 05:48:31 2026",
+    "executable": "/Users/kite/.codex/packages/standalone/releases/0.155.1-aarch64-apple-darwin/bin/codex",
+    "command": "/Users/kite/.codex/packages/standalone/releases/0.155.1-aarch64-apple-darwin/bin/codex app-server --listen stdio://"
+  },
+  "probe_deadline": "2026-09-28T20:49:00.953Z",
+  "first_failed_poll": {
+    "at": "2026-09-28T20:49:01.285Z",
+    "state": "failed",
+    "runtime": "failed",
+    "error_code": "PARENT_PROBE_TIMEOUT"
+  },
+  "failed_health_beat_at": "2026-09-28T20:49:00.963Z",
+  "health_delay_ms": 10,
+  "state_at_35_seconds": "failed",
+  "terminal": {
+    "at": "2026-09-28T20:49:06.154Z",
+    "owner": {
+      "pid": 71715,
+      "parent": 71697,
+      "started": "Tue Sep 29 05:48:31 2026",
+      "executable": "/Users/kite/.codex/packages/standalone/releases/0.155.1-aarch64-apple-darwin/bin/codex",
+      "command": "/Users/kite/.codex/packages/standalone/releases/0.155.1-aarch64-apple-darwin/bin/codex app-server --listen stdio://"
+    },
+    "elapsed_ms": 35011,
+    "still_same": false
+  },
+  "fixture_closed": true,
+  "server_gone": true,
+  "errors": []
+}

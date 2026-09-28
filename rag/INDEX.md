@@ -8,3 +8,6 @@
 - [CLIの終了・設定解除・本人相関の修理](parent-delivery/cli-lifecycle-repairs.md) — Linuxの削除済みbinary、Windows Codex Job、公式設定解除とJSON構造、旧証跡の保存と再測定条件。
 - [修理後候補のCLI正式証拠の独立監査](parent-delivery/cli-formal-review-017bf2c.json) — macOS Claude/Codexのaudience原文・実会話・receipt・controller・pack・終了回収の照合。
 - [旧sourceのWindows・Linux CLI追加監査](parent-delivery/snapshots/017bf2c/additional-cli-independent-review.json) — 各3通の実会話・receipt照合と、Windows packのmode差。製品修理後の候補には算入しない。
+- [Linux Grok公式更新先名の実診断](parent-delivery/linux-grok-native-name-diagnosis.json) — 修理moduleの指紋と、実PID・開始identityによるGrok本人照合。準備診断であり正式配送受入には算入しない。
+- [Codex初回probeの実期限超過](parent-delivery/codex-probe-deadline-diagnosis.json) — 実app-serverの停止・自然timeout・room healthを照合。30秒期限への14.478秒の遅延を保持する修理診断。
+- [Codex probe timer修理後の実診断](parent-delivery/codex-probe-timer-repair-diagnosis.json) — 同じOS障害で実期限10ms後のroom failedを観測し、生timeline・PID・Git blobを独立照合。正式受入への算入は0件。
