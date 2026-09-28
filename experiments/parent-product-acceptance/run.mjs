@@ -111,6 +111,10 @@ try {
     const closed = await aiterm.close(pty); await aiterm.end(); await sleep(1500)
     return { session: pty, outcome: closed.outcome, pane_pid: paneOwner?.pid ?? null, pane_alive_after: paneOwner ? isAlive(paneOwner.pid) : null }
   })
+  // pane identityは起動前に取る。起動で失敗しても後片付けでpane残存を判定できるようにする(POSIXはexecで同じPIDがharnessになる)。
+  const pane = await aiterm.observe(pty)
+  if (!pane.pane_process?.pid) fail('ACCEPTANCE_PANE_IDENTITY_MISSING', `pty_observeがpane processを返しません: ${pty}`)
+  paneOwner = { pid: pane.pane_process.pid, started: pane.pane_process.started_identity }
   await aiterm.send(pty, launchLine(harness, { project: projectDir, tokenFile, model: args.model }))
   const dialogs = []
   let lastScreen = ''
@@ -120,9 +124,6 @@ try {
     if (action?.keys) { dialogs.push(action.reason); for (const key of action.keys) { await aiterm.key(pty, key); await sleep(600) } await sleep(1500); return false }
     return action?.ready
   }, 120000, 1500).catch(error => { writeFileSync(join(privateDir, 'startup-screen.txt'), lastScreen); throw error })
-  const pane = await aiterm.observe(pty)
-  if (!pane.pane_process?.pid) fail('ACCEPTANCE_PANE_IDENTITY_MISSING', `pty_observeがpane processを返しません: ${pty}`)
-  paneOwner = { pid: pane.pane_process.pid, started: pane.pane_process.started_identity }
   log('harness_ready', { pty, dialogs, pane_process: pane.pane_process })
   if (harness === 'codex') cleanup('codex_folder_trust_remove', async () => {
     // 試験dirの信頼entryは起動dialogが作ったもの。基準に無かった試験dir配下のkeyだけを公式APIで消す。

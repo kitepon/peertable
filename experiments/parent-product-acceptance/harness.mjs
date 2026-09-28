@@ -33,11 +33,15 @@ export function startupAction(harness, screen) {
   if (harness === 'claude') {
     // 既定選択は「No, exit」。明示的に「Yes, I trust this folder」へ移して確定する。
     if (/Quick safety check|Yes, I trust this folder/u.test(screen)) return { keys: ['Down', 'Enter'], reason: 'claude_folder_trust' }
+    // 初回のChrome拡張通知。既定選択の「No, keep browser tools off」だけを確定し、既存の利用設定を変えない。
+    if (/Claude in Chrome extension detected/u.test(screen) && /❯\s*No, keep browser tools off/u.test(screen)) return { keys: ['Enter'], reason: 'claude_chrome_notice_keep_off' }
     if (/Claude Code v\d/u.test(screen) && /^\s*❯\s/mu.test(screen)) return { ready: true }
     return null
   }
   if (/Update available/u.test(screen)) return { blocked: 'codex_update_prompt' }
   if (/Do you trust the contents of this directory/u.test(screen) && /›\s*1\. Yes, continue/u.test(screen)) return { keys: ['Enter'], reason: 'codex_directory_trust' }
+  // codex-cli 0.158の文言。
+  if (/Trust this folder\?/u.test(screen) && /›\s*1\. Trust and continue/u.test(screen)) return { keys: ['Enter'], reason: 'codex_directory_trust' }
   if (/OpenAI Codex \(v/u.test(screen) && /^\s*›\s/mu.test(screen) && !/Press enter to continue/u.test(screen)) return { ready: true }
   return null
 }

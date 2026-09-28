@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { parseDelivered, judgeAudience, buildCase, buildRecord, selfAudit, acceptCase, cleanupFailure } from './evidence.mjs'
-import { readJsonl, readTranscript } from './harness.mjs'
+import { readJsonl, readTranscript, startupAction } from './harness.mjs'
 import { openAiterm } from './aiterm.mjs'
 import { renderDelivery } from '../../skill/scripts/parent-delivery.mjs'
 
@@ -128,4 +128,20 @@ createInterface({ input: process.stdin }).on('line', line => {
   assert.deepEqual(await aiterm.close('s1'), { schema: 'aiterm.pty-close-result.v1', session_id: 's1', outcome: 'closed' })
   await aiterm.end()
   assert.ok(existsSync(dir))
+})
+
+// 実機で観測した起動画面の抜粋。未知のdialogは押さずにnullを返す。
+test('起動dialogは観測済みの文言だけに操作を返す', () => {
+  const claudeTrust = ' Quick safety check: Is this a project you created or one you trust?\n ❯ No, exit\n   Yes, I trust this folder\n'
+  const chrome = '  Claude in Chrome extension detected\n  ❯ No, keep browser tools off\n    Yes, use my browser\n  Enter to confirm · Esc to keep browser tools off\n'
+  const codex155 = '  Do you trust the contents of this directory? Working with untrusted contents\n› 1. Yes, continue\n  2. No, quit\n  Press enter to continue\n'
+  const codex158 = '  Trust this folder? Codex can read, edit, and run files here, subject to your\n› 1. Trust and continue\n  2. Quit\n  enter continue · esc quit\n'
+  assert.deepEqual(startupAction('claude', claudeTrust), { keys: ['Down', 'Enter'], reason: 'claude_folder_trust' })
+  assert.deepEqual(startupAction('claude', chrome), { keys: ['Enter'], reason: 'claude_chrome_notice_keep_off' })
+  assert.equal(startupAction('claude', chrome.replace('❯ No, keep', '  No, keep').replace('    Yes, use', '❯ Yes, use')), null)
+  assert.deepEqual(startupAction('codex', codex155), { keys: ['Enter'], reason: 'codex_directory_trust' })
+  assert.deepEqual(startupAction('codex', codex158), { keys: ['Enter'], reason: 'codex_directory_trust' })
+  assert.equal(startupAction('codex', codex158.replace('› 1. Trust', '  1. Trust').replace('  2. Quit', '› 2. Quit')), null)
+  assert.deepEqual(startupAction('codex', '  ✨ Update available! 0.155.1 -> 0.158.0\n'), { blocked: 'codex_update_prompt' })
+  assert.equal(startupAction('codex', '  Some new dialog\n› 1. Accept\n'), null)
 })
