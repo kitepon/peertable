@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { scenarios as inventory } from '../../scripts/parent-delivery-acceptance.mjs'
 import { scenarioNames, scenarioPlan, runScenario, validateBoundary, validateNativeCheck } from './scenarios.mjs'
-import { createScenarioProxy, nativeReadPages, assembleNativePages } from './scenarios-context.mjs'
+import { createScenarioProxy, nativeReadPages, assembleNativePages, noToolsReception, codexTurns, assertCodexBusy, nativeReceiveToolAllowed } from './scenarios-context.mjs'
 
 const check = () => ({ run_id: 'run', scenario: 'package', status: 'passed', body_equal: true, count: 1, nonce: 'unique', harness: 'claude', original: { room: 'room', from: 'probe', to: 'bell', seq: 1, body: '日本語 & 字面&gt;' }, received: { room: 'room', from: 'probe', to: 'bell', seq: 1, body: '日本語 & 字面&gt;' }, delivery: { session: 'session', turn_id: 'turn', order: 2 }, reply: { session: 'session', turn_id: 'turn2', order: 3, text: 'unique' }, receipt: { result: 'delivered', receipt_revision: 1 } })
 const checkScope = { runId: 'run', scenario: 'package', session: 'session' }
@@ -92,3 +92,51 @@ test('実行途中のfailureでも専用processのcleanupを呼ぶ', async () =>
   await assert.rejects(runScenario('package', { harness: 'claude', session: 'session', runId: 'run', pageChars: 100, actions, finalize: async scope => { finalized = scope } }), { code: 'FIXTURE_FAILED' })
   assert.equal(finalized.scenario, 'package'); assert.equal(finalized.runId, 'run')
 })
+
+test('no_tools: scopeの未収集checksと無関係に正常なClaude/Codex受信を認める', () => {
+  for (const harness of ['claude', 'codex']) {
+    const value = noToolsReception({ posted: { body: '日本語', nonce: '符号' }, record: { delivery_id: 'id', state: 'submitted', event: { body: '日本語' } }, receipt: { state: 'delivered' }, seen: { deliveries: [{ delivery_id: 'id', session: 's', turn_id: 't', body: '日本語', order: 1 }], replies: [{ session: 's', turn_id: 't2', order: 2, text: '符号' }] }, session: 's', runtime: 'armed', harness })
+    assert.equal(value.state, 'native_received')
+  }
+})
+test('no_tools: 原文を保った明示rearm_pendingを正常受信と区別する', () => {
+  const value = noToolsReception({ posted: { body: '日本語', nonce: '符号' }, record: { delivery_id: 'id', state: 'ready', event: { body: '日本語' } }, receipt: null, seen: { deliveries: [], replies: [] }, session: 's', runtime: 'rearm_pending' })
+  assert.equal(value.state, 'rearm_pending'); assert.equal(value.reply, null)
+  assert.throws(() => noToolsReception({ posted: { body: '原文' }, record: { event: { body: '変更' } }, receipt: null, seen: { deliveries: [], replies: [] }, session: 's', runtime: 'rearm_pending' }), { code: 'ACCEPTANCE_NO_TOOLS_BODY_LOST' })
+})
+test('no_external_toolsは2通とidle新turnと次受信の維持を要求する', () => {
+  const plan = scenarioPlan('no_external_tools')
+  assert.equal(plan.filter(item => item.action === 'deliver').length, 2)
+  assert.ok(plan.some(item => item.action === 'idle_wait'))
+  assert.ok(plan.some(item => item.action === 'idle_observe'))
+  assert.equal(plan.at(-1).expectation, 'native_receiving_maintained')
+})
+test('Codex busyは同turn・公式hook・到着時の実task状態を要求する', () => {
+  const value = { workTurn: 'busy', delivery: { turn_id: 'busy', hook: 'post_tool_use', order: 3 }, record: { hook_turn: 'busy', hook_state: 'output_complete' }, turns: new Map([['busy', { started_order: 1, completed_order: 5 }]]) }
+  assert.equal(assertCodexBusy(value).started_order, 1)
+  assert.throws(() => assertCodexBusy({ ...value, delivery: { ...value.delivery, turn_id: 'idle-next' } }), { code: 'ACCEPTANCE_BUSY_CODEX_NATIVE_TURN' })
+  assert.throws(() => assertCodexBusy({ ...value, delivery: { ...value.delivery, hook: null } }), { code: 'ACCEPTANCE_BUSY_CODEX_NATIVE_TURN' })
+  assert.throws(() => assertCodexBusy({ ...value, turns: new Map([['busy', { started_order: 1, completed_order: 2 }]]) }), { code: 'ACCEPTANCE_BUSY_CODEX_NATIVE_TURN' })
+})
+test('Codex idleは過去のtask_completeを別turnへ流用しない', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'peertable-scenarios-turn-')); t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const file = join(dir, 'fixture.jsonl')
+  writeFileSync(file, [
+    { type: 'event_msg', payload: { type: 'task_started', turn_id: 'old' } },
+    { type: 'event_msg', payload: { type: 'task_complete', turn_id: 'old' } },
+    { type: 'event_msg', payload: { type: 'task_started', turn_id: 'current' } },
+  ].map(JSON.stringify).join('\n') + '\n')
+  const turns = codexTurns(file)
+  assert.equal(turns.get('old').completed_order, 1); assert.equal(turns.get('current').completed_order, null)
+})
+
+test('受信維持Shellは完成済み入力・実task ID・PID・所有相関が全て一致した場合だけ許可する', () => {
+  const registration = { parent_session: 's', owner_verified: true, waiter_owner: { pid: 10, started: 'waiter-start' }, native_task: { id: 'task', pid: 20, process_identity: { pid: 20, started: 'task-start' }, input: { name: 'Shell', input: { command: 'exact-entry args', cwd: '/fixture' } } } }
+  const use = { name: 'Shell', session: 's', input: { command: 'exact-entry args', cwd: '/fixture' }, output: { shell_id: 'task', pid: 20 } }
+  assert.equal(nativeReceiveToolAllowed(use, [registration], 's'), true)
+  assert.equal(nativeReceiveToolAllowed({ ...use, input: { command: 'unrelated-work', cwd: '/fixture' } }, [registration], 's'), false)
+  assert.equal(nativeReceiveToolAllowed({ ...use, output: { shell_id: 'other-task', pid: 20 } }, [registration], 's'), false)
+  assert.equal(nativeReceiveToolAllowed({ ...use, session: 'other-session' }, [registration], 's'), false)
+  assert.equal(nativeReceiveToolAllowed(use, [{ ...registration, owner_verified: false }], 's'), false)
+})
+

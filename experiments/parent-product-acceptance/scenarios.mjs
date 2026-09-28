@@ -24,7 +24,7 @@ export function scenarioPlan(name, { pageChars } = {}) {
     final_race: [native('final_arm', 'final_boundary_armed'), send('終了境界'), native('final_observe', 'final_no_loss_duplicate')],
     idle: [native('idle_wait', 'idle_without_input'), send('待機から起床'), native('idle_observe', 'idle_new_turn_without_input')],
     consecutive: [send('1通目'), native('idle_wait', 'idle_without_input'), send('2通目'), native('work_start', 'work_running'), send('3通目'), native('work_finish', 'work_continued'), native('sequence_observe', 'seq_order')],
-    no_external_tools: [native('policy_set', 'policy_installed', { tools: 'parent_only' }), send('外部作業toolなし'), native('tools_observe', 'no_external_tools')],
+    no_external_tools: [native('policy_set', 'policy_installed', { tools: 'parent_only' }), send('外部作業toolなし1通目'), native('idle_wait', 'idle_without_input'), send('外部作業toolなし2通目'), native('idle_observe', 'idle_new_turn_without_input'), native('tools_observe', 'no_external_tools'), native('receiving_observe', 'native_receiving_maintained')],
     no_tools: [native('policy_set', 'policy_installed', { tools: 'none' }), send('全toolなし', { allowRetained: true }), native('tools_observe', 'no_tools_or_explicit_rearm'), native('policy_set', 'policy_installed', { tools: 'normal' }), native('retained_recover', 'retained_native_recovery')],
     original: [send('日本語・引用・改行', { body: `日本語😀\n「引用」 'q' "double" <tag a="1"> & 字面&gt;\n\\path\\改行\r\n末尾\n` }), send('長文全量', { long: true }), native('pages_observe', 'whole_body_recovered')],
     burst: [native('burst_start', 'burst_above_page_limit', { count: 4 }), native('burst_observe', 'unread_until_last_page'), native('burst_finish', 'burst_seq_whole_body')],

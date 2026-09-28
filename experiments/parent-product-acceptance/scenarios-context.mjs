@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { judgeAudience, sha256 } from './evidence.mjs'
-import { readTranscript, transcriptPath } from './harness.mjs'
+import { isDeepStrictEqual } from 'node:util'
 import { scenarioPlan, scenarioNames } from './scenarios.mjs'
 
 const fail = (code, detail) => { throw Object.assign(new Error(detail), { code }) }
@@ -89,62 +89,146 @@ export function assembleNativePages(pages) {
   return pages.at(-1).page.complete && offset === first.total_characters ? { body, first, final: pages.at(-1) } : null
 }
 
+// 判定は実会話・room receipt・原文保存を直接使い、未収集のscope.checksに依存しない。
+export function noToolsReception({ posted, record, receipt, seen, session, runtime }) {
+  if (record?.event?.body !== posted.body) fail('ACCEPTANCE_NO_TOOLS_BODY_LOST', '全toolなしの原文を製品が保持していません')
+  const delivery = seen.deliveries.find(item => item.delivery_id === record.delivery_id && item.session === session && item.body === posted.body)
+  const reply = delivery && seen.replies.find(item => item.session === session && item.turn_id && item.order > delivery.order && item.text.includes(posted.nonce))
+  if (record.state === 'submitted' && receipt?.state === 'delivered' && delivery?.turn_id && reply) return { state: 'native_received', delivery, reply }
+  if (runtime === 'rearm_pending' && ['ready', 'sending'].includes(record.state) && receipt?.state !== 'delivered') return { state: 'rearm_pending', delivery: null, reply: null }
+  fail('ACCEPTANCE_NO_TOOLS_STATE_UNEXPLAINED', `実返答/receipt/原文保持を説明できません: ${runtime}/${record.state}/${receipt?.state ?? 'missing'}`)
+}
+
+export function codexTurns(file) {
+  const turns = new Map(); let current = null
+  for (const [order, line] of readFileSync(file, 'utf8').split('\n').slice(0, -1).entries()) {
+    const row = JSON.parse(line), value = row.payload ?? {}
+    if (row.type === 'turn_context') current = value.turn_id ?? current
+    if (row.type !== 'event_msg') continue
+    const id = value.turn_id ?? current
+    if (!id) continue
+    if (['task_started', 'turn_started'].includes(value.type)) { current = id; turns.set(id, { turn_id: id, started_order: order, completed_order: null }) }
+    if (['task_complete', 'turn_complete', 'task_interrupted'].includes(value.type)) {
+      const saved = turns.get(id) ?? { turn_id: id, started_order: null }
+      saved.completed_order = order; saved.end_kind = value.type; turns.set(id, saved)
+    }
+  }
+  return turns
+}
+
+export function assertCodexBusy({ workTurn, delivery, record, turns }) {
+  const native = turns.get(workTurn)
+  if (!workTurn || delivery.turn_id !== workTurn || !['postToolUse', 'post_tool_use', 'post-tool-use', 'PostToolUse', 'stop', 'Stop'].includes(delivery.hook) || record.hook_turn !== workTurn || record.hook_state !== 'output_complete' || !native || native.started_order === null || delivery.order < native.started_order || (native.completed_order !== null && native.completed_order < delivery.order)) fail('ACCEPTANCE_BUSY_CODEX_NATIVE_TURN', '開始した作業と同turnの公式hook配送を確認できません')
+  return native
+}
+
+// Shellという名前だけでは許可しない。製品が確定した入力と実task/PIDの相関を要求する。
+export function nativeReceiveToolAllowed(use, registrations, session) {
+  return registrations.some(item => {
+    const task = item.native_task
+    let output = use.output ?? use.result
+    if (typeof output === 'string') { try { output = JSON.parse(output) } catch { return false } }
+    const taskId = use.native_task_id ?? output?.task_id ?? output?.shell_id
+    const pid = use.native_task_pid ?? output?.pid
+    return item.owner_verified === true && item.parent_session === session && (use.session ?? use.parent_session) === session
+      && use.name === task.input?.name && isDeepStrictEqual(use.input, task.input?.input)
+      && String(taskId ?? '') === task.id && pid === task.pid
+      && item.waiter_owner.pid > 0 && item.waiter_owner.started && task.process_identity?.pid === pid && task.process_identity.started
+  })
+}
+
 export async function createScenarioContext(options) {
   const { meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, proxy, bin, nativeActions = {}, screen } = options
   const importInstalled = name => import(pathToFileURL(join(pkg, 'skill/scripts', name)).href)
   const { PAGE_CHARS } = await importInstalled('parent-delivery.mjs')
   const { sameProcess, processIdentity, processDescendsFrom, shellCommand } = await importInstalled('parent-platform.mjs')
-  const recipient = spool.read().name, pending = [], faultState = new Map(), actions = {}
-  const context = { harness: meta.harness, session: meta.parent_session, pageChars: PAGE_CHARS, actions }
+  const recipient = spool.read().name, pending = [], faultState = new Map(), actions = {}, nativeRegistrations = []
+  const targets = new Map([['self', { meta, spool, api, observe, submit, file, screen }]])
+  const context = { harness: meta.harness, session: meta.parent_session, pageChars: PAGE_CHARS, actions,
+    registerEndpoint(name, target) {
+      if (!name || !target?.spool || !target.meta?.parent_session || !target.file || typeof target.api !== 'function' || typeof target.observe !== 'function' || typeof target.submit !== 'function') fail('ACCEPTANCE_ENDPOINT_REGISTRATION_INVALID', name)
+      if (target.meta.harness !== meta.harness || target.meta.source_commit !== meta.source_commit || target.meta.runtime_digest !== meta.runtime_digest || target.meta.package_version !== meta.package_version) fail('ACCEPTANCE_ENDPOINT_SOURCE_MISMATCH', name)
+      targets.set(name, target); return target
+    }, endpoint(name = 'self') { const target = targets.get(name); if (!target) fail('ACCEPTANCE_NATIVE_ENDPOINT_ADAPTER_MISSING', name); return target },
+  }
+  const targetFor = posted => posted?.target_object ?? context.endpoint(posted?.target ?? 'self')
   const anchor = () => { const seen = observe(); return seen.replies.at(-1)?.turn_id ?? seen.toolUses.at(-1)?.turn_id ?? seen.turns.at(-1) }
+  const captureNativeRegistrations = () => {
+    for (const target of targets.values()) {
+      const waiter = target.spool.read().waiter
+      if (waiter?.native_task?.id && sameProcess(waiter.owner) && !nativeRegistrations.some(item => item.native_task.id === waiter.native_task.id && item.parent_session === target.meta.parent_session)) nativeRegistrations.push({ parent_session: target.meta.parent_session, endpoint_id: target.spool.id, waiter_owner: waiter.owner, native_task: waiter.native_task, owner_verified: true, observed_at: new Date().toISOString() })
+    }
+  }
   const artifactFor = (scope, label) => { const dir = join(privateDir, 'scenarios', scope.runId, scope.scenario); mkdirSync(dir, { recursive: true, mode: 0o700 }); return join(dir, `${label}.json`) }
   const result = (scope, expectation, source, detail = {}) => {
+    captureNativeRegistrations()
     const artifact = artifactFor(scope, `${scope.step_index ?? randomUUID()}-${expectation}`)
     const evidence = { kind: expectation, run_id: scope.runId, scenario: scope.scenario, parent_session: meta.parent_session, turn_id: anchor(), source, artifact, ...detail }
     if (!evidence.turn_id) fail('ACCEPTANCE_NATIVE_TURN_MISSING', expectation)
     writeFileSync(artifact, JSON.stringify(evidence, null, 2))
     return { expectation, verified: true, observations: [evidence] }
   }
-  const recordFor = posted => spool.read().records.find(item => item.event.seq === posted.seq)
-  const receiptFor = async posted => (await api(`deliveries?seq=${posted.seq}`)).delivery[recipient]
+  const recordFor = posted => targetFor(posted).spool.read().records.find(item => item.event.seq === posted.seq)
+  const receiptFor = async posted => { const target = targetFor(posted); return (await target.api(`deliveries?seq=${posted.seq}`)).delivery[target.spool.read().name] }
   const heartbeat = async () => (await api('members')).bridges?.parent_receiver?.endpoints?.find(endpoint => endpoint.endpoint_id === spool.id)?.beat_at
   const check = async (posted, scope) => {
+    const target = targetFor(posted), targetMeta = target.meta, targetRecipient = target.spool.read().name
     await until(`${scope.scenario}:${posted.nonce} 実親の返答`, async () => {
+      captureNativeRegistrations()
       const record = recordFor(posted), receipt = await receiptFor(posted)
-      return record?.state === 'submitted' && receipt?.state === 'delivered' && observe().replies.some(reply => reply.session === meta.parent_session && reply.text.includes(posted.nonce))
+      return record?.state === 'submitted' && receipt?.state === 'delivered' && target.observe().replies.some(reply => reply.session === targetMeta.parent_session && reply.text.includes(posted.nonce))
     }, options.deliveryTimeout ?? 300000)
-    const seen = await until('会話末尾確定', () => { const value = observe(); return value.pending_tail === 0 ? value : null }, 30000)
+    const seen = await until('会話末尾確定', () => { const value = target.observe(); return value.pending_tail === 0 ? value : null }, 30000)
     const record = recordFor(posted), receipt = await receiptFor(posted)
     let deliveries = seen.deliveries
     const preview = deliveries.find(item => item.delivery_id === record.delivery_id && item.preview)
-    const pages = nativeReadPages(meta.harness, file, record.delivery_id)
+    const pages = nativeReadPages(targetMeta.harness, target.file, record.delivery_id)
     if (preview || pages.length) {
       const assembled = assembleNativePages(pages)
-      if (!assembled) fail('ACCEPTANCE_NATIVE_WHOLE_BODY_MISSING', `${scope.scenario}: parent_read最終pageがありません`)
-      // previewと全文pageを別の本文として数えない。実tool出力の最終pageを全文受信の位置にする。
-      deliveries = [...deliveries.filter(item => item.delivery_id !== record.delivery_id), { ...(preview ?? {}), room: posted.room, from: assembled.first.event.from ?? assembled.first.event.message?.from, to: assembled.first.event.to_names ?? assembled.first.event.to ?? assembled.first.event.message?.to_names ?? assembled.first.event.message?.to, seq: assembled.first.event.seq, body: assembled.body, delivery_id: record.delivery_id, session: meta.parent_session, turn_id: assembled.final.turn_id, order: assembled.final.order, preview: false, boundary: { encoding: 'none', raw_body_equal: true, native_pages: pages.length } }]
+      if (!assembled || pages.some(item => item.page.endpoint_id !== target.spool.id)) fail('ACCEPTANCE_NATIVE_WHOLE_BODY_MISSING', `${scope.scenario}: parent_read最終page/endpointが不一致です`)
+      deliveries = [...deliveries.filter(item => item.delivery_id !== record.delivery_id), { ...(preview ?? {}), room: preview?.room ?? target.spool.read().room, from: assembled.first.event.from ?? assembled.first.event.message?.from, to: assembled.first.event.to_names ?? assembled.first.event.to ?? assembled.first.event.message?.to_names ?? assembled.first.event.message?.to, seq: assembled.first.event.seq, body: assembled.body, delivery_id: record.delivery_id, session: targetMeta.parent_session, turn_id: assembled.final.turn_id, order: assembled.final.order, preview: false, boundary: { encoding: 'none', raw_body_equal: true, native_pages: pages.length } }]
     }
-    const judged = judgeAudience({ label: posted.label, posted, record, receipt, deliveries, replies: seen.replies, session: meta.parent_session, recipient })
-    copyFileSync(file, artifactFor(scope, `${posted.nonce}-transcript.jsonl`))
-    return { ...judged, nonce: posted.nonce, scenario: scope.scenario, run_id: scope.runId, harness: meta.harness }
+    const judged = judgeAudience({ label: posted.label, posted, record, receipt, deliveries, replies: seen.replies, session: targetMeta.parent_session, recipient: targetRecipient })
+    copyFileSync(target.file, artifactFor(scope, `${posted.nonce}-transcript.jsonl`))
+    return { ...judged, parent_session: targetMeta.parent_session, endpoint_id: target.spool.id, target: posted.target, nonce: posted.nonce, scenario: scope.scenario, run_id: scope.runId, harness: targetMeta.harness }
   }
   const post = async (input, scope) => {
-    const posted = { ...(await api('messages', { from: 'probe', to: recipient, body: input.body })), room: meta.room, nonce: input.nonce, label: input.label }
+    const target = context.endpoint(input.endpoint ?? 'self'), targetMeta = target.meta
+    const posted = { ...(await target.api('messages', { from: 'probe', to: target.spool.read().name, body: input.body })), room: targetMeta.room, nonce: input.nonce, label: input.label, target: input.endpoint ?? 'self', target_object: target }
     pending.push({ posted, scope: { ...scope }, defer: input.defer, allowRetained: input.allowRetained })
     return posted
   }
   actions.deliver = async (input, scope) => {
-    if (input.endpoint) fail('ACCEPTANCE_NATIVE_ENDPOINT_ADAPTER_MISSING', `関連する実親の操作が未接続です: ${input.endpoint}`)
-    const posted = await post(input, scope)
-    if (input.defer || input.allowRetained) {
-      if (!['source_reconnect', 'process_recovery'].includes(scope.scenario)) await until('製品の原文保存', () => recordFor(posted)?.event.body === posted.body, 45000)
-      const observed = result(scope, 'native_delivery', 'http_boundary', { deferred: true, seq: posted.seq, posted_body_sha256: sha256(posted.body), receipt: await receiptFor(posted) })
-      // deferは配送合格ではない。後続pending_recoverの実親本文checkが必須。
-      return observed
+    captureNativeRegistrations()
+    const posted = await post(input, scope), target = targetFor(posted)
+    if (input.allowRetained) {
+      const outcome = await until('全toolなしの受信または明示再武装待ち', async () => {
+        const record = recordFor(posted), receipt = await receiptFor(posted), seen = target.observe(), runtime = target.spool.read().runtime
+        if (!record || record.event.body !== posted.body) return null
+        if (runtime === 'rearm_pending' && ['ready', 'sending'].includes(record.state) && receipt?.state !== 'delivered') return noToolsReception({ posted, record, receipt, seen, session: target.meta.parent_session, runtime })
+        if (record.state === 'submitted' && receipt?.state === 'delivered' && seen.replies.some(reply => reply.session === target.meta.parent_session && reply.text.includes(posted.nonce))) return noToolsReception({ posted, record, receipt, seen, session: target.meta.parent_session, runtime })
+        return null
+      }, options.deliveryTimeout ?? 300000)
+      const value = result(scope, 'native_delivery', outcome.state === 'native_received' ? 'harness_transcript' : 'http_boundary', { no_tools_state: outcome.state, seq: posted.seq, related_session: target.meta.parent_session, related_turn_id: outcome.reply?.turn_id ?? null })
+      if (outcome.state === 'native_received') {
+        const judged = await check(posted, scope); pending.find(item => item.posted === posted).recovered = true
+        return { ...value, checks: [judged] }
+      }
+      return value
+    }
+    if (input.defer) {
+      if (!['source_reconnect', 'process_recovery', 'session_change'].includes(scope.scenario)) await until('製品の原文保存', () => recordFor(posted)?.event.body === posted.body, 45000)
+      return result(scope, 'native_delivery', 'http_boundary', { deferred: true, seq: posted.seq, related_session: target.meta.parent_session, posted_body_sha256: sha256(posted.body), receipt: await receiptFor(posted) })
     }
     const judged = await check(posted, scope)
-    return { ...result(scope, 'native_delivery', 'harness_transcript', { seq: posted.seq, delivery_id: judged.delivery?.delivery_id }), check: judged }
+    if (['busy', 'consecutive'].includes(scope.scenario) && faultState.has(`${scope.runId}:work`) && targetMetaHarness(target) === 'codex') {
+      const work = faultState.get(`${scope.runId}:work`)
+      const turn = assertCodexBusy({ workTurn: work?.turn, delivery: judged.delivery, record: recordFor(posted), turns: codexTurns(target.file) })
+      faultState.get(`${scope.runId}:work`).arrival_turn_state = turn
+    }
+    return { ...result(scope, 'native_delivery', 'harness_transcript', { seq: posted.seq, delivery_id: judged.delivery?.delivery_id, related_session: target.meta.parent_session, related_turn_id: judged.delivery?.turn_id }), parent_session: target.meta.parent_session, check: judged }
   }
+  const targetMetaHarness = target => target.meta.harness
   actions.pending_recover = async (_, scope) => {
     const selected = pending.filter(item => item.scope.runId === scope.runId && item.scope.scenario === scope.scenario && item.defer && !item.recovered)
     if (!selected.length) fail('ACCEPTANCE_PENDING_NATIVE_MISSING', scope.scenario)
@@ -166,19 +250,24 @@ export async function createScenarioContext(options) {
       const owner = processIdentity(JSON.parse(readFileSync(identity, 'utf8')).pid)
       if (!owner || !sameProcess(owner) || !processDescendsFrom(owner, meta.parent_process) || existsSync(completed)) fail('ACCEPTANCE_WORK_NATIVE_OWNER', '実親が所有する存命の作業processを確認できません')
       const seen = observe()
-      if (!seen.toolUses.some(use => use.order >= before && (meta.harness === 'claude' ? /Bash/u : /exec_command/u).test(use.name))) fail('ACCEPTANCE_WORK_NATIVE_TOOL', '公式toolの作業開始が実会話にありません')
-      faultState.set(`${scope.runId}:work`, { owner, identity, release, completed, nonce, before, started_order: seen.rows })
-      return result(scope, 'work_running', 'os_process', { owner, work_artifact: identity, start_transcript_rows: before })
+      const workUse = seen.toolUses.find(use => use.order >= before && (meta.harness === 'claude' ? /Bash/u : /exec_command/u).test(use.name))
+      if (!workUse?.turn_id) fail('ACCEPTANCE_WORK_NATIVE_TOOL', '公式toolの作業開始が実会話にありません')
+      faultState.set(`${scope.runId}:work`, { owner, identity, release, completed, nonce, before, turn: workUse.turn_id, started_order: workUse.order })
+      return result(scope, 'work_running', 'os_process', { owner, work_artifact: identity, start_transcript_rows: before, work_turn_id: workUse.turn_id, work_tool_use_id: workUse.id })
     }
     actions.work_finish = async (_, scope) => {
       const work = faultState.get(`${scope.runId}:work`), delivery = scope.checks.at(-1)
       if (!work || !sameProcess(work.owner) || existsSync(work.completed) || !delivery || delivery.delivery.order < work.before) fail('ACCEPTANCE_WORK_NOT_CONTINUED', '配送中に元作業を継続していません')
       const held = processIdentity(work.owner.pid)
+      if (meta.harness === 'codex') {
+        if (!work.arrival_turn_state) fail('ACCEPTANCE_BUSY_CODEX_NATIVE_TURN', '到着時のnative task/turn状態がありません')
+        assertCodexBusy({ workTurn: work.turn, delivery: delivery.delivery, record: recordFor({ seq: delivery.original.seq }), turns: codexTurns(file) })
+      }
       writeFileSync(work.release, JSON.stringify({ released_at: new Date().toISOString(), delivery_seq: delivery.original.seq }))
       await until('元作業の完了', () => existsSync(work.completed), 10000)
       const reply = await until('作業継続の実親応答', () => observe().replies.find(item => item.text.includes(work.nonce) && item.order > delivery.delivery.order), 120000)
       if (reply.session !== meta.parent_session) fail('ACCEPTANCE_WORK_SESSION_CHANGED', '元作業の完了は別会話です')
-      return result(scope, 'work_continued', 'harness_transcript', { live_at_delivery: held, completion_artifact: work.completed, work_reply_turn: reply.turn_id, delivery_turn: delivery.delivery.turn_id })
+      return result(scope, 'work_continued', 'harness_transcript', { live_at_delivery: held, completion_artifact: work.completed, work_start_turn: work.turn, arrival_turn_state: work.arrival_turn_state ?? null, work_reply_turn: reply.turn_id, delivery_turn: delivery.delivery.turn_id })
     }
   }
   actions.idle_wait = async (_, scope) => {
@@ -191,8 +280,8 @@ export async function createScenarioContext(options) {
       return prompt.test(view) && current.replies.at(-1)?.order === last.order
     }, 120000, 1000)
     // promptが作業中にも表示される実装があるため、native task終了の記録も必要にする。
-    const raw = readFileSync(file, 'utf8')
-    if (meta.harness === 'codex' && !raw.includes('task_complete')) fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', 'Codexのtask_completeを確認できません')
+    const ended = meta.harness === 'codex' ? codexTurns(file).get(last.turn_id) : null
+    if (meta.harness === 'codex' && (!ended || ended.end_kind !== 'task_complete' || ended.completed_order < last.order)) fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', '対象last turnのtask_completeを確認できません')
     faultState.set(`${scope.runId}:idle`, { turn: last.turn_id, order: last.order, rows: seen.rows })
     return result(scope, 'idle_without_input', 'harness_transcript', { idle_turn: last.turn_id, reply_order: last.order })
   }
@@ -216,21 +305,22 @@ export async function createScenarioContext(options) {
   actions.tools_observe = async (_, scope) => {
     const mode = scope.scenario === 'no_tools' ? 'none' : 'parent_only', before = faultState.get(`${scope.runId}:policy:${mode}`)
     const used = observe().toolUses.filter(item => item.order > before.order && item.name !== 'output')
-    if (mode === 'none' ? used.length : used.some(item => !/parent_(?:join|read|leave)/u.test(item.name))) fail('ACCEPTANCE_TOOL_POLICY_VIOLATED', JSON.stringify(used.map(item => item.name)))
-    if (mode === 'none') {
-      const saved = spool.read(), sent = pending.filter(item => item.scope.runId === scope.runId)
-      if (!sent.every(item => recordFor(item.posted)?.event.body === item.posted.body)) fail('ACCEPTANCE_NO_TOOLS_BODY_LOST', scope.scenario)
-      if (!scope.checks.length && saved.runtime !== 'rearm_pending') fail('ACCEPTANCE_NO_TOOLS_STATE_UNEXPLAINED', saved.runtime)
-    }
-    return result(scope, mode === 'none' ? 'no_tools_or_explicit_rearm' : 'no_external_tools', 'harness_transcript', { tools: used, runtime: spool.read().runtime })
+    if (mode === 'none' ? used.length : used.some(item => !/parent_(?:join|read|leave)/u.test(item.name) && !nativeReceiveToolAllowed(item, nativeRegistrations, meta.parent_session))) fail('ACCEPTANCE_TOOL_POLICY_VIOLATED', JSON.stringify(used.map(item => item.name)))
+    const noTools = mode === 'none' ? await Promise.all(pending.filter(item => item.scope.runId === scope.runId && item.allowRetained).map(async item => { const target = targetFor(item.posted); return noToolsReception({ posted: item.posted, record: recordFor(item.posted), receipt: await receiptFor(item.posted), seen: target.observe(), session: target.meta.parent_session, runtime: target.spool.read().runtime }) })) : []
+    return result(scope, mode === 'none' ? 'no_tools_or_explicit_rearm' : 'no_external_tools', 'harness_transcript', { tools: used, native_registrations: nativeRegistrations, runtime: spool.read().runtime, no_tools_states: noTools.map(item => item.state) })
   }
   actions.retained_recover = async (_, scope) => {
-    const selected = pending.filter(item => item.scope.runId === scope.runId && item.allowRetained)
-    // no_toolsでtoolなしのnative受信が成立した場合だけ、owner_input_required:falseの実績を作る。
-    // 再武装が必要な時はその事実を失敗として報告し、後続のuser指示で起こして合格に変えない。
-    for (const item of selected) if (!observe().replies.some(reply => reply.text.includes(item.posted.nonce))) fail('ACCEPTANCE_NO_TOOLS_EXPLICIT_REARM_PENDING', '原文は保持されましたが全toolなしでnative起床できていません')
-    const checks = await Promise.all(selected.map(item => check(item.posted, scope)))
-    return { ...result(scope, 'retained_native_recovery', 'harness_transcript'), checks }
+    const selected = pending.filter(item => item.scope.runId === scope.runId && item.allowRetained && !item.recovered)
+    const checks = []
+    for (const item of selected) { checks.push(await check(item.posted, scope)); item.recovered = true }
+    return { ...result(scope, 'retained_native_recovery', 'harness_transcript', { already_received: selected.length === 0 }), checks }
+  }
+  actions.receiving_observe = async (_, scope) => {
+    if (scope.checks.length < 2 || scope.checks.at(-1).reply.turn_id === scope.checks[0].reply.turn_id) fail('ACCEPTANCE_RECEIVING_NOT_MAINTAINED', '2通目のidle起床がありません')
+    const current = spool.read()
+    if (['cursor', 'grok'].includes(meta.harness)) await until('2通目後のnative受信再武装', () => { const state = spool.read(); return state.runtime === 'armed' && state.waiter?.native_task?.id && sameProcess(state.waiter.owner) }, 120000)
+    else if (!sameProcess(current.watcher) || !['armed', 'rearm_pending'].includes(current.runtime)) fail('ACCEPTANCE_RECEIVING_NOT_MAINTAINED', current.runtime)
+    return result(scope, 'native_receiving_maintained', 'harness_transcript', { reply_turns: scope.checks.map(item => item.reply.turn_id), runtime: spool.read().runtime, waiter: spool.read().waiter, watcher: spool.read().watcher })
   }
   actions.pages_observe = async (_, scope) => {
     if (!scope.checks.some(item => item.original.body.length > PAGE_CHARS) || scope.checks.some(item => item.body_equal !== true)) fail('ACCEPTANCE_WHOLE_BODY_MISSING', scope.scenario)
@@ -419,7 +509,7 @@ export async function createScenarioContext(options) {
   // callbackが無い境界はrunScenarioが事前にtyped errorで停止する。
   for (const [name, action] of Object.entries(nativeActions)) {
     if (actions[name]) fail('ACCEPTANCE_ACTION_OVERRIDE', `既存の実操作を上書きできません: ${name}`)
-    actions[name] = (input, scope) => action(input, { ...scope, meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, result, pending, check, post, faultState, sameProcess, processIdentity, processDescendsFrom, shellCommand })
+    actions[name] = (input, scope) => action(input, { ...scope, meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, result, pending, check, post, faultState, context, targetFor, recordFor, receiptFor, heartbeat, artifactFor, until, sameProcess, processIdentity, processDescendsFrom, shellCommand })
   }
   context.finalize = async scope => {
     const monitor = faultState.get(`${scope.runId}:interrupt`)
@@ -430,7 +520,7 @@ export async function createScenarioContext(options) {
       writeFileSync(work.release, JSON.stringify({ released_at: new Date().toISOString(), cleanup: true }))
       if (work.owner && sameProcess(work.owner)) {
         try { await until('試験作業processの後片付け', () => !sameProcess(work.owner), 10000, 100) }
-        catch (error) { if (error.code !== 'ACCEPTANCE_TIMEOUT') throw error; if (sameProcess(work.owner)) process.kill(work.owner.pid, 'SIGKILL') }
+        catch (error) { if (error.code !== 'ACCEPTANCE_TIMEOUT') throw error; if (sameProcess(work.owner)) process.kill(work.owner.pid, 'SIGKILL'); await until('強制終了後の試験process消失', () => !sameProcess(work.owner), 10000, 100) }
       }
     }
   }
