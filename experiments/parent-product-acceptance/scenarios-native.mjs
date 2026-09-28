@@ -674,7 +674,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     await s.until('35秒OS停止の自然終了/再開記録', () => own.fault.terminal(), 40000, 100)
     const evidence = { runner: own.runner, source: own.target.meta, related_session: own.target.meta.parent_session, pause: own.pause, receiver: own.receiver, join: own.join, state_observations: own.stateObserver.rows, health, terminal: own.fault.terminal(), rpc_os_events: own.fault.events(), transcript_raw: readFileSync(own.target.file, 'utf8'), watch_log: readFileSync(join(own.target.spool.root, 'watch.log'), 'utf8') }
     writeFileSync(own.evidenceFile, JSON.stringify(evidence, null, 2))
-    // 正本に誤差契約が無い間は事実を保存してtyped未判定にする。独自秒数で期限合格を作らない。
+    // 実測lagを保持し、共通controllerの観測上限だけを適用する。
     const proof = queueProbeTimeoutProof({ pause: own.pause, observations: own.stateObserver.rows, health })
     return s.result(s, 'probe_timeout_typed_failed', 'official_queue', { ...proof, related_session: own.target.meta.parent_session, turn_id: own.join.turn_id, original_artifact: own.evidenceFile, runner: own.runner })
   }

@@ -7,6 +7,8 @@ import cp from 'node:child_process'
 
 const fail = (code, message) => { throw Object.assign(new Error(message), { code }) }
 const sameIdentity = (a, b) => a && b && a.pid === b.pid && a.started === b.started
+// 既存期限timerの実process focusedと同じ観測上限。製品の30秒期限を変更しない。
+export const QUEUE_PROBE_OBSERVATION_LIMIT_MS = 1500
 
 // Codex公式itemのMCP結果を読む。execの自由文出力やモデルの報告を結果へ代用しない。
 export function codexProbeJoinBoundary({ file, session, project, name, endpointId, after = -1 }) {
@@ -75,8 +77,8 @@ export function watchQueueProbeState({ spool, artifact }) {
   return observer
 }
 
-// 製品期限と観測誤差の契約を分ける。未提供の誤差値を推測して合格へ丸めない。
-export function queueProbeTimeoutProof({ pause, observations, health, maxObservationLagMs }) {
+// 製品の実deadlineと、controllerがfailedを観測するまでの上限を別々に残す。
+export function queueProbeTimeoutProof({ pause, observations, health }) {
   const deadline = pause.spool_before.probe_deadline
   if (!Number.isFinite(deadline)) fail('ACCEPTANCE_QUEUE_PROBE_DEADLINE_MISSING', '実probe_deadlineがありません')
   const failed = observations.find(row => row.state.endpoint_id === pause.endpoint_id && row.state.state === 'failed' && row.state.runtime === 'failed' && row.state.error_code === 'PARENT_PROBE_TIMEOUT')
@@ -85,10 +87,11 @@ export function queueProbeTimeoutProof({ pause, observations, health, maxObserva
   try { detail = typeof endpoint?.detail === 'string' ? JSON.parse(endpoint.detail) : endpoint?.detail } catch { fail('ACCEPTANCE_QUEUE_HEALTH_DETAIL_CORRUPT', '公式GETmembersのdetailがJSONではありません') }
   if (!failed || endpoint?.state !== 'failed' || detail?.endpoint_id !== pause.endpoint_id || detail.state !== 'failed' || detail.error_code !== 'PARENT_PROBE_TIMEOUT') fail('ACCEPTANCE_QUEUE_PROBE_TIMEOUT_NOT_OBSERVED', 'own endpointの実spoolとGETmembersに同じ期限failureがありません')
   const observationLag = Date.parse(failed.at) - deadline, healthLag = Date.parse(endpoint.beat_at) - deadline
-  const measurement = { probe_deadline: deadline, first_failed_at: failed.at, failed_observation_lag_ms: observationLag, failed_health_beat_at: endpoint.beat_at, failed_health_lag_ms: healthLag, failed_state: failed.state, health_endpoint: endpoint }
-  if (!Number.isFinite(maxObservationLagMs) || maxObservationLagMs < 0) throw Object.assign(new Error('30秒期限のOS/観測誤差契約が未指定です'), { code: 'ACCEPTANCE_QUEUE_DEADLINE_OBSERVATION_CONTRACT_MISSING', detail: measurement })
-  if (!Number.isFinite(observationLag) || !Number.isFinite(healthLag) || observationLag < 0 || healthLag < 0 || observationLag > maxObservationLagMs || healthLag > maxObservationLagMs) throw Object.assign(new Error('実probe failureは期限と観測誤差契約の範囲を満たしません'), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_LATE', detail: measurement })
-  return { ...measurement, max_observation_lag_ms: maxObservationLagMs }
+  const measurement = { probe_deadline: deadline, first_failed_at: failed.at, failed_observation_lag_ms: observationLag, failed_health_beat_at: endpoint.beat_at, failed_health_lag_ms: healthLag, failed_state: failed.state, health_endpoint: endpoint, max_observation_lag_ms: QUEUE_PROBE_OBSERVATION_LIMIT_MS }
+  if (!Number.isFinite(observationLag) || !Number.isFinite(healthLag)) throw Object.assign(new Error('実probe failureの時刻がありません'), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_TIME_MISSING', detail: measurement })
+  if (observationLag < 0 || healthLag < 0) throw Object.assign(new Error('実probe deadlineより前にfailureを観測しました'), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_EARLY', detail: measurement })
+  if (observationLag > QUEUE_PROBE_OBSERVATION_LIMIT_MS || healthLag > QUEUE_PROBE_OBSERVATION_LIMIT_MS) throw Object.assign(new Error('実probe failureはcontrollerの観測上限を超えました'), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_LATE', detail: measurement })
+  return measurement
 }
 
 export async function installQueueProbeFault(fixture, { pkg, artifact, holdMs = 35000 }) {

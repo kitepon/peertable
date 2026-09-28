@@ -49,14 +49,18 @@ test('Codex MCP境界は同CID/turnの公式completed itemだけを読む', t =>
   rows[0].payload.id = 'CID'; rows[1].payload.item.status = 'inProgress'; save(); assert.equal(codexProbeJoinBoundary(query), null)
 })
 
-test('期限failureは実spool/health両方を要求し、遅延や未指定誤差を成功にしない', () => {
+test('期限failureは実spool/health両方と共通観測上限を要求する', () => {
   const state = { endpoint_id: 'own', state: 'failed', runtime: 'failed', error_code: 'PARENT_PROBE_TIMEOUT' }
   const observations = [{ at: at(1010), state }]
   const health = { bridges: { parent_receiver: { endpoints: [{ endpoint_id: 'own', state: 'failed', beat_at: at(1005), detail: JSON.stringify(state) }] } } }
-  assert.equal(queueProbeTimeoutProof({ pause, observations, health, maxObservationLagMs: 15 }).failed_observation_lag_ms, 10)
-  assert.throws(() => queueProbeTimeoutProof({ pause, observations, health }), { code: 'ACCEPTANCE_QUEUE_DEADLINE_OBSERVATION_CONTRACT_MISSING' })
-  assert.throws(() => queueProbeTimeoutProof({ pause, observations: [{ at: at(15478), state }], health, maxObservationLagMs: 15 }), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_LATE' })
-  assert.throws(() => queueProbeTimeoutProof({ pause, observations, health: {}, maxObservationLagMs: 15 }), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_NOT_OBSERVED' })
+  assert.equal(queueProbeTimeoutProof({ pause, observations, health }).failed_observation_lag_ms, 10)
+  assert.equal(queueProbeTimeoutProof({ pause, observations, health }).max_observation_lag_ms, 1500)
+  assert.throws(() => queueProbeTimeoutProof({ pause, observations: [{ at: at(15478), state }], health }), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_LATE' })
+  assert.throws(() => queueProbeTimeoutProof({ pause, observations: [{ at: at(2501), state }], health }), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_LATE' })
+  assert.throws(() => queueProbeTimeoutProof({ pause, observations: [{ at: at(999), state }], health }), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_EARLY' })
+  const earlyHealth = structuredClone(health); earlyHealth.bridges.parent_receiver.endpoints[0].beat_at = at(999)
+  assert.throws(() => queueProbeTimeoutProof({ pause, observations, health: earlyHealth }), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_EARLY' })
+  assert.throws(() => queueProbeTimeoutProof({ pause, observations, health: {} }), { code: 'ACCEPTANCE_QUEUE_PROBE_TIMEOUT_NOT_OBSERVED' })
 })
 
 test('spool observerは実atomic renameを追い、本文と時刻を原保存する', async t => {
