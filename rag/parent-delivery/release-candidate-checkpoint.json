@@ -7,12 +7,14 @@
   "source_frozen": true,
   "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/017bf2c/release-candidate-checkpoint.json",
   "product_ci": {
-    "status": "pending_push",
+    "status": "success",
     "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
+    "head_commit": "d9cb8d59f63d667763b7d195c1b61e9191041e25",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36482248916",
     "native_os": {
-      "darwin": "pending",
-      "linux": "pending",
-      "win32": "pending"
+      "darwin": "passed",
+      "linux": "passed",
+      "win32": "passed"
     }
   },
   "focused_verification": {
@@ -43,6 +45,12 @@
     "native_hook_fault_and_surface_registration": {
       "passed": 36,
       "failed": 0
+    },
+    "codex_real_os_probe_deadline": {
+      "product_live": false,
+      "health_delay_ms": 10,
+      "formal_acceptance_credit": 0,
+      "evidence": "rag/parent-delivery/codex-probe-timer-repair-diagnosis.json"
     }
   },
   "documentation_tests": {
