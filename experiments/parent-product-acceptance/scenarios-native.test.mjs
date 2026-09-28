@@ -130,12 +130,19 @@ test('実processで独立receiverを停止し、親が先に終了しても再�
 
 test('lease開始はverified後の未登録期間を待ち、公式tool/task登録と本人を照合する', () => {
   const owner = { pid: 200, started: 'own開始' }, input = { command: '完成済み', cwd: '/専用' }, native = { id: 'own-task', pid: owner.pid, process_identity: owner, input: { name: 'Shell', input } }
-  const current = { state: 'verified', runtime: 'rearm_pending', waiter: null }, use = { id: 'use', turn_id: 'turn', name: 'Shell', session: 'own', input }, task = { id: 'own-task', tool_use_id: 'use', pid: owner.pid }
+  const current = { state: 'verified', runtime: 'rearm_pending', waiter: null }, use = { id: 'use', turn_id: 'turn', name: 'Shell', session: 'own', input: { command: input.command }, hook_input: input }, task = { id: 'own-task', tool_use_id: 'use', pid: owner.pid }
   const target = { spool: { read: () => current }, meta: { harness: 'cursor', parent_session: 'own' }, observe: () => ({ toolUses: [use], tasks: [task] }) }
   const options = { sameProcess: () => true, processDescendsFrom: () => true }
   assert.equal(nativeLeaseRegistration(target, options), null)
   current.runtime = 'armed'; current.waiter = { owner, native_task: native }
   assert.equal(nativeLeaseRegistration(target, options).registration.task_id, 'own-task')
+  const proof = nativeLeaseRegistration(target, options).registration
+  assert.deepEqual(proof.input, input)
+  assert.deepEqual(proof.input_proof.model_input, { command: input.command })
+  assert.equal(proof.input_proof.official_stage, 'postToolUse')
+  use.hook_input = { ...input, cwd: '/別project' }; assert.equal(nativeLeaseRegistration(target, options), null)
+  use.hook_input = undefined; assert.equal(nativeLeaseRegistration(target, options), null)
+  use.hook_input = input
   use.session = '他会話'; assert.equal(nativeLeaseRegistration(target, options), null)
   use.session = 'own'; task.pid = 999; assert.equal(nativeLeaseRegistration(target, options), null)
   current.state = 'failed'; current.error_code = '実製品error'
@@ -207,7 +214,7 @@ test('lease armのmodule path結合はendpoint再joinを呼ばず4harnessで文�
     let rejoined = 0; const fixture = { harness, adapter: {}, join: async () => { rejoined++ } }
     const nativeName = harness === 'cursor' ? 'Shell' : 'run_terminal_command', input = { command: '専用登録入力' }
     const state = { state: 'verified', runtime: 'armed', endpoint_id: 'own', watcher: owner, caller: { owner }, waiter: { owner, native_task: { id: 'task', pid: owner.pid, process_identity: owner, input: { name: nativeName, input } } } }
-    const target = { fixture, meta: { harness, parent_session: 'own' }, spool: { id: 'own', read: () => state }, observe: () => ({ toolUses: [{ name: nativeName, session: 'own', input, id: 'tool', turn_id: 'turn' }], tasks: [{ tool_use_id: 'tool', id: 'task', pid: owner.pid }] }) }
+    const target = { fixture, meta: { harness, parent_session: 'own' }, spool: { id: 'own', read: () => state }, observe: () => ({ toolUses: [{ name: nativeName, session: 'own', input, hook_input: harness === 'cursor' ? input : undefined, id: 'tool', turn_id: 'turn' }], tasks: [{ tool_use_id: 'tool', id: 'task', pid: owner.pid }] }) }
     const native = createNativeActions({ factory: { close: async () => {} }, primary: fixture })
     const scope = { harness, runId: harness, pkg: process.cwd(), checks: [], context: { endpoint: () => target }, artifactFor: () => join(dir, harness + '.json'), processIdentity, sameProcess, processDescendsFrom, until: async (_, probe) => { const value = await probe(); assert.ok(value); return value }, result: (_, expectation, kind, detail) => ({ expectation, kind, ...detail }) }
     const result = await native.actions.lease_expiry_arm({}, scope)

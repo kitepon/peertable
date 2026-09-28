@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import { execFileSync } from 'node:child_process'
-import { createScenarioContext } from './scenarios-context.mjs'
+import { createScenarioContext, completedNativeInput, completedNativeInputProof } from './scenarios-context.mjs'
 import { createNativeFixtureFactory, waitOwnedFixtureExit } from './scenarios-fixtures.mjs'
 import { sha256 } from './evidence.mjs'
 import { createBackgroundSurfaceAdapters, nativeInvocation } from './scenarios-surfaces.mjs'
@@ -166,10 +166,10 @@ export function nativeLeaseRegistration(target, { sameProcess, processDescendsFr
   const native = waiter.native_task
   if (!native || !sameProcess(native.process_identity) || !processDescendsFrom(waiter.owner, native.process_identity)) return null
   const seen = target.observe(), expectedName = target.meta.harness === 'cursor' ? 'Shell' : 'run_terminal_command'
-  const use = seen.toolUses.find(use => use.name === expectedName && use.session === target.meta.parent_session && isDeepStrictEqual(use.input, native.input?.input))
+  const use = seen.toolUses.find(use => use.name === expectedName && use.session === target.meta.parent_session && isDeepStrictEqual(completedNativeInput(target.meta.harness, use), native.input?.input))
   const task = use && seen.tasks?.find(task => task.tool_use_id === use.id && String(task.task_id ?? task.id) === native.id && task.pid === native.pid)
   if (!use?.turn_id || !task || native.input?.name !== expectedName) return null
-  return { state: current, waiter, registration: { tool_use_id: use.id, turn_id: use.turn_id, task_id: native.id, input: use.input, owner: native.process_identity, native_task: task } }
+  return { state: current, waiter, registration: { tool_use_id: use.id, turn_id: use.turn_id, task_id: native.id, input: completedNativeInput(target.meta.harness, use), input_proof: completedNativeInputProof(target.meta.harness, use), owner: native.process_identity, native_task: task } }
 }
 
 // 再開は停止時の所有証拠を使う。native親の終了でown receiverの回収を妨げない。
@@ -221,13 +221,13 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
         if (!existsSync(identity)) return null
         const owner = s.processIdentity(JSON.parse(readFileSync(identity, 'utf8')).pid), seen = target.observe()
         if (!owner || !s.sameProcess(owner) || !s.processDescendsFrom(owner, target.meta.parent_process) || existsSync(completed)) fail('ACCEPTANCE_WORK_NATIVE_OWNER', '専用親の存命作業processではありません')
-        const use = seen.toolUses.find(use => use.order >= before && use.name === (s.harness === 'cursor' ? 'Shell' : 'run_terminal_command') && isDeepStrictEqual(use.input, input))
+        const use = seen.toolUses.find(use => use.order >= before && use.session === target.meta.parent_session && use.name === (s.harness === 'cursor' ? 'Shell' : 'run_terminal_command') && isDeepStrictEqual(completedNativeInput(s.harness, use), input))
         if (!use?.turn_id) return null
         const task = (seen.tasks ?? []).find(task => task.tool_use_id === use.id && task.pid && (task.pid === owner.pid || s.processDescendsFrom(owner, s.processIdentity(task.pid))))
         return task ? { owner, use, task } : null
       }, 120000, 100)
       Object.assign(state(s).work, observed)
-      return s.result(s, 'work_running', 'native_task', { work_process: observed.owner, work_native_task: observed.task, work_tool_use_id: observed.use.id, work_turn_id: observed.use.turn_id, work_input: input })
+      return s.result(s, 'work_running', 'native_task', { work_process: observed.owner, work_native_task: observed.task, work_tool_use_id: observed.use.id, work_turn_id: observed.use.turn_id, work_input: input, work_input_proof: completedNativeInputProof(s.harness, observed.use) })
     }
     actions.work_finish = async (_, s) => {
       const work = state(s).work, target = self(s), check = confirmOne(s)
@@ -326,9 +326,15 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
       await fixture.submit(`新会話の実相関試験です。${s.harness === 'cursor' ? 'Shell' : 'run_terminal_command'}へ次の入力を渡し、出力をそのまま報告してください。Peertable joinはまだ呼ばないでください。input: ${JSON.stringify(input)}`)
       const event = await s.until('新CLIの実hook CID', () => fixture.adapter.hookEvents().slice(beforeEvents).find(row => nativeSession(row.event) && nativeSession(row.event) !== old.meta.parent_session && JSON.stringify(row.event).includes(marker)), 120000, 100)
       const newSession = nativeSession(event.event), file = await s.until('新会話の公式transcript', () => fixture.adapter.transcript(newSession), 30000, 100)
-      const reply = await s.until('新CLIの実会話応答', () => fixture.adapter.read(file, { session: newSession }).replies.find(reply => reply.text.includes(marker) && reply.turn_id), 120000, 100)
+      const observed = await s.until('新CLIの完成済み入力と実会話応答', () => {
+        const seen = fixture.adapter.read(file, { session: newSession })
+        const use = seen.toolUses.find(use => use.session === newSession && use.id === (event.event.tool_use_id ?? event.event.toolUseId) && use.name === (s.harness === 'cursor' ? 'Shell' : 'run_terminal_command') && isDeepStrictEqual(completedNativeInput(s.harness, use), input))
+        const reply = use && seen.replies.find(reply => reply.session === newSession && reply.order > use.order && reply.text.includes(marker) && reply.turn_id)
+        return reply ? { use, reply } : null
+      }, 120000, 100)
+      const { reply } = observed
       state(s).session = { old, fixture, clear: event, newSession }
-      return s.result(s, 'new_conversation_identity', 'harness_transcript', { old_session: old.meta.parent_session, related_session: newSession, related_turn_id: reply.turn_id, new_transcript: file, official_event_artifact: fixture.adapter.hookFile, mechanism: 'own CLI終了→公式CLI新規起動' })
+      return s.result(s, 'new_conversation_identity', 'harness_transcript', { old_session: old.meta.parent_session, related_session: newSession, related_turn_id: reply.turn_id, new_transcript: file, input_proof: completedNativeInputProof(s.harness, observed.use), official_event_artifact: fixture.adapter.hookFile, mechanism: 'own CLI終了→公式CLI新規起動' })
     }
     const command = s.harness === 'claude' ? '/clear' : s.harness === 'codex' ? '/new' : fixture.adapter.clear
     if (!command) sourceUnconfirmed(s.harness, '公式新会話command')
