@@ -17,6 +17,11 @@ const until = async (label, probe, ms = 180000, interval = 250) => { const end =
 const contained = (root, file) => { const path = relative(realpathSync(root), file); return path !== '' && !path.startsWith('..') && !isAbsolute(path) }
 const writeJson = (file, value) => { mkdirSync(dirname(file), { recursive: true, mode: 0o700 }); writeFileSync(file, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 }) }
 
+// observer本人が起動時identityを保存する。終了後にPIDだけから本人を取り直さない。
+export function nativeHookObserverSource(platformEntry) {
+  return `import {processIdentity} from ${JSON.stringify(platformEntry)};import {readFileSync,appendFileSync,existsSync} from 'node:fs';const owner=processIdentity(process.pid);let raw='';for await(const chunk of process.stdin)raw+=chunk;const event=JSON.parse(raw.replace(/^\\uFEFF/u,''));appendFileSync(process.argv[2],JSON.stringify({at:new Date().toISOString(),pid:process.pid,owner,event})+'\\n');if(existsSync(process.argv[3])){const control=JSON.parse(readFileSync(process.argv[3],'utf8'));if(control.hold){while(!existsSync(control.release))await new Promise(r=>setTimeout(r,25));}}process.stdout.write('{}\\n');\n`
+}
+
 export function hookConfigurationSnapshot(hooks) {
   const beforeBytes = existsSync(hooks) ? readFileSync(hooks) : null
   const beforeHooks = beforeBytes ? JSON.parse(beforeBytes.toString('utf8').replace(/^\uFEFF/u, '')) : null
@@ -179,7 +184,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
       }
       fixture.addObserver = async ({ events, additionalArgs = [] } = {}) => {
         const observer = join(project, 'acceptance-hook.mjs'), observations = join(directory, 'official-hook-events.jsonl'), controls = join(directory, 'hook-controls.json')
-        writeFileSync(observer, `import {readFileSync,appendFileSync,existsSync} from 'node:fs';let raw='';for await(const chunk of process.stdin)raw+=chunk;const event=JSON.parse(raw.replace(/^\\uFEFF/u,''));appendFileSync(process.argv[2],JSON.stringify({at:new Date().toISOString(),pid:process.pid,event})+'\\n');if(existsSync(process.argv[3])){const control=JSON.parse(readFileSync(process.argv[3],'utf8'));if(control.hold){while(!existsSync(control.release))await new Promise(r=>setTimeout(r,25));}}process.stdout.write('{}\\n');\n`, { mode: 0o600 })
+        writeFileSync(observer, nativeHookObserverSource(pathToFileURL(join(pkg, 'skill/scripts/parent-platform.mjs')).href), { mode: 0o600 })
         const command = platform.hookCommand(process.execPath, [observer, observations, controls, ...additionalArgs])
         if (!['claude', 'codex'].includes(harness) && !adapter.projectHookFile) fail('ACCEPTANCE_PROJECT_HOOK_PATH_UNCONFIRMED', `${harness}: 公式のproject hook配置が実測されていません`)
         const file = harness === 'claude' ? join(project, '.claude/settings.local.json') : harness === 'codex' ? join(project, '.codex/hooks.json') : adapter.projectHookFile(project)

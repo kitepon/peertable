@@ -1,13 +1,13 @@
 // 追加adapterの誤相関をfocusedで確認する。fixtureの合格をproduct_liveへ流用しない。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { spawn, execFileSync } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver } from './scenarios-native.mjs'
-import { processIdentity, sameProcess } from '../../skill/scripts/parent-platform.mjs'
+import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver } from './scenarios-native.mjs'
+import { processIdentity, sameProcess, processDescendsFrom } from '../../skill/scripts/parent-platform.mjs'
 import { scenarioPlan } from './scenarios.mjs'
 
 const event = { session_id: 'own', turn_id: 'turn', hook_event_name: 'PostToolUse', tool_use_id: 'tool' }
@@ -90,4 +90,38 @@ test('独立watcherはown spoolとcaller本人で確認し、他endpoint共有�
   assert.throws(() => assertOwnedReceiver(owner, options), { code: 'ACCEPTANCE_PROCESS_FAULT_CALLER' })
   state.caller.conversation = 'own会話'; state.watcher = null; state.waiter = { owner }
   assert.throws(() => assertOwnedReceiver(owner, options), { code: 'ACCEPTANCE_PROCESS_FAULT_OWNER' })
+})
+
+
+test('停止時の証拠でown receiverを再開し、終了した親と再利用PIDを区別する', () => {
+  const parent = { pid: 100, started: '親開始' }, owner = { pid: 200, started: 'watcher開始' }
+  const fixture = { project: '/専用project', harness: 'codex' }
+  const current = { endpoint_id: 'own', harness: 'codex', caller: { harness: 'codex', conversation: 'own会話', owner: parent }, watcher: owner }
+  const target = { fixture, meta: { parent_process: parent, parent_session: 'own会話' }, spool: { project: fixture.project, id: 'own', read: () => current } }
+  const proof = assertOwnedReceiver(owner, { target, fixture, sameProcess: () => true, processDescendsFrom: () => false, endpoints: [] })
+  const held = { target, fixture, owner: structuredClone(owner), proof: structuredClone(proof) }
+  const sameProcess = value => value.pid === owner.pid && value.started === owner.started
+  current.watcher = null; current.runtime = 'stopped'
+  assert.deepEqual(assertOwnedResume(owner, { target, fixture, held, sameProcess, endpoints: [] }), proof)
+  assert.throws(() => assertOwnedResume({ ...owner, started: '再利用PID' }, { target, fixture, held, sameProcess, endpoints: [] }), { code: 'ACCEPTANCE_PROCESS_RESUME_OWNER' })
+  assert.throws(() => assertOwnedResume(owner, { target: { ...target }, fixture, held, sameProcess, endpoints: [] }), { code: 'ACCEPTANCE_PROCESS_RESUME_OWNER' })
+})
+
+
+test('実processで独立receiverを停止し、親が先に終了しても再開して回収する', { skip: process.platform === 'win32' }, async t => {
+  // 実CLI/製品配送の代用ではなく、own子processに対する停止・再開境界だけを再現する。
+  const script = 'process.stdin.resume();process.stdin.on("end",()=>process.exit(0))'
+  const parentChild = spawn(process.execPath, ['-e', script], { stdio: ['pipe', 'ignore', 'inherit'] }), receiver = spawn(process.execPath, ['-e', script], { stdio: ['pipe', 'ignore', 'inherit'] })
+  t.after(() => { if (parentChild.exitCode === null) parentChild.kill('SIGKILL'); if (receiver.exitCode === null) { receiver.kill('SIGCONT'); receiver.kill('SIGKILL') } })
+  const parent = processIdentity(parentChild.pid), owner = processIdentity(receiver.pid)
+  const fixture = { project: '/focused独立receiver', harness: 'codex', pkg: process.cwd() }, current = { endpoint_id: 'own', harness: 'codex', caller: { harness: 'codex', conversation: 'own会話', owner: parent }, watcher: owner }
+  const target = { fixture, meta: { parent_process: parent, parent_session: 'own会話' }, spool: { project: fixture.project, id: 'own', read: () => current } }, paused = new Map()
+  const options = { target, fixture, sameProcess, processDescendsFrom, paused }
+  assert.equal((await pauseOwnedReceiver(owner, options)).operation, 'suspend')
+  assert.match(execFileSync('/bin/ps', ['-p', String(owner.pid), '-o', 'state='], { encoding: 'utf8' }), /T/u)
+  const parentGone = new Promise(resolve => parentChild.once('exit', resolve)); parentChild.stdin.end(); await parentGone
+  assert.equal(sameProcess(parent), false)
+  assert.equal((await pauseOwnedReceiver(owner, { ...options, resume: true })).operation, 'resume'); assert.equal(paused.size, 0)
+  const receiverGone = new Promise(resolve => receiver.once('exit', resolve)); receiver.stdin.end(); await receiverGone
+  assert.equal(sameProcess(owner), false)
 })

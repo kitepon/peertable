@@ -119,19 +119,27 @@ export function assertOwnedReceiver(owner, { target, fixture, sameProcess, proce
   return { endpoint_id: target.spool.id, project: fixture.project, parent_session: target.meta.parent_session, caller_owner: current.caller.owner, receiver_role: role, receiver_owner: owner }
 }
 
+// 再開は停止時の所有証拠を使う。native親の終了でown receiverの回収を妨げない。
+export function assertOwnedResume(owner, { target, fixture, held, sameProcess, endpoints }) {
+  const proof = held?.proof, sameIdentity = (a, b) => a && b && a.pid === b.pid && a.started === b.started
+  if (!proof || held.target !== target || held.fixture !== fixture || target.fixture !== fixture || proof.project !== fixture.project || proof.endpoint_id !== target.spool.id || target.spool.project !== fixture.project || proof.parent_session !== target.meta.parent_session || !sameIdentity(proof.caller_owner, target.meta.parent_process) || !sameIdentity(proof.receiver_owner, owner) || !sameIdentity(held.owner, owner) || !sameProcess(owner)) fail('ACCEPTANCE_PROCESS_RESUME_OWNER', '停止時の専用fixture/受信identityと一致しません')
+  if (endpoints.some(endpoint => endpoint.id !== proof.endpoint_id && endpoint.read().runtime !== 'stopped' && [endpoint.read().watcher, endpoint.read().waiter?.owner].some(other => sameIdentity(other, owner)))) fail('ACCEPTANCE_PROCESS_FAULT_SHARED', '他endpointと共有する受信processは操作しません')
+  return proof
+}
+
 // OS適合はここだけ。公式spoolのPID+開始identityを操作直前に照合し、任意PIDへ作用しない。
 export async function pauseOwnedReceiver(owner, { target, fixture, sameProcess, processDescendsFrom, paused, resume = false }) {
   const { endpointsFor } = await import(pathToFileURL(join(fixture.pkg, 'skill/scripts/parent-caller.mjs')).href)
-  const proof = assertOwnedReceiver(owner, { target, fixture, sameProcess, processDescendsFrom, endpoints: endpointsFor() })
+  const endpoints = endpointsFor(), proof = resume ? assertOwnedResume(owner, { target, fixture, held: paused.get(owner.pid), sameProcess, endpoints }) : assertOwnedReceiver(owner, { target, fixture, sameProcess, processDescendsFrom, endpoints })
   if (process.platform !== 'win32') process.kill(owner.pid, resume ? 'SIGCONT' : 'SIGSTOP')
   else {
     // Windows公式thread API。列挙するのは検証済みown PIDのthreadだけ。
     const script = `Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public class PeertableOwnThreads{[DllImport("kernel32.dll")]public static extern IntPtr OpenThread(uint a,bool b,uint c);[DllImport("kernel32.dll")]public static extern uint SuspendThread(IntPtr h);[DllImport("kernel32.dll")]public static extern uint ResumeThread(IntPtr h);[DllImport("kernel32.dll")]public static extern bool CloseHandle(IntPtr h);}';$p=Get-Process -Id ${owner.pid};foreach($t in $p.Threads){$h=[PeertableOwnThreads]::OpenThread(2,$false,$t.Id);if($h -eq [IntPtr]::Zero){throw 'own thread open failed'};try{$r=[PeertableOwnThreads]::${resume ? 'ResumeThread' : 'SuspendThread'}($h);if($r -eq 4294967295){throw 'own thread control failed'}}finally{[void][PeertableOwnThreads]::CloseHandle($h)}}`
     execFileSync('pwsh.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')], { stdio: 'pipe' })
   }
-  if (resume) paused.delete(owner.pid); else paused.set(owner.pid, { owner, target, fixture })
-  if (!sameProcess(owner)) fail('ACCEPTANCE_PROCESS_FAULT_DISAPPEARED', '一時停止/再開の対象が終了しました')
-  return { ...proof, operation: resume ? 'resume' : 'suspend', at: new Date().toISOString() }
+  if (resume) paused.delete(owner.pid); else paused.set(owner.pid, { owner: structuredClone(owner), target, fixture, proof: structuredClone(proof) })
+  if (!resume && !sameProcess(owner)) fail('ACCEPTANCE_PROCESS_FAULT_DISAPPEARED', '一時停止の対象が終了しました')
+  return { ...proof, operation: resume ? 'resume' : 'suspend', receiver_alive_after: Boolean(sameProcess(owner)), at: new Date().toISOString() }
 }
 
 // 残る境界を呼出し側の任意callbackへ押し出さず、このmodule内の公式操作に固定する。

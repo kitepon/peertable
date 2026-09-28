@@ -5,7 +5,9 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit } from './scenarios-fixtures.mjs'
+import { pathToFileURL } from 'node:url'
+import { processIdentity, sameProcess } from '../../skill/scripts/parent-platform.mjs'
+import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit, nativeHookObserverSource } from './scenarios-fixtures.mjs'
 
 test('fixture終了は実child消失の後も製品自己停止と索引撤去を待つ', async t => {
   const child = spawn(process.execPath, ['-e', 'setTimeout(()=>process.exit(0),150)'], { stdio: 'ignore' })
@@ -50,4 +52,23 @@ test('専用project trustの1 entryだけを許し、他設定の意味差と既
   assert.throws(() => assertOnlyProjectTrustChanged(before, before, project, { remove: true }), { code: 'ACCEPTANCE_PROJECT_TRUST_BASELINE_MISSING' })
   assertOnlyProjectTrustChanged({}, { projects: { [project]: { trust_level: 'trusted' } } }, project)
   assertOnlyProjectTrustChanged({ projects: { [project]: { trust_level: 'trusted' } } }, {}, project, { remove: true })
+})
+
+
+test('公式hook observerは起動時PID/startを保存し、解除後の本人消失を照合する', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'peertable-observer-identity-')); t.after(() => rmSync(directory, { recursive: true, force: true }))
+  const script = join(directory, 'observer.mjs'), observed = join(directory, 'events.jsonl'), controls = join(directory, 'controls.json'), release = join(directory, 'release.json')
+  writeFileSync(script, nativeHookObserverSource(pathToFileURL(join(process.cwd(), 'skill/scripts/parent-platform.mjs')).href))
+  writeFileSync(controls, JSON.stringify({ hold: true, release }))
+  const child = spawn(process.execPath, [script, observed, controls], { stdio: ['pipe', 'pipe', 'inherit'] })
+  t.after(() => { if (child.exitCode === null) child.kill('SIGKILL') })
+  const ended = new Promise((resolve, reject) => { child.once('exit', resolve); child.once('error', reject) })
+  const event = { hook_event_name: 'stop', status: 'completed', conversation_id: 'own', generation_id: 'turn', text: '字面 & 日本語' }
+  child.stdin.end(JSON.stringify(event))
+  let row = null
+  const deadline = Date.now() + 3000
+  while (!row) { try { row = JSON.parse(readFileSync(observed, 'utf8').trim()) } catch (error) { if (error.code !== 'ENOENT') throw error }; assert.ok(Date.now() < deadline); if (!row) await new Promise(resolve => setTimeout(resolve, 20)) }
+  assert.deepEqual(row.event, event); assert.equal(row.pid, child.pid); assert.equal(row.owner.pid, child.pid); assert.equal(row.owner.started, processIdentity(child.pid).started)
+  assert.equal(sameProcess(row.owner), true); assert.equal(sameProcess({ ...row.owner, started: '同PIDの別起動' }), false)
+  writeFileSync(release, '{}'); assert.equal(await ended, 0); assert.equal(sameProcess(row.owner), false)
 })

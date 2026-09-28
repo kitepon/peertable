@@ -5,9 +5,15 @@ import { homedir } from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
-import { readJsonl } from './harness.mjs'
 
 const fail = (code, message) => { throw Object.assign(new Error(message), { code }) }
+// hook専用の確定行だけを読む。harnessの起動adapterへ逆依存せず、未確定末尾を保留する。
+const readOwnHookEvents = file => {
+  if (!existsSync(file)) return []
+  const lines = readFileSync(file, 'utf8').split('\n'); lines.pop()
+  return lines.map((line, index) => { try { return JSON.parse(line) } catch { fail('ACCEPTANCE_HOOK_EVENT_CORRUPT', `${file}:${index + 1}の確定hook行がJSONではありません`) } })
+}
+
 // WindowsはPowerShell 7へargvを渡す。Nodeの既定shellを選ばず、対話stdinは呼出し元のstdioを継承する。
 export function nativeInvocation(executable, args, { platformName = process.platform, shellCommand, interactive = false } = {}) {
   if (platformName !== 'win32') return { executable, argv: args }
@@ -135,7 +141,7 @@ export async function createBackgroundSurfaceAdapters({ pkg, tokenFile, backgrou
             fixture.modify(join(fixture.project, '.grok/hooks/peertable-parent.json'), () => Buffer.from(JSON.stringify({ hooks: owned }) + '\n'))
           }
         },
-        hookEvents: () => existsSync(hookFile) ? readJsonl(readFileSync(hookFile, 'utf8'), hookFile).rows.map(item => item.row) : [],
+        hookEvents: () => readOwnHookEvents(hookFile),
         hookFile,
       }
     },

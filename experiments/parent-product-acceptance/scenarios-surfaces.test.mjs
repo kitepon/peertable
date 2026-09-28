@@ -2,8 +2,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { nativeInvocation, grokControlledTaskEnd } from './scenarios-surfaces.mjs'
-import { shellCommand } from '../../skill/scripts/parent-platform.mjs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { nativeInvocation, grokControlledTaskEnd, createBackgroundSurfaceAdapters, resolveOfficialCli } from './scenarios-surfaces.mjs'
+import * as platform from '../../skill/scripts/parent-platform.mjs'
+const { shellCommand } = platform
 
 const fixture = () => {
   const output = '受信processの終了\n', id = 'own-task', session = 'own-session'
@@ -64,4 +68,26 @@ test('POSIX起動はargv/env/cwd/stdinを実childへそのまま渡す', async (
   let output = ''; child.stdout.on('data', part => { output += part }); child.stdin.end('日本語 stdin\n')
   const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', resolve) })
   assert.equal(code, 0); assert.deepEqual(JSON.parse(output), { args, cwd, value: "値 $HOME ' \"", input: '日本語 stdin\n' })
+})
+
+
+test('専用hook入口は実ファイルIOで確定行を読み、追記途中と壊れた確定行を区別する', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'peertable-surface-hook-')); t.after(() => rmSync(directory, { recursive: true, force: true }))
+  const adapters = await createBackgroundSurfaceAdapters({ pkg: process.cwd(), tokenFile: join(directory, 'token'), backgroundObserverFactory: () => { throw new Error('この試験では会話observerを起動しません') } })
+  for (const harness of ['cursor', 'grok']) {
+    const adapter = adapters[harness].bind({ directory, project: join(directory, 'project') })
+    const value = { event: { conversation_id: 'own', text: '原字面 日本語 &' }, stdout: '{}', code: 0 }
+    writeFileSync(adapter.hookFile, JSON.stringify(value) + '\n' + '{追記途中')
+    assert.deepEqual(adapter.hookEvents(), [value])
+    writeFileSync(adapter.hookFile, '{壊れた確定行}\n')
+    assert.throws(() => adapter.hookEvents(), { code: 'ACCEPTANCE_HOOK_EVENT_CORRUPT' })
+  }
+})
+
+test('通常導入の4公式CLIを正規pathと実version応答で解決する', () => {
+  for (const harness of ['claude', 'codex', 'cursor', 'grok']) {
+    const actual = resolveOfficialCli(harness, platform)
+    assert.ok(actual.executable); assert.ok(actual.version)
+    assert.ok(!/not found|error/iu.test(actual.version))
+  }
 })

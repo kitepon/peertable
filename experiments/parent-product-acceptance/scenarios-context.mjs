@@ -297,7 +297,9 @@ export async function createScenarioContext(options) {
         if (!nativeStopFile) fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', 'Cursorの専用stop hook保存先がありません')
         const events = existsSync(nativeStopFile) ? readJsonl(readFileSync(nativeStopFile, 'utf8'), nativeStopFile).rows.map(item => item.row) : []
         const completed = cursorIdleCompletion(events, last, meta.parent_session)
-        if (!completed || sameProcess(processIdentity(completed.pid))) return null
+        if (!completed) return null
+        if (!completed.owner?.started || completed.owner.pid !== completed.pid) fail('ACCEPTANCE_IDLE_OBSERVER_IDENTITY_MISSING', 'stop observerの起動時identityがありません')
+        if (sameProcess(completed.owner)) return null
         faultState.set(`${scope.runId}:idle_stop`, completed)
         return current.replies.length === count && current.replies.at(-1)?.turn_id === last.turn_id && /Add a follow-up/u.test(view)
       }
