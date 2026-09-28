@@ -109,6 +109,8 @@ export function noToolsReception({ posted, record, receipt, seen, session, runti
   fail('ACCEPTANCE_NO_TOOLS_STATE_UNEXPLAINED', `実返答/receipt/原文保持を説明できません: ${runtime}/${record.state}/${receipt?.state ?? 'missing'}`)
 }
 
+// 対象last turnの公式task_completeが返答より後に記録済みであること。
+export const codexTurnCompleted = (turns, last) => { const ended = turns.get(last.turn_id); return Boolean(ended && ended.end_kind === 'task_complete' && ended.completed_order >= last.order) }
 export function codexTurns(file) {
   const turns = new Map(); let current = null
   for (const [order, line] of readFileSync(file, 'utf8').split('\n').slice(0, -1).entries()) {
@@ -323,8 +325,8 @@ export async function createScenarioContext(options) {
       return prompt.test(view) && current.replies.at(-1)?.order === last.order
     }, 120000, 1000)
     // promptが作業中にも表示される実装があるため、native task終了の記録も必要にする。
-    const ended = meta.harness === 'codex' ? codexTurns(file).get(last.turn_id) : null
-    if (meta.harness === 'codex' && (!ended || ended.end_kind !== 'task_complete' || ended.completed_order < last.order)) fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', '対象last turnのtask_completeを確認できません')
+    // 返答の表示直後はまだtaskが終わっていない。公式task_completeが記録されるまで待ち、期限内に来なければtyped errorにする。
+    if (meta.harness === 'codex') await until('対象last turnのtask_complete', () => codexTurnCompleted(codexTurns(file), last), 120000, 100).catch(error => { if (error.code === 'ACCEPTANCE_TIMEOUT') fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', '対象last turnのtask_completeを確認できません'); throw error })
     faultState.set(`${scope.runId}:idle`, { turn: last.turn_id, order: last.order, rows: seen.rows })
     return result(scope, 'idle_without_input', 'harness_transcript', { idle_turn: last.turn_id, reply_order: last.order, official_stop: faultState.get(`${scope.runId}:idle_stop`) ?? null })
   }

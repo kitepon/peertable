@@ -202,3 +202,14 @@ test('burstは未読保持のspoolと同じoffsetまで返した実中間pageが
   assert.equal(intermediatePageMatch({ ...record, state: 'submitted' }, [page(0, 12000, false)]), null)
   assert.equal(intermediatePageMatch({ ...record, claim: { offset: 0 } }, [page(0, 12000, false)]), null)
 })
+
+test('Codex idleは返答表示直後のtask未完了を失敗にせず、task_complete記録まで待つ', async () => {
+  const { codexTurnCompleted } = await import('./scenarios-context.mjs')
+  const last = { turn_id: 'turn', order: 5 }
+  const turns = ended => new Map([['turn', { turn_id: 'turn', started_order: 1, completed_order: ended?.order ?? null, end_kind: ended?.kind }]])
+  assert.equal(codexTurnCompleted(turns(null), last), false)                               // 返答は出たがtaskは実行中
+  assert.equal(codexTurnCompleted(turns({ order: 9, kind: 'turn_aborted' }), last), false)  // 中断は完了ではない
+  assert.equal(codexTurnCompleted(turns({ order: 3, kind: 'task_complete' }), last), false) // 返答より前の完了は流用しない
+  assert.equal(codexTurnCompleted(turns({ order: 9, kind: 'task_complete' }), last), true)
+  assert.equal(codexTurnCompleted(new Map(), last), false)
+})
