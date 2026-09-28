@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { parentRecipients } from '../../room/parent-kind.mjs'
 // room のSSEを購読し、明示宛先の新着を current member descriptor の通常席 TUI へ
 // 配達する。専用の起床デーモンではない。親は parent-watch が所有し、ここでは扱わない。
 //
@@ -114,16 +115,7 @@ if (rest[0] === '--stop') process.exit(0)
 const requestedSeats = rest
 const state = JSON.parse(readFileSync(join(proj, '.team', 'setup-state.json'), 'utf8'))
 const { room, server_url: url } = state
-const parentName = (() => {
-  if (process.env.PEERTABLE_PARENT_NAME) return process.env.PEERTABLE_PARENT_NAME
-  try {
-    const watch = JSON.parse(readFileSync(join(proj, '.team', 'parent-watch.json'), 'utf8'))
-    return typeof watch.parent === 'string' ? watch.parent : null
-  } catch {
-    return null
-  }
-})()
-const targetOpts = { parentName }
+const targetOpts = {}
 writeRecord({
   pid: process.pid, room, server_url: url, requested_seats: requestedSeats,
   started_at: new Date().toISOString(), last_progress_at: new Date().toISOString(),
@@ -173,7 +165,8 @@ const notifiedFailures = new Set() // `${seq}:${recipient}`（delivered への�
 const failureStreaks = new Map() // `${seq}:${recipient}` -> 連続失敗数
 let deliveryStateDirty = false
 async function notifyParentOfFailure(seq, recipient, result, reason, immediate = false) {
-  if (!parentName) return
+  const parents = parentRecipients([...members.values()])
+  if (!parents.length) return
   const key = `${seq}:${recipient}`
   if (result === 'delivered') {
     if (notifiedFailures.delete(key)) saveDeliveryState()
@@ -193,7 +186,7 @@ async function notifyParentOfFailure(seq, recipient, result, reason, immediate =
     const res = await fetch(`${url}/api/${encodeURIComponent(room)}/messages`, {
       method: 'POST', headers: writeHeaders,
       body: JSON.stringify({
-        from: 'wakeup', to: parentName,
+        from: 'wakeup', to: parents.length === 1 ? parents[0] : parents,
         body: `[配達失敗] seq=${seq} 宛先=${recipient} 状態=${result}${reason ? ` 理由=${reason}` : ''}。台帳とwakeup-bridge.logを確認し、席の復旧または再送を判断すること`,
       }),
     })

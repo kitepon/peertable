@@ -1,0 +1,85 @@
+{
+  "schema": "peertable.parent-grok-probe-latency-diagnosis.v1",
+  "product_source": "84de74a097469ef4abd43698635805696b1302ff",
+  "runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
+  "product_live": false,
+  "formal_acceptance_credit": 0,
+  "root_raw_audit": true,
+  "os": "linux",
+  "harness": "grok",
+  "timeline": {
+    "armed": "2026-09-28T21:31:24.259Z",
+    "BackgroundTaskStarted(rows)": 0.256,
+    "wake_system_reminder": 22.097,
+    "reader_call": 27.134,
+    "reader_result": 28.911,
+    "probe_deadline(armed+30s)": 30.0,
+    "FIRST_FAILED": 30.001,
+    "FIRST_VERIFIED(parent_read完了)": 53.198,
+    "parent_read_call_row": 53.209,
+    "second_armed(verified+armed)": 71.99
+  },
+  "first_armed": {
+    "at": "2026-09-28T21:31:24.259Z",
+    "mono_ms": 62669,
+    "kind": "FIRST_ARMED",
+    "probe_deadline": 1790631114258,
+    "native_task": {
+      "id": "01a0e9ee-0022-7c81-bd78-95d75f93f3ae",
+      "pid": 859905
+    }
+  },
+  "first_failed": {
+    "at": "2026-09-28T21:31:54.260Z",
+    "mono_ms": 92670,
+    "kind": "FIRST_FAILED",
+    "error_code": "PARENT_PROBE_TIMEOUT",
+    "armed_to_failed_ms": 30001,
+    "deadline_to_failed_ms": 2
+  },
+  "first_verified": {
+    "at": "2026-09-28T21:32:17.457Z",
+    "mono_ms": 115868,
+    "kind": "FIRST_VERIFIED",
+    "runtime": "rearm_pending",
+    "error_code": null,
+    "armed_to_verified_ms": 53198,
+    "after_failed_ms": 23197
+  },
+  "final_room_health": {
+    "at": "2026-09-28T21:33:24.274Z",
+    "mono_ms": 182684,
+    "kind": "room_members_final",
+    "members": {
+      "state": "up",
+      "endpoints": [
+        {
+          "recipient": "probe-diag-6f5dabdd",
+          "endpoint_id": "27476da6-332c-4aaf-8f2f-28cb7173edbc",
+          "state": "armed",
+          "beat_at": "2026-09-28T21:33:23.967Z",
+          "detail": "{\"endpoint_id\":\"27476da6-332c-4aaf-8f2f-28cb7173edbc\",\"state\":\"verified\",\"error_code\":null}"
+        }
+      ]
+    }
+  },
+  "decision": {
+    "initial_probe_timeout_ms": 120000,
+    "binding_timeout_ms": 30000,
+    "owner_constant": "skill/scripts/parent-delivery.mjs:PARENT_PROBE_TIMEOUT_MS",
+    "basis": "正規wake→reader→parent_read完了の実測53.198秒と次のarmedまで71.99秒を含む期限とする。全OS/全harness共通で120秒に調整し、binding期限は変更しない。修正版で実機再測定する。"
+  },
+  "limitations": [
+    "wake後reader結果からparent_readまでの24秒のモデル内処理は判別できない",
+    "公式更新timestampは1秒精度。state遷移はfs.watchでms観測",
+    "room healthは終了時1回のみ。失敗期間の表示と復旧反映時刻は未確認"
+  ],
+  "report_correction": "子が表示用filterでmembersを除き空と誤認した。原rawにはup/armed/verified/error nullがありroot照合後に子が訂正した。",
+  "private_raw": "/private/tmp/claude-501/qa-cursor-grok/formal-audience-84de74a/raw/linux-grok-probe-diag",
+  "fingerprints": {
+    "diag-analysis.json": "f2bd44e70e5557bcaa501106478dcc49c8ffc0880eba2b429574ff5f555b94ce",
+    "run/events.jsonl": "1676710026820043cf95a9536bc2274a57c213ec4d034693b36288a08e48e27a",
+    "run/raw/updates.jsonl": "4deaedbeb3201ae86003a094e0352460f12a5d7fec818a1578206902af686c9a",
+    "run/raw/product-hook-events.jsonl": "b902ce17a451bbc0941610809a278deb1548272cffb5052d0b6541805c71cadc"
+  }
+}

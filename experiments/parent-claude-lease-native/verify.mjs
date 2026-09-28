@@ -1,0 +1,21 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+
+const root = process.argv[2];
+const read = (name) => fs.readFileSync(path.join(root, name), 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
+const calls = read('calls.jsonl');
+const emitted = read('emitted.jsonl');
+const hooks = read('observed-hooks.jsonl');
+const replies = read('assistant-replies.jsonl');
+assert.equal(calls.length, 2, '初回登録と期限更新の2回を確認する');
+assert.equal(calls[0].session_id, calls[1].session_id, '同じ実会話へ再登録する');
+assert.equal(calls[0].endpoint_id, calls[1].endpoint_id, '受信先を維持する');
+assert.notEqual(calls[0].tool_use_id, calls[1].tool_use_id, '各MCP呼出しを別々に束縛する');
+assert.equal(emitted[0].code, 'PARENT_RECEIVER_EXPIRED');
+assert.equal(emitted[1].schema, 'peertable.parent-message.v1');
+assert.equal(hooks.filter((h) => h.subtype === 'hook_response' && h.hook_event === 'PostToolUse' && h.exit_code === 2).length, 2);
+assert.ok(replies.some((r) => r.text.includes('PEERTABLE_LEASE_RESUMED')), '実親の回答本文と照合する');
+const evidence = {schema: 'peertable.parent-lease-probe.v1', passed: true, platform: process.platform, node: process.version, session_id: calls[0].session_id, endpoint_id: calls[0].endpoint_id, calls, emitted, replies};
+fs.writeFileSync(path.join(root, 'evidence.json'), JSON.stringify(evidence, null, 2) + '\n');
+process.stdout.write(JSON.stringify(evidence) + '\n');

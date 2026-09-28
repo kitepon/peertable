@@ -1,0 +1,36 @@
+{
+  "schema": "peertable.claude-stop-probe.v1",
+  "passed": true,
+  "platform": "win32",
+  "session": "57c94f1b-a80b-41d8-a1a4-3f9b046df1eb",
+  "replies": [
+    "初回",
+    "配送確認の符号：**PEERTABLE_STOP_WAKE_1**\n\n状態：待機",
+    "配送確認の符号：**PEERTABLE_STOP_WAKE_2**\n\n状態：待機"
+  ],
+  "hooks": [
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "57c94f1b-a80b-41d8-a1a4-3f9b046df1eb",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[Peertable room=配送試験 from=probe to=bell seq=1] 本文: 配送確認の符号は PEERTABLE_STOP_WAKE_1 です。状態は待機です。\n",
+      "output": "[Peertable room=配送試験 from=probe to=bell seq=1] 本文: 配送確認の符号は PEERTABLE_STOP_WAKE_1 です。状態は待機です。\n",
+      "outcome": "error"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "57c94f1b-a80b-41d8-a1a4-3f9b046df1eb",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[Peertable room=配送試験 from=probe to=bell seq=2] 本文: 配送確認の符号は PEERTABLE_STOP_WAKE_2 です。状態は待機です。\n",
+      "output": "[Peertable room=配送試験 from=probe to=bell seq=2] 本文: 配送確認の符号は PEERTABLE_STOP_WAKE_2 です。状態は待機です。\n",
+      "outcome": "error"
+    }
+  ],
+  "native_hook_evidence_complete": true
+}

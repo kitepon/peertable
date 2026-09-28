@@ -1,0 +1,131 @@
+{
+  "schema": "peertable.codex-caller-deadline-comparison.v1",
+  "diagnostic_only": true,
+  "formal_acceptance_credit": 0,
+  "root_audited": true,
+  "source_fingerprint_sha256": "eb6f0775fcdf536d68554b9d1ca97adc726d7ab34a74e11889f5a73f900cfb41",
+  "repositories": [
+    {
+      "commit": "edd19ca020c51bd7311546e5ead772e8d53fac96",
+      "files": [
+        {
+          "path": "room/parent-client.mjs",
+          "sha256": "856d1f80000d3468f18dc0adb4954086c6648a996044ee6801312b7236963c49",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "skill/scripts/parent-caller.mjs",
+          "sha256": "80227b6ec2a848e1b1a1546cafa8608c4513c46b22f4ee9d09f415ae00134dc6",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "skill/scripts/parent-platform.mjs",
+          "sha256": "45b06cf65ee6413b795fa0f00225250fc5f9b42164268b31a6b39fe4440c6d34",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "skill/scripts/parent-receivers/codex.mjs",
+          "sha256": "6342cffb5727c0d1cd8aa7ae3ad49c704bf7408f18a7b01b9e7962cb02939c07",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "skill/scripts/parent-runtime.mjs",
+          "sha256": "decc27240f144753b371220dd14abca170b4d166f05abc216ee7a60246b815c9",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "skill/scripts/parent-delivery.mjs",
+          "sha256": "390ca733e9dd1f6a36ecda01166b176821fb03962a9b65f2a8483e05199f8f9c",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "skill/scripts/parent-watch.mjs",
+          "sha256": "374523f6a7127e4bded108911e2740fa34eb0b2216d0716e7a425aca6fc85183",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "skill/scripts/parent-prepare.mjs",
+          "sha256": "310f0fbbfe2d954c5644c4f9bf610bc1301c938b8592b6307b69e43da04fd05f",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "experiments/parent-product-acceptance/scenarios.mjs",
+          "sha256": "08db776c879b02b8da7b6263511256b192d35a6d78fdaf1164e05328184fca98",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "experiments/parent-product-acceptance/scenarios-native.mjs",
+          "sha256": "0c22c42d40ae9cf42a4f202a8d081abda564b51b27ec0e9c55118ab95af4d194",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "docs/plan_parent-native-delivery.md",
+          "sha256": "b7a552dd5d2eacfcbedbd76ee24dd88cd0e058eb3c0be7b44f5e84b2ec76b1dc",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        }
+      ]
+    },
+    {
+      "commit": "8cfe1da43a28606ccb53acd1dbfcc0607436add0",
+      "files": [
+        {
+          "path": "src/index.ts",
+          "sha256": "82b5926a3326b03cd3570e43c0d104e821bfa13d8b8ae27b1cca84c4b45b6916",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "src/codex-parent-receiver.ts",
+          "sha256": "fd175962d6e5f37cb0ae030f97017bb7950e2108ae91f09565a5bb9a0906ef61",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "src/codex-parent-hooks.ts",
+          "sha256": "a13321cd93461e7e93879d6ab3cc9684ba05d4050829ed5b7a8f864ac0d6c586",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "src/codex-hook-state.ts",
+          "sha256": "db5fc0e39fe93338c20c8c160eeb4a602aca66ca0f0d7d6379fdb3b8beaf54b0",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "src/codex-relay-client.ts",
+          "sha256": "b06765ba7d1b7ac3b3964163ecc2a81e1a410ec91450ad80e6274ac56fd2d76b",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "src/parent-delivery.ts",
+          "sha256": "771582d0fbb54d255683847b414b1f4b2b85b555329b71e4d211e26fac558763",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "src/codex-delivery-error.ts",
+          "sha256": "ab69739dc8fc906b01eca7d9da59b0ab4a4e01ba8f6ba45375b11b4227006d2f",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        },
+        {
+          "path": "src/harnesses/codex.ts",
+          "sha256": "d22751d2174cfce55d0f613970379c378bc5acd868cc9763bf962cbea8e35f93",
+          "root_verified_working_snapshot_git_bytes_equal": true
+        }
+      ]
+    }
+  ],
+  "facts": {
+    "official_caller_binding": "公式MCP clientと当該requestのthreadIdを同期で取得し、実storeの公式receiverを検証する。Codexでは事前hook contextを待たない。",
+    "codex_hook_binding_pending_exists": false,
+    "codex_hook_binding_30s_timeout_exists": false,
+    "non_codex_hook_context_timeout_ms": 30000,
+    "receiver_preparation_timeout_ms": 15000,
+    "receiver_preparation_failure": "PARENT_CODEX_RPC_TIMEOUT",
+    "receiver_failure_precedes_new_endpoint_creation": true,
+    "product_probe_timeout_source": "skill/scripts/parent-delivery.mjs:PARENT_PROBE_TIMEOUT_MS",
+    "prepare_cli_receipt_is_not_mcp_caller_pending": true
+  },
+  "decision": "Codex binding_deadlineの前半は実在するreceiver準備期限failureを実測する。非Codexのhook束縛期限、後半probe期限・同会話復旧・DMは維持する。25scenario・525項目は維持し、未実測を合格へ置換しない。",
+  "limitations": [
+    "読取診断は実機期限failureを証明しない。新controllerの実測は未完了。",
+    "AitermとPeertableの公式受信口契約を比較した。所有state/binary選択のコード実装が逐語一致するという意味ではない。",
+    "旧診断は公式MCP inputの_meta原bytesを保存していない。新fixtureでは受動記録する。"
+  ]
+}

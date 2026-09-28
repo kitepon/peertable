@@ -1,0 +1,715 @@
+{
+  "schema": "peertable.cursor-grok-repair-observation.v1",
+  "source": {
+    "commit": "dd5fbf41b84058d2e10a247374041bb89a54fc43",
+    "runtime_digest": "2edd2fab80335c9d8d295ca077788ed21ecf502dfb137235df6e80e36f815ab6",
+    "tree": "git archive of the commit (clean); no product file patched",
+    "package_version": "0.8.62",
+    "digest_verified_on": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "harness_versions": {
+    "cursor": "2026.09.26-dd393fe",
+    "grok": "1.0.41 (4220f3b224a6)"
+  },
+  "counts_as_final_live_acceptance": false,
+  "root_checks": [
+    {
+      "cell": "macos-cursor",
+      "room_original_hashes_match": true,
+      "final_spool_originals_equal": 3,
+      "receipt_revisions_match": true,
+      "caller_pid_and_conversation_match": true,
+      "final_task_id_matches": true,
+      "hook_event_count": 26,
+      "tui_status": "observed"
+    },
+    {
+      "cell": "macos-grok",
+      "room_original_hashes_match": true,
+      "final_spool_originals_equal": 3,
+      "receipt_revisions_match": true,
+      "caller_pid_and_conversation_match": true,
+      "final_task_id_matches": true,
+      "hook_event_count": 94,
+      "tui_status": "partial"
+    },
+    {
+      "cell": "linux-cursor",
+      "room_original_hashes_match": true,
+      "final_spool_originals_equal": 3,
+      "receipt_revisions_match": true,
+      "caller_pid_and_conversation_match": true,
+      "final_task_id_matches": true,
+      "hook_event_count": 26,
+      "tui_status": "observed"
+    },
+    {
+      "cell": "linux-grok",
+      "room_original_hashes_match": true,
+      "final_spool_originals_equal": 6,
+      "receipt_revisions_match": true,
+      "caller_pid_and_conversation_match": true,
+      "final_task_id_matches": true,
+      "hook_event_count": 62,
+      "tui_status": "observed"
+    },
+    {
+      "cell": "windows-cursor",
+      "room_original_hashes_match": true,
+      "final_spool_originals_equal": 3,
+      "receipt_revisions_match": true,
+      "caller_pid_and_conversation_match": true,
+      "final_task_id_matches": true,
+      "hook_event_count": 26,
+      "tui_status": "observed"
+    },
+    {
+      "cell": "windows-grok",
+      "room_original_hashes_match": true,
+      "final_spool_originals_equal": 3,
+      "receipt_revisions_match": true,
+      "caller_pid_and_conversation_match": true,
+      "final_task_id_matches": true,
+      "hook_event_count": 42,
+      "tui_status": "observed"
+    }
+  ],
+  "cells": [
+    {
+      "cell": "macos-cursor",
+      "conversation_id": "1f041b33-5dd8-4c74-9221-38edaf759d0a",
+      "endpoint_id": "0e9ba0f7-3ba3-4a36-ae58-21275e409e0f",
+      "caller_owner": {
+        "pid": 87264,
+        "started": "Tue Sep 29 01:15:05 2026"
+      },
+      "armed": {
+        "runtime": "armed",
+        "state": "verified",
+        "native_task_id": "900131",
+        "native_task_pid": 92879,
+        "native_task_started": "Tue Sep 29 01:16:25 2026",
+        "waiter_pid": 92916,
+        "waiter_started": "Tue Sep 29 01:16:25 2026"
+      },
+      "messages": [
+        {
+          "seq": 3,
+          "from": "worker",
+          "to": "all",
+          "body_sha256": "6fb07d2a5f9fdbf1ea9786b4f9a77bed1f79f0a86a147da2f662cf1460d643c7",
+          "body_chars": 32,
+          "receipt": {
+            "state": "delivered",
+            "reason": "cursor_native_background_output",
+            "at": "2026-09-28T16:15:41.031Z",
+            "revision": 1
+          },
+          "audience_check": "all",
+          "worker_receipt": null
+        },
+        {
+          "seq": 4,
+          "from": "worker",
+          "to": "bell",
+          "body_sha256": "cc22a0dc0bcafaf1d43e86c3e8b3ebc116d9658a6293af9db4dfceb0ea2fc339",
+          "body_chars": 34,
+          "receipt": {
+            "state": "delivered",
+            "reason": "cursor_native_background_output",
+            "at": "2026-09-28T16:15:57.774Z",
+            "revision": 1
+          },
+          "audience_check": "dm(bell)",
+          "worker_receipt": null
+        },
+        {
+          "seq": 5,
+          "from": "worker",
+          "to": [
+            "bell",
+            "worker"
+          ],
+          "body_sha256": "0344d6989a18b1d659e1a8b7b5f2340e6aae74ebfb5a64b3ed918290b9f7e162",
+          "body_chars": 46,
+          "receipt": {
+            "state": "delivered",
+            "reason": "cursor_native_background_output",
+            "at": "2026-09-28T16:16:14.659Z",
+            "revision": 1
+          },
+          "audience_check": "multi(bell,worker)",
+          "worker_receipt": "seat_unavailable"
+        }
+      ],
+      "stages": {
+        "initial_join": "observed",
+        "original_saved_and_receipt": "observed(delivered x3)",
+        "armed_native_task_pid_start": "observed",
+        "native_completion_same_cid": "observed",
+        "rearm_second_onward": "observed",
+        "tui_original": "observed"
+      },
+      "hook_events": {
+        "total": 26,
+        "nonzero_exit": 0,
+        "stdin_prefix_hex_set": [
+          "7b22636f"
+        ]
+      }
+    },
+    {
+      "cell": "macos-grok",
+      "conversation_id": "01a0e8d2-e829-74f0-b575-4a177a561b98",
+      "endpoint_id": "534c2645-515f-482b-83e8-01672fe7ec22",
+      "caller_owner": {
+        "pid": 4988,
+        "started": "Tue Sep 29 01:22:10 2026"
+      },
+      "armed": {
+        "runtime": "armed",
+        "state": "verified",
+        "native_task_id": "01a0e8d7-1e6c-7e20-8798-3558746f1053",
+        "native_task_pid": 12923,
+        "native_task_started": "Tue Sep 29 01:26:47 2026",
+        "waiter_pid": 12927,
+        "waiter_started": "Tue Sep 29 01:26:47 2026"
+      },
+      "messages": [
+        {
+          "seq": 3,
+          "from": "worker",
+          "to": "all",
+          "body_sha256": "6fb07d2a5f9fdbf1ea9786b4f9a77bed1f79f0a86a147da2f662cf1460d643c7",
+          "body_chars": 32,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:18:22.161Z",
+            "revision": 1
+          },
+          "audience_check": "all",
+          "worker_receipt": null
+        },
+        {
+          "seq": 4,
+          "from": "worker",
+          "to": "bell",
+          "body_sha256": "cc22a0dc0bcafaf1d43e86c3e8b3ebc116d9658a6293af9db4dfceb0ea2fc339",
+          "body_chars": 34,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:18:33.870Z",
+            "revision": 1
+          },
+          "audience_check": "dm(bell)",
+          "worker_receipt": null
+        },
+        {
+          "seq": 5,
+          "from": "worker",
+          "to": [
+            "bell",
+            "worker"
+          ],
+          "body_sha256": "0344d6989a18b1d659e1a8b7b5f2340e6aae74ebfb5a64b3ed918290b9f7e162",
+          "body_chars": 46,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:18:52.575Z",
+            "revision": 1
+          },
+          "audience_check": "multi(bell,worker)",
+          "worker_receipt": "seat_unavailable"
+        },
+        {
+          "seq": 6,
+          "from": "worker",
+          "to": "all",
+          "body_sha256": "3bf28dbf936a43b44bebf44727fbad2274feb13b0a381eb8f47a75dfbf9e2096",
+          "body_chars": 34,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:19:27.900Z",
+            "revision": 1
+          },
+          "audience_check": "all",
+          "worker_receipt": null
+        },
+        {
+          "seq": 7,
+          "from": "worker",
+          "to": "bell",
+          "body_sha256": "9749edf4f6f8be8d616a25b80608548de630b54f3a93c0f7bdab200c53b6f21b",
+          "body_chars": 36,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:20:09.086Z",
+            "revision": 1
+          },
+          "audience_check": "dm(bell)",
+          "worker_receipt": null
+        },
+        {
+          "seq": 8,
+          "from": "worker",
+          "to": "all",
+          "body_sha256": "dcf74e99bf6d234bc16e4188cf3fe796dae0ad37e92f7494a3a5ed47b151a0fe",
+          "body_chars": 34,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:26:07.549Z",
+            "revision": 1
+          },
+          "audience_check": "all",
+          "worker_receipt": null
+        },
+        {
+          "seq": 9,
+          "from": "worker",
+          "to": "bell",
+          "body_sha256": "25bbe848aaf94b408df1446ae615bf38a5e8faca8ae17b140441984a5156ad72",
+          "body_chars": 36,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:26:24.294Z",
+            "revision": 1
+          },
+          "audience_check": "dm(bell)",
+          "worker_receipt": null
+        },
+        {
+          "seq": 10,
+          "from": "worker",
+          "to": [
+            "bell",
+            "worker"
+          ],
+          "body_sha256": "16c87e316b7386083ef26011c7f8629723ae0e1dc792a55da7519c37ab1d0570",
+          "body_chars": 48,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:26:42.287Z",
+            "revision": 1
+          },
+          "audience_check": "multi(bell,worker)",
+          "worker_receipt": "seat_unavailable"
+        }
+      ],
+      "stages": {
+        "initial_join": "observed",
+        "original_saved_and_receipt": "observed(delivered x8)",
+        "armed_native_task_pid_start": "observed",
+        "native_completion_same_cid": "observed",
+        "rearm_second_onward": "observed",
+        "tui_original": "partial"
+      },
+      "hook_events": {
+        "total": 94,
+        "nonzero_exit": 0,
+        "stdin_prefix_hex_set": [
+          "7b22686f"
+        ]
+      }
+    },
+    {
+      "cell": "linux-cursor",
+      "conversation_id": "a0c6c669-2682-47cf-85be-95c216accc50",
+      "endpoint_id": "4898cec1-b10a-4397-b3b2-6c88e329aa72",
+      "caller_owner": {
+        "pid": 1540757,
+        "started": "fa227cc0-c7c5-4c8d-bc23-b56674f51d33:53204262"
+      },
+      "armed": {
+        "runtime": "armed",
+        "state": "verified",
+        "native_task_id": "37057",
+        "native_task_pid": 1547126,
+        "native_task_started": "fa227cc0-c7c5-4c8d-bc23-b56674f51d33:53211851",
+        "waiter_pid": 1547204,
+        "waiter_started": "fa227cc0-c7c5-4c8d-bc23-b56674f51d33:53211864"
+      },
+      "messages": [
+        {
+          "seq": 3,
+          "from": "worker",
+          "to": "all",
+          "body_sha256": "6fb07d2a5f9fdbf1ea9786b4f9a77bed1f79f0a86a147da2f662cf1460d643c7",
+          "body_chars": 32,
+          "receipt": {
+            "state": "delivered",
+            "reason": "cursor_native_background_output",
+            "at": "2026-09-28T16:28:55.743Z",
+            "revision": 1
+          },
+          "audience_check": "all",
+          "worker_receipt": null
+        },
+        {
+          "seq": 4,
+          "from": "worker",
+          "to": "bell",
+          "body_sha256": "cc22a0dc0bcafaf1d43e86c3e8b3ebc116d9658a6293af9db4dfceb0ea2fc339",
+          "body_chars": 34,
+          "receipt": {
+            "state": "delivered",
+            "reason": "cursor_native_background_output",
+            "at": "2026-09-28T16:29:12.530Z",
+            "revision": 1
+          },
+          "audience_check": "dm(bell)",
+          "worker_receipt": null
+        },
+        {
+          "seq": 5,
+          "from": "worker",
+          "to": [
+            "bell",
+            "worker"
+          ],
+          "body_sha256": "0344d6989a18b1d659e1a8b7b5f2340e6aae74ebfb5a64b3ed918290b9f7e162",
+          "body_chars": 46,
+          "receipt": {
+            "state": "delivered",
+            "reason": "cursor_native_background_output",
+            "at": "2026-09-28T16:29:27.571Z",
+            "revision": 1
+          },
+          "audience_check": "multi(bell,worker)",
+          "worker_receipt": "seat_unavailable"
+        }
+      ],
+      "stages": {
+        "initial_join": "observed",
+        "original_saved_and_receipt": "observed(delivered x3)",
+        "armed_native_task_pid_start": "observed",
+        "native_completion_same_cid": "observed",
+        "rearm_second_onward": "observed",
+        "tui_original": "observed"
+      },
+      "hook_events": {
+        "total": 26,
+        "nonzero_exit": 0,
+        "stdin_prefix_hex_set": [
+          "7b22636f"
+        ]
+      }
+    },
+    {
+      "cell": "linux-grok",
+      "conversation_id": "01a0e8d9-f4e5-76f0-a730-4adf861aabb1",
+      "endpoint_id": "a781cce7-ba73-45da-b759-a2c66289fde0",
+      "caller_owner": {
+        "pid": 1547753,
+        "started": "fa227cc0-c7c5-4c8d-bc23-b56674f51d33:53213179"
+      },
+      "armed": {
+        "runtime": "armed",
+        "state": "verified",
+        "native_task_id": "01a0e8e1-1047-71e2-82a6-47fed2530b84",
+        "native_task_pid": 1554120,
+        "native_task_started": "fa227cc0-c7c5-4c8d-bc23-b56674f51d33:53260089",
+        "waiter_pid": 1554125,
+        "waiter_started": "fa227cc0-c7c5-4c8d-bc23-b56674f51d33:53260090"
+      },
+      "messages": [
+        {
+          "seq": 3,
+          "from": "worker",
+          "to": "all",
+          "body_sha256": "6fb07d2a5f9fdbf1ea9786b4f9a77bed1f79f0a86a147da2f662cf1460d643c7",
+          "body_chars": 32,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:32:01.338Z",
+            "revision": 1
+          },
+          "audience_check": "all",
+          "worker_receipt": null
+        },
+        {
+          "seq": 4,
+          "from": "worker",
+          "to": "bell",
+          "body_sha256": "cc22a0dc0bcafaf1d43e86c3e8b3ebc116d9658a6293af9db4dfceb0ea2fc339",
+          "body_chars": 34,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:33:47.847Z",
+            "revision": 1
+          },
+          "audience_check": "dm(bell)",
+          "worker_receipt": null
+        },
+        {
+          "seq": 5,
+          "from": "worker",
+          "to": [
+            "bell",
+            "worker"
+          ],
+          "body_sha256": "0344d6989a18b1d659e1a8b7b5f2340e6aae74ebfb5a64b3ed918290b9f7e162",
+          "body_chars": 46,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:35:15.864Z",
+            "revision": 1
+          },
+          "audience_check": "multi(bell,worker)",
+          "worker_receipt": "seat_unavailable"
+        },
+        {
+          "seq": 6,
+          "from": "worker",
+          "to": "all",
+          "body_sha256": "3bf28dbf936a43b44bebf44727fbad2274feb13b0a381eb8f47a75dfbf9e2096",
+          "body_chars": 34,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:37:00.925Z",
+            "revision": 1
+          },
+          "audience_check": "all",
+          "worker_receipt": null
+        },
+        {
+          "seq": 7,
+          "from": "worker",
+          "to": "bell",
+          "body_sha256": "9749edf4f6f8be8d616a25b80608548de630b54f3a93c0f7bdab200c53b6f21b",
+          "body_chars": 36,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:37:14.543Z",
+            "revision": 1
+          },
+          "audience_check": "dm(bell)",
+          "worker_receipt": null
+        },
+        {
+          "seq": 8,
+          "from": "worker",
+          "to": [
+            "bell",
+            "worker"
+          ],
+          "body_sha256": "4cd6b0630ba943cc8b08619ba77c2779ddbe7ad8fa7770d0684ba7232ca23fb1",
+          "body_chars": 47,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:37:34.401Z",
+            "revision": 1
+          },
+          "audience_check": "multi(bell,worker)",
+          "worker_receipt": "seat_unavailable"
+        }
+      ],
+      "stages": {
+        "initial_join": "observed",
+        "original_saved_and_receipt": "observed(delivered x6)",
+        "armed_native_task_pid_start": "observed",
+        "native_completion_same_cid": "observed",
+        "rearm_second_onward": "observed",
+        "tui_original": "observed"
+      },
+      "hook_events": {
+        "total": 62,
+        "nonzero_exit": 0,
+        "stdin_prefix_hex_set": [
+          "7b22686f"
+        ]
+      }
+    },
+    {
+      "cell": "windows-cursor",
+      "conversation_id": "40bb6fa4-efc9-4d6b-8841-c015c3c6d019",
+      "endpoint_id": "eadb8b30-03e5-4317-ba92-825963d9e4ee",
+      "caller_owner": {
+        "pid": 32848,
+        "started": "2026-09-28T16:39:02.8650280Z"
+      },
+      "armed": {
+        "runtime": "armed",
+        "state": "verified",
+        "native_task_id": "28279",
+        "native_task_pid": 29528,
+        "native_task_started": "2026-09-28T16:43:11.2748890Z",
+        "waiter_pid": 68644,
+        "waiter_started": "2026-09-28T16:43:11.7957230Z"
+      },
+      "messages": [
+        {
+          "seq": 3,
+          "from": "worker",
+          "to": "all",
+          "body_sha256": "6fb07d2a5f9fdbf1ea9786b4f9a77bed1f79f0a86a147da2f662cf1460d643c7",
+          "body_chars": 32,
+          "receipt": {
+            "state": "delivered",
+            "reason": "cursor_native_background_output",
+            "at": "2026-09-28T16:40:13.360Z",
+            "revision": 1
+          },
+          "audience_check": "all",
+          "worker_receipt": null
+        },
+        {
+          "seq": 4,
+          "from": "worker",
+          "to": "bell",
+          "body_sha256": "cc22a0dc0bcafaf1d43e86c3e8b3ebc116d9658a6293af9db4dfceb0ea2fc339",
+          "body_chars": 34,
+          "receipt": {
+            "state": "delivered",
+            "reason": "cursor_native_background_output",
+            "at": "2026-09-28T16:41:12.706Z",
+            "revision": 1
+          },
+          "audience_check": "dm(bell)",
+          "worker_receipt": null
+        },
+        {
+          "seq": 5,
+          "from": "worker",
+          "to": [
+            "bell",
+            "worker"
+          ],
+          "body_sha256": "0344d6989a18b1d659e1a8b7b5f2340e6aae74ebfb5a64b3ed918290b9f7e162",
+          "body_chars": 46,
+          "receipt": {
+            "state": "delivered",
+            "reason": "cursor_native_background_output",
+            "at": "2026-09-28T16:42:21.028Z",
+            "revision": 1
+          },
+          "audience_check": "multi(bell,worker)",
+          "worker_receipt": "seat_unavailable"
+        }
+      ],
+      "stages": {
+        "initial_join": "observed",
+        "original_saved_and_receipt": "observed(delivered x3)",
+        "armed_native_task_pid_start": "observed",
+        "native_completion_same_cid": "observed",
+        "rearm_second_onward": "observed",
+        "tui_original": "observed"
+      },
+      "hook_events": {
+        "total": 26,
+        "nonzero_exit": 0,
+        "stdin_prefix_hex_set": [
+          "efbbbf7b"
+        ]
+      }
+    },
+    {
+      "cell": "windows-grok",
+      "conversation_id": "01a0e8e6-e8e9-7663-8ae2-c296bb685cbb",
+      "endpoint_id": "d9d74c67-94ee-43bb-842e-0eb61a5c9820",
+      "caller_owner": {
+        "pid": 72544,
+        "started": "2026-09-28T16:43:59.6684400Z"
+      },
+      "armed": {
+        "runtime": "armed",
+        "state": "verified",
+        "native_task_id": "01a0e8ee-0a72-7ad1-a40e-7c57f426a1d6",
+        "native_task_pid": 29740,
+        "native_task_started": "2026-09-28T16:51:49.4043170Z",
+        "waiter_pid": 52844,
+        "waiter_started": "2026-09-28T16:51:49.9638310Z"
+      },
+      "messages": [
+        {
+          "seq": 3,
+          "from": "worker",
+          "to": "all",
+          "body_sha256": "6fb07d2a5f9fdbf1ea9786b4f9a77bed1f79f0a86a147da2f662cf1460d643c7",
+          "body_chars": 32,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:49:20.432Z",
+            "revision": 1
+          },
+          "audience_check": "all",
+          "worker_receipt": null
+        },
+        {
+          "seq": 4,
+          "from": "worker",
+          "to": "bell",
+          "body_sha256": "cc22a0dc0bcafaf1d43e86c3e8b3ebc116d9658a6293af9db4dfceb0ea2fc339",
+          "body_chars": 34,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:50:25.282Z",
+            "revision": 1
+          },
+          "audience_check": "dm(bell)",
+          "worker_receipt": null
+        },
+        {
+          "seq": 5,
+          "from": "worker",
+          "to": [
+            "bell",
+            "worker"
+          ],
+          "body_sha256": "0344d6989a18b1d659e1a8b7b5f2340e6aae74ebfb5a64b3ed918290b9f7e162",
+          "body_chars": 46,
+          "receipt": {
+            "state": "delivered",
+            "reason": "parent_read_complete",
+            "at": "2026-09-28T16:51:34.231Z",
+            "revision": 1
+          },
+          "audience_check": "multi(bell,worker)",
+          "worker_receipt": "seat_unavailable"
+        }
+      ],
+      "stages": {
+        "initial_join": "observed",
+        "original_saved_and_receipt": "observed(delivered x3)",
+        "armed_native_task_pid_start": "observed",
+        "native_completion_same_cid": "observed",
+        "rearm_second_onward": "observed",
+        "tui_original": "observed"
+      },
+      "hook_events": {
+        "total": 42,
+        "nonzero_exit": 0,
+        "stdin_prefix_hex_set": [
+          "7b22686f"
+        ]
+      }
+    }
+  ],
+  "cleanup": {
+    "fixture_processes_stopped": true,
+    "fixture_endpoints_remaining": 0,
+    "global_config_changed": false,
+    "known_unconsumed_context_remaining": 1,
+    "unattributed_windows_context_count": 3,
+    "unattributed_windows_join_result_count": 2
+  }
+}

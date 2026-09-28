@@ -1,0 +1,183 @@
+{
+  "schema": "peertable.parent-release-checkpoint.v1",
+  "source_commit": "6689b32164f26d32ec2212159074e1cd9369e42d",
+  "runtime_digest": "9b4e7b94db839946b669ea61f714ff60431b9b3d0de3f9e5f920fc281b2c263c",
+  "package_version": "0.8.63",
+  "candidate_state": "owner_approved_release_live_acceptance_deferred",
+  "source_frozen": true,
+  "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/980cbeb/release-candidate-checkpoint.json",
+  "product_ci": {
+    "status": "success",
+    "source_commit": "6689b32164f26d32ec2212159074e1cd9369e42d",
+    "head_commit": "6689b32164f26d32ec2212159074e1cd9369e42d",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36496202551",
+    "native_os": {
+      "darwin": "passed",
+      "linux": "passed",
+      "win32": "passed"
+    }
+  },
+  "focused_verification": {
+    "darwin_process_exit": {
+      "passed": 2,
+      "failed": 0
+    },
+    "parent_delivery_and_harness_identity": {
+      "passed": 29,
+      "failed": 0
+    },
+    "native_fixture_and_lease_entry": {
+      "passed": 24,
+      "failed": 0
+    },
+    "scenario_transcript_observation": {
+      "passed": 22,
+      "failed": 0
+    },
+    "initial_codex_probe_deadline": {
+      "passed": 1,
+      "failed": 0
+    },
+    "source_runtime_and_independent_probe_timer": {
+      "passed": 3,
+      "failed": 0
+    },
+    "native_hook_fault_and_surface_registration": {
+      "passed": 36,
+      "failed": 0
+    },
+    "codex_real_os_probe_deadline": {
+      "product_live": false,
+      "health_delay_ms": 10,
+      "formal_acceptance_credit": 0,
+      "evidence": "rag/parent-delivery/codex-probe-timer-repair-diagnosis.json"
+    },
+    "rejoin_probe_record_preservation": {
+      "passed": 1,
+      "failed": 0
+    },
+    "native_probe_fault_controller": {
+      "passed": 32,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "codex_spawn_lease_controller": {
+      "passed": 23,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "windows_atomic_replace": {
+      "passed": 31,
+      "failed": 0,
+      "formal_acceptance_credit": 0,
+      "diagnostic_pack_only": true
+    },
+    "native_deadline_and_rejoin_controller": {
+      "passed": 25,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "acceptance_step_gate": {
+      "passed": 16,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "acceptance_controller_contract_provenance": {
+      "passed": 1,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    }
+  },
+  "documentation_tests": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0
+  },
+  "package": {
+    "status": "fixture_installed_diagnostics_only",
+    "sha256": "faac3c786f2f7807e2b56ee39759a6bb66baea3759de4c6e822fee75ca87aa3a",
+    "files": 138,
+    "dry_run_files": 138,
+    "installed_runtime_digest": "9b4e7b94db839946b669ea61f714ff60431b9b3d0de3f9e5f920fc281b2c263c",
+    "registry_install": false,
+    "skill_placement": {
+      "status": "required",
+      "reason": "専用prefixのfixture導入はignore-scriptsを使い、既存のglobalスキル配置を変更していない。registryのglobal installは公開後に行う。"
+    },
+    "parent_connections": {
+      "codex": "previous_candidate",
+      "claude": "previous_candidate",
+      "cursor": "previous_candidate",
+      "grok": "previous_candidate"
+    }
+  },
+  "product_acceptance": {
+    "manifest": "rag/parent-delivery/product-acceptance.json",
+    "status": "failed",
+    "expected": 525,
+    "records": 0,
+    "errors": {
+      "PARENT_ACCEPTANCE_MISSING": 525
+    },
+    "checkpoint_counts_as_live_acceptance": false,
+    "release_requirement": "deferred_by_owner_for_this_version_and_runtime_only"
+  },
+  "lease": {
+    "status": "withdrawn_monitors_finished_cleanup_review_pending",
+    "reported_live_before_withdrawal": 2,
+    "passed": 0,
+    "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
+    "reason": "製品runtimeの再登録欠陥で候補撤回。原記録を保持し、所有試験だけを停止する。",
+    "active": 0,
+    "cleanup_status": "中断入口は43cba5fで修理済み。旧runは正常終了やlease合格に数えない。追加実測は今回の公開条件から延期。",
+    "cleanup_evidence": "rag/parent-delivery/withdrawn-lease-stop-audit.json"
+  },
+  "gui_observation": {
+    "status": "blocked",
+    "tool": "jev-desktop",
+    "alternative_permission_pending": true,
+    "test_windows_closed": true
+  },
+  "published": false,
+  "production_deployed": false,
+  "registry_install": false,
+  "previous_product_ci": {
+    "status": "success",
+    "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+    "head_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36488941014",
+    "native_os": {
+      "darwin": "passed",
+      "linux": "passed",
+      "win32": "passed"
+    },
+    "previous_failure_evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
+  },
+  "repair_commit": "bce891b2cbf3a77afa7ab738e19f965e7ac9808c",
+  "withdrawal_evidence": "rag/parent-delivery/codex-probe-rejoin-diagnosis.json",
+  "controller_observation_limit_ms": 1500,
+  "repairs": {
+    "initial_probe_timeout": {
+      "state": "focused_and_three_os_ci_passed_live_pending",
+      "evidence": "rag/parent-delivery/linux-grok-probe-latency-diagnosis.json"
+    },
+    "windows_atomic_replace": {
+      "state": "diagnostic_focused_and_three_os_ci_passed_native_diagnosis_pending",
+      "evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
+    },
+    "codex_rejoin": {
+      "state": "diagnostic_recovered_new_adapter_live_pending",
+      "evidence": "rag/parent-delivery/codex-probe-rejoin-repair-diagnosis.json"
+    },
+    "cursor_native_input": {
+      "state": "focused_and_three_os_ci_passed_live_diagnosis_in_progress",
+      "evidence": "rag/parent-delivery/cursor-native-input-diagnosis.json"
+    },
+    "windows_lock_contention": {
+      "state": "native_identity_integrated_three_os_ci_passed",
+      "evidence": "rag/parent-delivery/windows-lock-contention-diagnosis.json",
+      "identity_evidence": "rag/parent-delivery/windows-process-identity-diagnosis.json"
+    }
+  },
+  "release_decision": "rag/parent-delivery/release-decision.json"
+}

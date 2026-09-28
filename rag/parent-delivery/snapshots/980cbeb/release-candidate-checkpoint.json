@@ -1,0 +1,180 @@
+{
+  "schema": "peertable.parent-release-checkpoint.v1",
+  "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+  "runtime_digest": "19cceff45965f64a0733b9bc8f207fca58a2295b8d0c54ad1e0deb72f573c5b1",
+  "package_version": "0.8.63",
+  "candidate_state": "diagnostic_candidate_native_input_and_windows_identity_repair_pending",
+  "source_frozen": false,
+  "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/c97b431/release-candidate-checkpoint.json",
+  "product_ci": {
+    "status": "success",
+    "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+    "head_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36488941014",
+    "native_os": {
+      "darwin": "passed",
+      "linux": "passed",
+      "win32": "passed"
+    },
+    "previous_failure_evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
+  },
+  "focused_verification": {
+    "darwin_process_exit": {
+      "passed": 2,
+      "failed": 0
+    },
+    "parent_delivery_and_harness_identity": {
+      "passed": 29,
+      "failed": 0
+    },
+    "native_fixture_and_lease_entry": {
+      "passed": 24,
+      "failed": 0
+    },
+    "scenario_transcript_observation": {
+      "passed": 22,
+      "failed": 0
+    },
+    "initial_codex_probe_deadline": {
+      "passed": 1,
+      "failed": 0
+    },
+    "source_runtime_and_independent_probe_timer": {
+      "passed": 3,
+      "failed": 0
+    },
+    "native_hook_fault_and_surface_registration": {
+      "passed": 36,
+      "failed": 0
+    },
+    "codex_real_os_probe_deadline": {
+      "product_live": false,
+      "health_delay_ms": 10,
+      "formal_acceptance_credit": 0,
+      "evidence": "rag/parent-delivery/codex-probe-timer-repair-diagnosis.json"
+    },
+    "rejoin_probe_record_preservation": {
+      "passed": 1,
+      "failed": 0
+    },
+    "native_probe_fault_controller": {
+      "passed": 32,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "codex_spawn_lease_controller": {
+      "passed": 23,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "windows_atomic_replace": {
+      "passed": 31,
+      "failed": 0,
+      "formal_acceptance_credit": 0,
+      "diagnostic_pack_only": true
+    },
+    "native_deadline_and_rejoin_controller": {
+      "passed": 25,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "acceptance_step_gate": {
+      "passed": 16,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "acceptance_controller_contract_provenance": {
+      "passed": 1,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    }
+  },
+  "documentation_tests": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0
+  },
+  "package": {
+    "status": "fixture_installed_diagnostics_only",
+    "sha256": "9fc56bbce1f49015e49de9ca4110303ca83f7acd8b3e6b66e4b3d9f57b71bdad",
+    "files": 135,
+    "dry_run_files": 135,
+    "installed_runtime_digest": "19cceff45965f64a0733b9bc8f207fca58a2295b8d0c54ad1e0deb72f573c5b1",
+    "registry_install": false,
+    "skill_placement": {
+      "status": "required",
+      "reason": "専用prefixのfixture導入はignore-scriptsを使い、既存のglobalスキル配置を変更していない。registryのglobal installは公開後に行う。"
+    },
+    "parent_connections": {
+      "codex": "previous_candidate",
+      "claude": "previous_candidate",
+      "cursor": "previous_candidate",
+      "grok": "previous_candidate"
+    }
+  },
+  "product_acceptance": {
+    "manifest": "rag/parent-delivery/product-acceptance.json",
+    "status": "failed",
+    "expected": 525,
+    "records": 0,
+    "errors": {
+      "PARENT_ACCEPTANCE_MISSING": 525
+    },
+    "checkpoint_counts_as_live_acceptance": false
+  },
+  "lease": {
+    "status": "withdrawn_monitors_finished_cleanup_review_pending",
+    "reported_live_before_withdrawal": 2,
+    "passed": 0,
+    "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
+    "reason": "製品runtimeの再登録欠陥で候補撤回。原記録を保持し、所有試験だけを停止する。",
+    "active": 0,
+    "cleanup_status": "rootは旧Mac/Linux Claude既知processの存命0を独立確認。旧controller finallyは未実行でsummary running残留。新run前に中断入口の修理が必要。",
+    "cleanup_evidence": "rag/parent-delivery/withdrawn-lease-stop-audit.json"
+  },
+  "gui_observation": {
+    "status": "blocked",
+    "tool": "jev-desktop",
+    "alternative_permission_pending": true,
+    "test_windows_closed": true
+  },
+  "published": false,
+  "production_deployed": false,
+  "registry_install": false,
+  "previous_product_ci": {
+    "status": "success",
+    "source_commit": "356f9c408bfb8a46327651130b513b21b1b2842a",
+    "head_commit": "590f5a8b65c0a00b7b0877495da2c6a65428101c",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36478777216",
+    "native_os": {
+      "darwin": "passed",
+      "linux": "passed",
+      "win32": "passed"
+    }
+  },
+  "repair_commit": "bce891b2cbf3a77afa7ab738e19f965e7ac9808c",
+  "withdrawal_evidence": "rag/parent-delivery/codex-probe-rejoin-diagnosis.json",
+  "controller_observation_limit_ms": 1500,
+  "repairs": {
+    "initial_probe_timeout": {
+      "state": "focused_and_three_os_ci_passed_live_pending",
+      "evidence": "rag/parent-delivery/linux-grok-probe-latency-diagnosis.json"
+    },
+    "windows_atomic_replace": {
+      "state": "diagnostic_focused_and_three_os_ci_passed_native_diagnosis_pending",
+      "evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
+    },
+    "codex_rejoin": {
+      "state": "diagnostic_recovered_new_adapter_live_pending",
+      "evidence": "rag/parent-delivery/codex-probe-rejoin-repair-diagnosis.json"
+    },
+    "cursor_native_input": {
+      "state": "focused_passed_controller_and_native_verification_pending",
+      "evidence": "rag/parent-delivery/cursor-native-input-diagnosis.json"
+    },
+    "windows_lock_contention": {
+      "state": "real_timeout_reproduced_native_identity_adapter_diagnosis_pending",
+      "evidence": "rag/parent-delivery/windows-lock-contention-diagnosis.json"
+    }
+  }
+}

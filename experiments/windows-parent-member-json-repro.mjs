@@ -3,9 +3,10 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 const script = fileURLToPath(new URL('../skill/scripts/platform/windows/parent-member-json.mjs', import.meta.url))
-const result = spawnSync(process.execPath, [script, 'bell', '', '', 'codex', 'オーナー窓口'], { encoding: 'utf8' })
+const result = spawnSync(process.execPath, [script, 'bell', '', '', 'codex', 'オーナー窓口', '80b88d37-6e81-45d3-8626-ed465f9744ea'], { encoding: 'utf8' })
 assert.equal(result.status, 0, result.stderr)
 const member = JSON.parse(result.stdout)
 assert.deepEqual(member.roles, ['統括'])
 assert.equal(member.mission, 'オーナー窓口')
+assert.equal(member.delivery.kind, 'parent_receiver')
 console.log('windows parent member JSON repro: 2/2 green')

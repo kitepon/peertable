@@ -1,0 +1,35 @@
+{
+  "at": "2026-09-28T20:48:10.840Z",
+  "diagnostic_only": true,
+  "product_live": false,
+  "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
+  "runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
+  "package_sha256": "9f01372357e2b302f5fb241ab3e79fd78d7424ad13e047c4c214c5831eb198c8",
+  "controller_commit": "00cb736309f1db4f3cfd0f4253ec8ee914023a3a",
+  "files": [
+    {
+      "file": "/private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-runtime.mjs",
+      "sha256": "fc1dbc30ce7f5c74a78e35ae3f58c33cf8d949b6d3aff9a85c94f14b248207af"
+    },
+    {
+      "file": "/private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-watch.mjs",
+      "sha256": "374523f6a7127e4bded108911e2740fa34eb0b2216d0716e7a425aca6fc85183"
+    },
+    {
+      "file": "/private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-receivers/codex.mjs",
+      "sha256": "6342cffb5727c0d1cd8aa7ae3ad49c704bf7408f18a7b01b9e7962cb02939c07"
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-timer-fixed/observe-spawn.mjs",
+      "sha256": "fc9a28af0bf9b14be7097eaeb8ae376a1fb937ee50545396360569cbaf7123a4"
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-timer-fixed/reproduce.mjs",
+      "sha256": "faf07f7269bc56dee5ceffb05495fcf5b4069449c7a025ffbb86e82603f548a2"
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/experiments/parent-product-acceptance/scenarios-fixtures.mjs",
+      "sha256": "3de7041fa45494568dffadd75157b61a7c9a5efdca7d33a3f763a45b9a652d08"
+    }
+  ]
+}

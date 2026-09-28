@@ -1,0 +1,497 @@
+{
+  "schema": "peertable.parent-live-case.v1",
+  "case_id": "darwin/claude/cli/audience",
+  "status": "passed",
+  "reasons": [],
+  "native": true,
+  "os": "darwin",
+  "harness": "claude",
+  "surface": "cli",
+  "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+  "runtime_digest": "aab616d50a6a0ec7752f492e1f28cfa73f6afb501b31a3d3eae1041584bfc2f2",
+  "package_version": "0.8.63",
+  "client_version": "0.8.63",
+  "package_tarball_sha256": "9094a3a53b4d66b6322c9ca1e4f23e93810a760d79872b862fe73e26b85dd774",
+  "harness_version": "2.1.284 (Claude Code)",
+  "node_version": "v26.10.0",
+  "parent_session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+  "parent_process": {
+    "pid": 62478,
+    "parent": 1199,
+    "started": "Tue Sep 29 04:38:59 2026",
+    "executable": "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+    "command": "claude --model claude-sonnet-5-5"
+  },
+  "endpoint_id": "6fdf6a52-3a3b-48fa-8c76-d90ef8d18bd3",
+  "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+  "owner_input_required": false,
+  "isolation": {
+    "home": "normal",
+    "room": "local_private_room_server",
+    "session_args": [],
+    "folder_trust": "起動dialogで試験dirを信頼(Claudeのproject履歴に残る)"
+  },
+  "controller": {
+    "files_sha256": {
+      "README.md": "b388692fe0b584dd88ef73180bb9cebd5bf8e20b22c38a930251c1873c2a4a10",
+      "aiterm.mjs": "c3fa88a1032455dd70698e567d0e364d4714a6c3afd96cff46d5aad6ab953b16",
+      "background-harness.mjs": "40614a98000ec761dc38c6ba54a114c744db450d7efa7bc67a1276ab9a5ddca0",
+      "evidence.mjs": "216a4667764bcd7b7c402e2d81353f5c3cba200f20a303b1b1abb80735280490",
+      "harness.mjs": "282d2bf7d8aff8493a05eaef9903e2eadda85e3d4ef45a7762242d0f209f3712",
+      "run.mjs": "1b0aad3d3be8bf2a430c6469559b3d00bd579ed6d8e0bb4eb3582a5e4b4fc1ac",
+      "runner-provenance.mjs": "ec44651161c6f27bad824c75102a299c0ce6502b8ab6b7f640114f6488e4ad74",
+      "scenarios-context.mjs": "aa569402743406df39d9ff4d0bdf50fe7dcbd1c4ff3f2dd1858be5c44aa403e5",
+      "scenarios-fixtures.mjs": "f4ad05cafcede3132c322fee4f768626b97275e051219cc70241a0286a1e0bf8",
+      "scenarios-lease-run.mjs": "6348a310b1f56a350eb6c38c3bcd6b729bef369da408229a1a837a55f024becc",
+      "scenarios-native.mjs": "cce9267bc404b41c89e56608888086b3efb4aa1ff89af934f510358dd41b42fe",
+      "scenarios-surfaces.mjs": "bf5fab85bbdb8d50f4182d0db635779c0ced280eb0fda7ddcb28423da5906ea8",
+      "scenarios.mjs": "08db776c879b02b8da7b6263511256b192d35a6d78fdaf1164e05328184fca98"
+    }
+  },
+  "runner": {
+    "commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+    "modules_sha256": {
+      "README.md": "b388692fe0b584dd88ef73180bb9cebd5bf8e20b22c38a930251c1873c2a4a10",
+      "aiterm.mjs": "c3fa88a1032455dd70698e567d0e364d4714a6c3afd96cff46d5aad6ab953b16",
+      "background-harness.mjs": "40614a98000ec761dc38c6ba54a114c744db450d7efa7bc67a1276ab9a5ddca0",
+      "evidence.mjs": "216a4667764bcd7b7c402e2d81353f5c3cba200f20a303b1b1abb80735280490",
+      "harness.mjs": "282d2bf7d8aff8493a05eaef9903e2eadda85e3d4ef45a7762242d0f209f3712",
+      "run.mjs": "1b0aad3d3be8bf2a430c6469559b3d00bd579ed6d8e0bb4eb3582a5e4b4fc1ac",
+      "runner-provenance.mjs": "ec44651161c6f27bad824c75102a299c0ce6502b8ab6b7f640114f6488e4ad74",
+      "scenarios-context.mjs": "aa569402743406df39d9ff4d0bdf50fe7dcbd1c4ff3f2dd1858be5c44aa403e5",
+      "scenarios-fixtures.mjs": "f4ad05cafcede3132c322fee4f768626b97275e051219cc70241a0286a1e0bf8",
+      "scenarios-lease-run.mjs": "6348a310b1f56a350eb6c38c3bcd6b729bef369da408229a1a837a55f024becc",
+      "scenarios-native.mjs": "cce9267bc404b41c89e56608888086b3efb4aa1ff89af934f510358dd41b42fe",
+      "scenarios-surfaces.mjs": "bf5fab85bbdb8d50f4182d0db635779c0ced280eb0fda7ddcb28423da5906ea8",
+      "scenarios.mjs": "08db776c879b02b8da7b6263511256b192d35a6d78fdaf1164e05328184fca98"
+    },
+    "product_source_is_separate": true
+  },
+  "observations": [
+    {
+      "kind": "parent_join",
+      "parent_session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+      "turn_id": "053a2451-649b-41e8-b6bf-d4511b33f96f",
+      "tool_use_id": "toolu_01WbrdxbF8UUaWaJxqdHZcik",
+      "tool_name": "mcp__peertable_parent__parent_join",
+      "endpoint_id": "6fdf6a52-3a3b-48fa-8c76-d90ef8d18bd3",
+      "caller_owner": {
+        "pid": 62478,
+        "parent": 1199,
+        "started": "Tue Sep 29 04:38:59 2026",
+        "executable": "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+        "command": "claude --model claude-sonnet-5-5"
+      },
+      "call_generation": "febdffe9-4819-4504-a3b1-b96ca526497b"
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "dm",
+      "parent_session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+      "turn_id": "87119b43-826d-4e3d-8307-89be6efc2216",
+      "seq": 3,
+      "delivery_id": "2f854a38-f45a-4a0f-b488-90ff6abc6665",
+      "entry": {
+        "uuid": "fdd08004-cb36-4e29-a3ef-7cfb344e5dac",
+        "type": "user",
+        "role": null
+      },
+      "native_hook": "Stop",
+      "boundary": {
+        "encoding": "none",
+        "raw_body_equal": true
+      },
+      "native_queue": [
+        "enqueue"
+      ],
+      "native_ack_id": "fdd08004-cb36-4e29-a3ef-7cfb344e5dac"
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "dm",
+      "parent_session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+      "turn_id": "87119b43-826d-4e3d-8307-89be6efc2216",
+      "seq": 3,
+      "entry_uuid": "41bd9b94-1398-49e8-80ec-84ca534845fb"
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "multiple",
+      "parent_session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+      "turn_id": "a69598ae-770d-45be-905a-fa09abca2b05",
+      "seq": 4,
+      "delivery_id": "decc001f-b62f-4b09-bc46-2469d27336b6",
+      "entry": {
+        "uuid": "28996c02-640f-44e4-bce6-ab939816a854",
+        "type": "user",
+        "role": null
+      },
+      "native_hook": "Stop",
+      "boundary": {
+        "encoding": "none",
+        "raw_body_equal": true
+      },
+      "native_queue": [
+        "enqueue"
+      ],
+      "native_ack_id": "28996c02-640f-44e4-bce6-ab939816a854"
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "multiple",
+      "parent_session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+      "turn_id": "a69598ae-770d-45be-905a-fa09abca2b05",
+      "seq": 4,
+      "entry_uuid": "3989f69a-8589-4d86-943d-ae4a9ec50596"
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "all",
+      "parent_session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+      "turn_id": "53613061-cb2f-4019-b2fe-075dce99b432",
+      "seq": 5,
+      "delivery_id": "2e82da28-d24a-4ea3-a631-cf806e5f75fc",
+      "entry": {
+        "uuid": "773c9a39-9edc-4db9-b1ee-8c54d5a099f9",
+        "type": "user",
+        "role": null
+      },
+      "native_hook": "Stop",
+      "boundary": {
+        "encoding": "none",
+        "raw_body_equal": true
+      },
+      "native_queue": [
+        "enqueue"
+      ],
+      "native_ack_id": "773c9a39-9edc-4db9-b1ee-8c54d5a099f9"
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "all",
+      "parent_session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+      "turn_id": "53613061-cb2f-4019-b2fe-075dce99b432",
+      "seq": 5,
+      "entry_uuid": "0e63ce98-16eb-4221-9308-c5c1ff669a60"
+    }
+  ],
+  "receipts": [
+    {
+      "seq": 3,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "claude_asyncRewake_output",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    },
+    {
+      "seq": 4,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "claude_asyncRewake_output",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    },
+    {
+      "seq": 5,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "claude_asyncRewake_output",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    }
+  ],
+  "body_checks": [
+    {
+      "label": "dm",
+      "original": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_DM_d4de6a5e-0f50-4d8b-9450-d8fcdc47f1f4 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_DM_d4de6a5e-0f50-4d8b-9450-d8fcdc47f1f4 です。"
+      }
+    },
+    {
+      "label": "multiple",
+      "original": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_MULTIPLE_d57504e7-1bfb-4f23-992a-a8d87f5ef5c4 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_MULTIPLE_d57504e7-1bfb-4f23-992a-a8d87f5ef5c4 です。"
+      }
+    },
+    {
+      "label": "all",
+      "original": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_ALL_c9c170cc-9a1f-4b34-bd99-c334a97f5457 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_ALL_c9c170cc-9a1f-4b34-bd99-c334a97f5457 です。"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "dm",
+      "recipient": "bell",
+      "original": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_DM_d4de6a5e-0f50-4d8b-9450-d8fcdc47f1f4 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_DM_d4de6a5e-0f50-4d8b-9450-d8fcdc47f1f4 です。"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_DM_d4de6a5e-0f50-4d8b-9450-d8fcdc47f1f4 です。",
+        "delivery_id": "2f854a38-f45a-4a0f-b488-90ff6abc6665",
+        "digest": "793e21ef9134ee83a59b92b61cb60f5572eb9ebb274aab621ae973caf6e63164",
+        "preview": false,
+        "order": 71,
+        "session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+        "turn_id": "87119b43-826d-4e3d-8307-89be6efc2216",
+        "hook": "Stop",
+        "boundary": {
+          "encoding": "none",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "uuid": "fdd08004-cb36-4e29-a3ef-7cfb344e5dac",
+          "type": "user",
+          "role": null
+        }
+      },
+      "reply": {
+        "order": 72,
+        "session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+        "turn_id": "87119b43-826d-4e3d-8307-89be6efc2216",
+        "entry_uuid": "41bd9b94-1398-49e8-80ec-84ca534845fb",
+        "text": "四件目の観測データを受信しました。配送確認の符号を含んでいます。\n\n- **符号**: `PEERTABLE_ACCEPT_CLAUDE_DM_d4de6a5e-0f50-4d8b-9450-d8fcdc47f1f4`\n- **送信者**: probe\n- **宛先**: bell\n- **seq**: 3\n- **本文**: 「日本語の観測」に続いて、引用符・絵文字・`>`・`<tag a=\"1\">`・`&`・`'q'` を含む文字列\n- **room**: `parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34`\n- **配送ID**: `2f854a38-f45a-4a0f-b488-90ff6abc6665`\n\n本文の特殊文字は、そのまま表示された状態で届いています。行動命令はありません。"
+      },
+      "spool": {
+        "delivery_id": "2f854a38-f45a-4a0f-b488-90ff6abc6665",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "claude_asyncRewake_output"
+      },
+      "receipt": {
+        "seq": 3,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "claude_asyncRewake_output",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      }
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "multiple",
+      "recipient": "bell",
+      "original": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_MULTIPLE_d57504e7-1bfb-4f23-992a-a8d87f5ef5c4 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_MULTIPLE_d57504e7-1bfb-4f23-992a-a8d87f5ef5c4 です。"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_MULTIPLE_d57504e7-1bfb-4f23-992a-a8d87f5ef5c4 です。",
+        "delivery_id": "decc001f-b62f-4b09-bc46-2469d27336b6",
+        "digest": "5d58304a692e68be2536e20ca6ba43dd23302a7de91e06772d9ba2d1505f6ce6",
+        "preview": false,
+        "order": 77,
+        "session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+        "turn_id": "a69598ae-770d-45be-905a-fa09abca2b05",
+        "hook": "Stop",
+        "boundary": {
+          "encoding": "none",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "uuid": "28996c02-640f-44e4-bce6-ab939816a854",
+          "type": "user",
+          "role": null
+        }
+      },
+      "reply": {
+        "order": 78,
+        "session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+        "turn_id": "a69598ae-770d-45be-905a-fa09abca2b05",
+        "entry_uuid": "3989f69a-8589-4d86-943d-ae4a9ec50596",
+        "text": "五件目の観測データを受信しました。配送確認の符号を含んでいます。\n\n- **符号**: `PEERTABLE_ACCEPT_CLAUDE_MULTIPLE_d57504e7-1bfb-4f23-992a-a8d87f5ef5c4`\n- **送信者**: probe\n- **宛先**: bell と rui(複数宛)\n- **seq**: 4\n- **本文**: 前回と同じ特殊文字入りの「日本語の観測」\n- **room**: `parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34`\n- **配送ID**: `decc001f-b62f-4b09-bc46-2469d27336b6`\n\n行動命令はありません。"
+      },
+      "spool": {
+        "delivery_id": "decc001f-b62f-4b09-bc46-2469d27336b6",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "claude_asyncRewake_output"
+      },
+      "receipt": {
+        "seq": 4,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "claude_asyncRewake_output",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      }
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "all",
+      "recipient": "bell",
+      "original": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_ALL_c9c170cc-9a1f-4b34-bd99-c334a97f5457 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_ALL_c9c170cc-9a1f-4b34-bd99-c334a97f5457 です。"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CLAUDE_ALL_c9c170cc-9a1f-4b34-bd99-c334a97f5457 です。",
+        "delivery_id": "2e82da28-d24a-4ea3-a631-cf806e5f75fc",
+        "digest": "1c8bfec362e650f6c06042980738222548fa5f8efbb753e58653f540bc2620af",
+        "preview": false,
+        "order": 83,
+        "session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+        "turn_id": "53613061-cb2f-4019-b2fe-075dce99b432",
+        "hook": "Stop",
+        "boundary": {
+          "encoding": "none",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "uuid": "773c9a39-9edc-4db9-b1ee-8c54d5a099f9",
+          "type": "user",
+          "role": null
+        }
+      },
+      "reply": {
+        "order": 84,
+        "session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+        "turn_id": "53613061-cb2f-4019-b2fe-075dce99b432",
+        "entry_uuid": "0e63ce98-16eb-4221-9308-c5c1ff669a60",
+        "text": "六件目の観測データを受信しました。配送確認の符号を含んでいます。\n\n- **符号**: `PEERTABLE_ACCEPT_CLAUDE_ALL_c9c170cc-9a1f-4b34-bd99-c334a97f5457`\n- **送信者**: probe\n- **宛先**: all(全員宛)\n- **seq**: 5\n- **本文**: 前回までと同じ特殊文字入りの「日本語の観測」\n- **room**: `parent-acceptance-claude-e3039502-41e1-49bf-bfac-aedb1383cb34`\n- **配送ID**: `2e82da28-d24a-4ea3-a631-cf806e5f75fc`\n\n行動命令はありません。"
+      },
+      "spool": {
+        "delivery_id": "2e82da28-d24a-4ea3-a631-cf806e5f75fc",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "claude_asyncRewake_output"
+      },
+      "receipt": {
+        "seq": 5,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "claude_asyncRewake_output",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      }
+    }
+  ],
+  "transcript_rows": 87,
+  "turns_seen": [
+    "053a2451-649b-41e8-b6bf-d4511b33f96f",
+    "94dd6067-a541-404b-bdd1-c94d1d1d32f3",
+    "77d7a458-7e42-49a0-b543-ed1ca3af621c",
+    "23883d04-1a75-444e-9bf4-84f391af52ce",
+    "87119b43-826d-4e3d-8307-89be6efc2216",
+    "a69598ae-770d-45be-905a-fa09abca2b05",
+    "53613061-cb2f-4019-b2fe-075dce99b432"
+  ]
+}

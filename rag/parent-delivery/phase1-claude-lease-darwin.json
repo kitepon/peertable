@@ -1,0 +1,103 @@
+{
+  "schema": "peertable.parent-lease-probe.v1",
+  "passed": true,
+  "platform": "darwin",
+  "node": "v26.10.0",
+  "session_id": "5b0801bb-985d-4450-94e3-70af0330a80b",
+  "endpoint_id": "1dd61001-30ef-47f3-8f76-abbfc46d9eb5",
+  "calls": [
+    {
+      "session_id": "5b0801bb-985d-4450-94e3-70af0330a80b",
+      "endpoint_id": "1dd61001-30ef-47f3-8f76-abbfc46d9eb5",
+      "count": 1,
+      "tool_use_id": "toolu_016vDkopTE8j9qcMXrCSvtBP"
+    },
+    {
+      "session_id": "5b0801bb-985d-4450-94e3-70af0330a80b",
+      "endpoint_id": "1dd61001-30ef-47f3-8f76-abbfc46d9eb5",
+      "count": 2,
+      "tool_use_id": "toolu_01UB8mkQNYTC71gvkzDU8Wzw"
+    }
+  ],
+  "emitted": [
+    {
+      "session_id": "5b0801bb-985d-4450-94e3-70af0330a80b",
+      "schema": "peertable.parent-control.v1",
+      "code": "PARENT_RECEIVER_EXPIRED",
+      "endpoint_id": "1dd61001-30ef-47f3-8f76-abbfc46d9eb5"
+    },
+    {
+      "session_id": "5b0801bb-985d-4450-94e3-70af0330a80b",
+      "schema": "peertable.parent-message.v1",
+      "room": "配送試験",
+      "from": "probe",
+      "to": "bell",
+      "seq": 1,
+      "body": "配送確認の符号は PEERTABLE_LEASE_RESUMED です。"
+    }
+  ],
+  "replies": [
+    {
+      "text": "Peertableの受信登録を始めます。まず、project=配送試験, name=bellでparent_joinを呼び出します。"
+    },
+    {
+      "text": "初回登録が完了しました。\n\n**登録したendpoint_id: `1dd61001-30ef-47f3-8f76-abbfc46d9eb5`**\n\nこれでproject=配送試験, name=bellの受信登録が完了しました。現在PARENT_RECEIVER_EXPIRED制御通知の到着を待機中です。通知が届いたら、同じproject/nameでparent_joinを再度呼び出して登録を更新し、その後のroom投稿から配送確認の符号を抽出して報告します。"
+    },
+    {
+      "text": "PARENT_RECEIVER_EXPIRED制御通知を受信しました。登録を更新するため、同じproject/nameでparent_joinを再度呼び出します。"
+    },
+    {
+      "text": "登録を更新しました。count=2となり、更新が完了しています。\n\n現在、room投稿から配送確認の符号が届くのを待機中です。room投稿が到着次第、配送確認の符号を抽出して日本語で報告します。"
+    },
+    {
+      "text": "room投稿を受信しました。\n\n配送確認の符号は以下の通りです：\n\n**PEERTABLE_LEASE_RESUMED**\n\nPeertableの受信登録タスクが完了しました。配送試験プロジェクトのbellエンドポイントで登録が確立され、更新通知を経て、配送確認の符号「PEERTABLE_LEASE_RESUMED」が正常に配信されました。"
+    }
+  ],
+  "hooks": [
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PreToolUse",
+      "session_id": "5b0801bb-985d-4450-94e3-70af0330a80b",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "output": "",
+      "outcome": "success"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PostToolUse",
+      "session_id": "5b0801bb-985d-4450-94e3-70af0330a80b",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "{\"schema\":\"peertable.parent-control.v1\",\"code\":\"PARENT_RECEIVER_EXPIRED\",\"endpoint_id\":\"1dd61001-30ef-47f3-8f76-abbfc46d9eb5\"}\n",
+      "output": "{\"schema\":\"peertable.parent-control.v1\",\"code\":\"PARENT_RECEIVER_EXPIRED\",\"endpoint_id\":\"1dd61001-30ef-47f3-8f76-abbfc46d9eb5\"}\n",
+      "outcome": "error"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PreToolUse",
+      "session_id": "5b0801bb-985d-4450-94e3-70af0330a80b",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "output": "",
+      "outcome": "success"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PostToolUse",
+      "session_id": "5b0801bb-985d-4450-94e3-70af0330a80b",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "{\"schema\":\"peertable.parent-message.v1\",\"room\":\"配送試験\",\"from\":\"probe\",\"to\":\"bell\",\"seq\":1,\"body\":\"配送確認の符号は PEERTABLE_LEASE_RESUMED です。\"}\n",
+      "output": "{\"schema\":\"peertable.parent-message.v1\",\"room\":\"配送試験\",\"from\":\"probe\",\"to\":\"bell\",\"seq\":1,\"body\":\"配送確認の符号は PEERTABLE_LEASE_RESUMED です。\"}\n",
+      "outcome": "error"
+    }
+  ],
+  "native_hook_evidence_complete": true
+}

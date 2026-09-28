@@ -1,0 +1,17 @@
+{
+  "source": "https://raw.githubusercontent.com/nodejs/node/v24.20.0/deps/uv/src/win/fs.c",
+  "fetched_at": "2026-09-29",
+  "kind": "一次実装原文",
+  "sha256": "41633b8f58bb08c21f2dc8daa32990365e2df7154bb167a076e470339a218d18",
+  "license": "原文にあるMIT許諾を保持",
+  "file": "node-v24.20.0-libuv-win-fs.c.txt",
+  "verified_facts": [
+    "Node24.20.0のrenameはMoveFileExWへMOVEFILE_REPLACE_EXISTINGを渡す",
+    "通常openはFILE_SHARE_READ/WRITE/DELETEを渡す"
+  ],
+  "product_cause": "Windows CIのEPERMとの因果は未解明。読取だけを原因と断定しない。",
+  "related_spec": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw",
+    "https://devblogs.microsoft.com/oldnewthing/20211022-00/?p=105822/"
+  ]
+}

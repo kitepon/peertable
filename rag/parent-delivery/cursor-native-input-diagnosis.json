@@ -1,0 +1,41 @@
+{
+  "schema": "peertable.cursor-native-input-diagnosis.v1",
+  "product_source": "980cbebc1acab7461daa064abec8814b410f0137",
+  "formal_acceptance_credit": 0,
+  "root_raw_audit": true,
+  "observed_surface": "Windows Cursor通常CLI",
+  "other_surface_status": "macOS CLIの子観測一覧は保持。Linux CLIとDesktopは未検証。",
+  "model_input_keys": [
+    "block_until_ms",
+    "command",
+    "description",
+    "working_directory"
+  ],
+  "model_block_until_ms": 0,
+  "hook_input_keys": [
+    "command",
+    "cwd"
+  ],
+  "defect": "製品はhook入力のcwdをモデルAPIへ返していた。モデルがworking_directoryへ書き換え、背景待機引数を補っていた。完成済み入力の契約を満たしていない。",
+  "repair": "モデル向けShell入力にworking_directory・block_until_ms:0・descriptionを含め、実hook入力をnative_task.hook_inputへ別保存する。実task ID・PID-start・子process相関を維持する。",
+  "acceptance_followup": "controllerはモデル入力全体と保存された実hook入力を別々に照合する。新sourceで実機再測定する。",
+  "official_source": {
+    "url": "https://prod.cursor.com/docs/hooks",
+    "retrieved_at": "2026-09-29",
+    "claim": "公開preToolUse例のShell入力にはworking_directoryがある。公開例とCLIで観測されたhookのcwdは別形。"
+  },
+  "limitations": [
+    "モデル向けschema全文は原記録にもCLI bundleにも保存されていない。block_until_ms:0は実呼出しの観測でありbundle protobufのShellArgsの仕様として断定しない。",
+    "Desktopへ同じ形が通ることは未検証。正式受入を省略しない。"
+  ],
+  "fingerprints": {
+    "native_transcript": "f360c64dda1eec67d783dcc841e9791ab62f3e15f8788cca9bca5b28b7f6c14f",
+    "official_hook": "40265a1aa0865d39fdd9f1620a18cebe2636a17c89dfaf878aa8d2a4c80d18c3",
+    "child_observation_inventory": "a2ddbabfb8f6ab652c48b641f2b44bb0a864f0df407ea4ae5962c50a039a4d10"
+  },
+  "focused_verification": {
+    "passed": 4,
+    "failed": 0,
+    "product_live": false
+  }
+}

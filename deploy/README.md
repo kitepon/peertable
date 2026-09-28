@@ -21,13 +21,15 @@ TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
 docker-buildx build --platform linux/amd64 --load -t peertable-room:$TAG room/
 ```
 
-**`docker buildx`（CLI プラグイン経由）ではなく `docker-buildx`（standalone）を叩く。** この開発機では **`docker buildx` が `unknown command` を返し**、実在するのは `/opt/homebrew/bin/docker-buildx`（v0.36.0・Homebrew）だけ（2026-08-09 実測）。プラグイン配置を前提にすると新しい環境変更が要るので、**現ホストの正規入口をそのまま書く**。
+imageの作成には、Homebrewで導入したstandaloneの`docker-buildx`を使う。上のコマンドと同じ入口を、試験用image・本番用imageの双方で使う。
 
 **`--load` を明示する。** 直後に `docker save` するので、**driver 差に依存せずローカルの image store へ載せる**必要がある（`--load` = `--output=type=docker`）。付けないと build は成功しても `docker save` で image が見つからない。
 
 タグは `日付-短sha`（例 `20260809-4605744`）。**`latest` は使わない**——どの commit が本番に居るかが分からなくなる。
 
-**`docker build` で代用しない。`docker buildx build` を直接叩く。** Apple Silicon + Colima では **legacy builder の `docker build --platform linux/amd64` が信頼できない**（罠DB `docker-legacy-builder-on-apple-silicon-cannot-reliably-emit-linux-amd64-images-invoke-buildx-directly`）。「同じことだから」と書き換えたくなる場所なので明記する。
+Apple Siliconから本番向けimageを作る時は、上の`docker-buildx build --platform linux/amd64 --load`を使う。platformとimage storeへの読込みを、この一回のbuildで指定する。
+
+roomのimageには`server.mjs`と、親の配送種別・healthを定義する`parent-kind.mjs`を含める。DockerfileのCOPY対象とserverのimportを照合する。親client・hook・spoolは利用端末のnpm packageが所有し、room imageへ載せない。
 
 ### 2. 運搬（registry 無し・LAN 直送）
 
@@ -69,6 +71,10 @@ curl -sS -o /dev/null -w "%{http_code}\n" http://192.168.1.2:18860/api/<room>/me
 curl -sS -D- -o /dev/null https://peertable.kitepon.dev/api/<room>/members | grep -iE '^HTTP|access-control'
 curl -sN --max-time 30 https://peertable.kitepon.dev/api/<room>/events | head -6   # event: ping が25秒以内に来るか
 ```
+
+## 親配送の変更を反映する時
+
+親配送を含むreleaseでは、`npm run verify:parent-delivery`の合格と既定ブランチへの着地を先に確認する。オーナーが実機受入の完了前に公開を指示した対象だけは、[公開裁定](../rag/parent-delivery/release-decision.json)のversion・runtime一致を確認して進め、未確認を合格に変更しない。roomの親`parent_receiver`、宛先別`unknown` receiptとhealth、UTF-8本文保存はサーバー側の契約であり、clientの導入だけで本番反映済みとしない。roomの入替と公開API確認を済ませてから、利用端末へregistry版をglobal installし、同じ親会話へのDM・複数人宛・allの公開後smokeを行う。旧imageへ戻す時もログvolumeは保持する。
 
 ## ロールバック
 

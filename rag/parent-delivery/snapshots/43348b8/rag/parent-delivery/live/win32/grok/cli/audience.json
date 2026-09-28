@@ -1,0 +1,497 @@
+{
+  "schema": "peertable.parent-live-case.v1",
+  "case_id": "win32/grok/cli/audience",
+  "status": "passed",
+  "reasons": [],
+  "native": true,
+  "os": "win32",
+  "harness": "grok",
+  "surface": "cli",
+  "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+  "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+  "package_version": "0.8.63",
+  "client_version": "0.8.63",
+  "package_tarball_sha256": "55f7f8789b24f4a316b9b67414b5e96a63a2422110085215dcb5b485c58e6fc6",
+  "harness_version": "1.0.41 (4220f3b224a6)",
+  "node_version": "v24.20.0",
+  "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+  "parent_process": {
+    "pid": 64488,
+    "command": "\"C:\\Users\\kite_\\.grok\\bin\\grok.exe\" --always-approve",
+    "executable": "C:\\Users\\kite_\\.grok\\bin\\grok.exe",
+    "started": "2026-09-28T18:10:19.6809810Z",
+    "parent": 15664
+  },
+  "endpoint_id": "3356f5ef-be0e-4b46-b0c4-2551c43314c9",
+  "room": "qa-cg",
+  "owner_input_required": false,
+  "isolation": {
+    "fixture": "dedicated room server + token file, dedicated private QA dir",
+    "home": "normal HOME/auth (no fake HOME)",
+    "harness_config": "project .cursor/.grok fixture hooks+MCP (no global connect)",
+    "install": "npm pack tarball installed with npm install --prefix; product room/client/hook run from the installed package",
+    "model": "Grok 4.6 (high)",
+    "permission": "--always-approve + /hooks-trust"
+  },
+  "observations": [
+    {
+      "kind": "parent_join",
+      "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+      "turn_id": "f9f0a8b4-2e1e-4a14-9f22-484998ee0b47",
+      "tool_use_id": "call-dcefbf56-c224-4bd6-9661-ca9292733345-2",
+      "endpoint_id": "3356f5ef-be0e-4b46-b0c4-2551c43314c9",
+      "caller_owner": {
+        "pid": 64488,
+        "command": "\"C:\\Users\\kite_\\.grok\\bin\\grok.exe\" --always-approve",
+        "executable": "C:\\Users\\kite_\\.grok\\bin\\grok.exe",
+        "started": "2026-09-28T18:10:19.6809810Z",
+        "parent": 15664
+      },
+      "call_generation": "08429519-b214-4aef-a239-b4c9052e30aa"
+    },
+    {
+      "kind": "native_background_task_armed",
+      "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+      "turn_id": "f9f0a8b4-2e1e-4a14-9f22-484998ee0b47",
+      "task_id": "01a0e93e-d2e9-7403-92cf-c772fd4e9eee",
+      "task_pid": 48456,
+      "task_process_started": "2026-09-28T18:20:03.6013190Z",
+      "waiter_pid": 63816,
+      "waiter_started": "2026-09-28T18:20:04.1634290Z",
+      "runtime": "armed",
+      "task_id_transitions": [
+        "POSITIVE A seq 4 task  -> 01a0e93c-3506-7531-8f5d-fa32401e2aef\r",
+        "POSITIVE D seq 5 task 01a0e93c-3506-7531-8f5d-fa32401e2aef -> 01a0e93d-5984-71c0-bec7-6bba006f2af1\r",
+        "NEGATIVE X seq 6 (expect no delivery to bell)\r",
+        "POSITIVE M seq 7 task 01a0e93d-5984-71c0-bec7-6bba006f2af1 -> 01a0e93e-d2e9-7403-92cf-c772fd4e9eee\r",
+        "NEGATIVE S seq 8 (expect no delivery to bell)\r",
+        "STATE 01a0e93e-d2e9-7403-92cf-c772fd4e9eee\r"
+      ]
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "dm",
+      "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+      "turn_id": "task-completed-01a0e93c-3506-7531-8f5d-fa32401e2aef",
+      "seq": 5,
+      "delivery_id": "49e65c2a-2d06-48b4-a9da-c3c8b0064971",
+      "entry": {
+        "type": "tool_call_update",
+        "id": "call-ec60c0e0-edf5-4651-a62a-4e74499f549d-17"
+      },
+      "boundary": {
+        "source": "grok parent_read MCP result (transcript updates.jsonl)",
+        "raw_body_equal": true
+      }
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "dm",
+      "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+      "turn_id": "task-completed-01a0e93c-3506-7531-8f5d-fa32401e2aef",
+      "seq": 5,
+      "reply_excerpt": "受信: QA-D-WGRK: 親だけ宛のDMです。符号 DM-WGRK"
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "multiple",
+      "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+      "turn_id": "task-completed-01a0e93d-5984-71c0-bec7-6bba006f2af1",
+      "seq": 7,
+      "delivery_id": "2043fb8a-1d06-46e1-9f76-9b80aa3dad11",
+      "entry": {
+        "type": "tool_call_update",
+        "id": "call-b8e8cd92-a9cb-4e50-a902-b1d6ba4747aa-20"
+      },
+      "boundary": {
+        "source": "grok parent_read MCP result (transcript updates.jsonl)",
+        "raw_body_equal": true
+      }
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "multiple",
+      "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+      "turn_id": "task-completed-01a0e93d-5984-71c0-bec7-6bba006f2af1",
+      "seq": 7,
+      "reply_excerpt": "受信: QA-M-WGRK: 親とpeer2宛の複数宛です。符号 MULTI-WGRK"
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "all",
+      "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+      "turn_id": "task-completed-01a0e93b-2628-7ab2-92ef-79dc9773b0eb",
+      "seq": 4,
+      "delivery_id": "ab05a866-70d0-4580-ac94-a710f6cfb8cf",
+      "entry": {
+        "type": "tool_call_update",
+        "id": "call-d3119ab5-0032-4850-a613-de7ff450f80d-14"
+      },
+      "boundary": {
+        "source": "grok parent_read MCP result (transcript updates.jsonl)",
+        "raw_body_equal": true
+      }
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "all",
+      "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+      "turn_id": "task-completed-01a0e93b-2628-7ab2-92ef-79dc9773b0eb",
+      "seq": 4,
+      "reply_excerpt": "受信: QA-A-WGRK: 全員宛の確認です。符号 ALL-WGRK"
+    }
+  ],
+  "receipts": [
+    {
+      "seq": 5,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "parent_read_complete",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    },
+    {
+      "seq": 7,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "parent_read_complete",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    },
+    {
+      "seq": 4,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "parent_read_complete",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    }
+  ],
+  "body_checks": [
+    {
+      "label": "dm",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WGRK: 親だけ宛のDMです。符号 DM-WGRK"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WGRK: 親だけ宛のDMです。符号 DM-WGRK"
+      }
+    },
+    {
+      "label": "multiple",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WGRK: 親とpeer2宛の複数宛です。符号 MULTI-WGRK"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WGRK: 親とpeer2宛の複数宛です。符号 MULTI-WGRK"
+      }
+    },
+    {
+      "label": "all",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WGRK: 全員宛の確認です。符号 ALL-WGRK"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WGRK: 全員宛の確認です。符号 ALL-WGRK"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "dm",
+      "recipient": "bell",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WGRK: 親だけ宛のDMです。符号 DM-WGRK"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WGRK: 親だけ宛のDMです。符号 DM-WGRK"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WGRK: 親だけ宛のDMです。符号 DM-WGRK",
+        "delivery_id": "49e65c2a-2d06-48b4-a9da-c3c8b0064971",
+        "digest": "b2e0370490bb15383848d10707f2132f7aef49fbe2b77ba7589b2436b38803d5",
+        "order": 156,
+        "session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+        "turn_id": "task-completed-01a0e93c-3506-7531-8f5d-fa32401e2aef",
+        "boundary": {
+          "source": "grok parent_read MCP result (transcript updates.jsonl)",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "type": "tool_call_update",
+          "id": "call-ec60c0e0-edf5-4651-a62a-4e74499f549d-17"
+        }
+      },
+      "reply": {
+        "session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+        "text": "受信: QA-D-WGRK: 親だけ宛のDMです。符号 DM-WGRK",
+        "order": 166,
+        "turn_id": "task-completed-01a0e93c-3506-7531-8f5d-fa32401e2aef",
+        "entry_uuid": null
+      },
+      "spool": {
+        "delivery_id": "49e65c2a-2d06-48b4-a9da-c3c8b0064971",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "parent_read_complete"
+      },
+      "receipt": {
+        "seq": 5,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "parent_read_complete",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      },
+      "tui_full_body_present": false
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "multiple",
+      "recipient": "bell",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WGRK: 親とpeer2宛の複数宛です。符号 MULTI-WGRK"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WGRK: 親とpeer2宛の複数宛です。符号 MULTI-WGRK"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WGRK: 親とpeer2宛の複数宛です。符号 MULTI-WGRK",
+        "delivery_id": "2043fb8a-1d06-46e1-9f76-9b80aa3dad11",
+        "digest": "4d42d416c2ad200220220cc30186aa129fff75ee35024122f0b6feac45ded05b",
+        "order": 181,
+        "session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+        "turn_id": "task-completed-01a0e93d-5984-71c0-bec7-6bba006f2af1",
+        "boundary": {
+          "source": "grok parent_read MCP result (transcript updates.jsonl)",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "type": "tool_call_update",
+          "id": "call-b8e8cd92-a9cb-4e50-a902-b1d6ba4747aa-20"
+        }
+      },
+      "reply": {
+        "session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+        "text": "受信: QA-M-WGRK: 親とpeer2宛の複数宛です。符号 MULTI-WGRK",
+        "order": 191,
+        "turn_id": "task-completed-01a0e93d-5984-71c0-bec7-6bba006f2af1",
+        "entry_uuid": null
+      },
+      "spool": {
+        "delivery_id": "2043fb8a-1d06-46e1-9f76-9b80aa3dad11",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "parent_read_complete"
+      },
+      "receipt": {
+        "seq": 7,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "parent_read_complete",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      },
+      "tui_full_body_present": false
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "all",
+      "recipient": "bell",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WGRK: 全員宛の確認です。符号 ALL-WGRK"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WGRK: 全員宛の確認です。符号 ALL-WGRK"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WGRK: 全員宛の確認です。符号 ALL-WGRK",
+        "delivery_id": "ab05a866-70d0-4580-ac94-a710f6cfb8cf",
+        "digest": "daecdf0b5e298c07ee37c1c728bce7ad8eedf2cfe9446e6a5086f551ab1a31a7",
+        "order": 131,
+        "session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+        "turn_id": "task-completed-01a0e93b-2628-7ab2-92ef-79dc9773b0eb",
+        "boundary": {
+          "source": "grok parent_read MCP result (transcript updates.jsonl)",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "type": "tool_call_update",
+          "id": "call-d3119ab5-0032-4850-a613-de7ff450f80d-14"
+        }
+      },
+      "reply": {
+        "session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+        "text": "受信: QA-A-WGRK: 全員宛の確認です。符号 ALL-WGRK",
+        "order": 141,
+        "turn_id": "task-completed-01a0e93b-2628-7ab2-92ef-79dc9773b0eb",
+        "entry_uuid": null
+      },
+      "spool": {
+        "delivery_id": "ab05a866-70d0-4580-ac94-a710f6cfb8cf",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "parent_read_complete"
+      },
+      "receipt": {
+        "seq": 4,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "parent_read_complete",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      },
+      "tui_full_body_present": false
+    }
+  ],
+  "negative_controls": [
+    {
+      "condition": "other_to_other_dm(worker->peer2)",
+      "seq": 6,
+      "room_delivery_keys": [
+        "peer2"
+      ],
+      "bell_in_room_deliveries": false,
+      "in_bell_spool": false,
+      "received_in_harness_record": 0,
+      "reply_mentions": 0
+    },
+    {
+      "condition": "parent_self_post(bell->all)",
+      "seq": 8,
+      "room_delivery_keys": [
+        "worker",
+        "peer2"
+      ],
+      "bell_in_room_deliveries": false,
+      "in_bell_spool": false,
+      "received_in_harness_record": 0,
+      "reply_mentions": 0
+    }
+  ],
+  "negative_controls_ok": true,
+  "tui_full_body_present": {
+    "dm": false,
+    "multiple": false,
+    "all": false
+  },
+  "native_task_records": [
+    {
+      "background_started": 7,
+      "background_completed": 6
+    }
+  ],
+  "hook_events": {
+    "total": 44,
+    "nonzero_exit": 0,
+    "stdin_prefix_hex": [
+      "7b22686f"
+    ]
+  },
+  "task_output_reader": "get_command_or_subagent_output(task_id, no timeout_ms) then parent_read",
+  "evidence_files": {
+    "state": "/private/tmp/claude-501/qa-cursor-grok/f-win-grok/final-state.json",
+    "hook_events": "/private/tmp/claude-501/qa-cursor-grok/f-win-grok/hook-events.jsonl",
+    "tui": "/private/tmp/claude-501/qa-cursor-grok/f-win-grok/tui-scrollback.txt"
+  }
+}

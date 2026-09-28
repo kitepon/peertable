@@ -35,34 +35,20 @@
 
 ## 着卓手順
 
-harness に関わらず: `scripts/parent-join.sh <project> [name] [model] [effort] [harness]` で member
-登録する。`harness` は `claude`（既定）、`codex`、または `grok`。Lattice 併用モードなら、
-`source .team/parent-env.sh` で Lattice mutation（`todo reopen` 等）に要る actor 環境変数
-（`LATTICE_TODO_ACTOR_HOST`/`SESSION`/`AGENT`）を親 shell へ持続配線する——**子 process の
-export は親 shell に伝播しないため**、これをしないまま `lattice todo reopen` 等を打つと
-`ACTOR_UNRESOLVED`（`missing_environment=[...]`）で無変更停止する（実測: owner裁定[46]④）。
+`peertable connect --target claude|codex|grok|cursor`でユーザー領域の親MCPと公式hookを接続し、現在の会話から`parent_join(project, name, model?, effort?, mission?)`を呼ぶ。本人性は実MCPと公式hookが相関する。表示用model/effortは分かる値だけを渡す。既存会話へMCP/hookを読み込めない場合は`PARENT_RESTART_REQUIRED`のままで、着卓完了としない。
 
-## 新着の検知（room追従は共通、親への通知だけharness別）
+`parent-join.sh`は共通Node接続入口への互換入口であり、HTTPだけで親を登録しない。Lattice併用では`.team/parent-env.json`（POSIXは`parent-env.sh`も）にあるactorを親shellへ設定する。子processのexportは親shellへ伝播しない。Lattice mutationの前にこのactorを設定する。
 
-`scripts/parent-watch.mjs <project> <親名>` がroom SSE、heartbeat、再接続catch-up、宛先判定、
-永続cursorを一括所有する。stdoutへ出る`peertable.parent-watch-event.v1`はDM本文そのものであり、
-再度roomを読まなくてよい。通常席用`wakeup-bridge`、tmux、`codex exec resume`を親へ流用しない。
+## 新着の検知
 
-- **Claude**: Monitorツール（persistent）で`node scripts/parent-watch.mjs <project> <親名> --follow`
-  を起動し、その出力を親へ通知する。世代は常に1匹。張り替え時は旧MonitorをTaskStopしてから起動する。
-- **Codex**: 親のbackground tool taskを1本だけyield状態で保持する。そのtask内で1秒ごとに
-  `scripts/codex-parent-watch.sh <project> <親名>`を都度実行し、空でないstdoutだけを`notify`して
-  `yield_control`する。このscriptはHTTP catch-upを一度行って即終了する。長寿命なのはbackground taskの
-  loopだけで、Node processや端末sessionは常駐させない。張り替え時は旧background taskを停止する。
-- **Grok**: Monitorツール（persistent）で`node scripts/parent-watch.mjs <project> <親名> --follow`
-  を1回だけ起動し、stdoutのJSON eventを親へ返す。通常席用`wakeup-bridge`に親を載せない。
-  張り替え時は旧Monitorを止めてから起動する。
+Peertableの共通watchがHTTP/SSE、cursor、Lattice件数のquiet観測、取得エラー、3分の停滞警報、snapshot、耳疎通probeを所有し、原文を配送spoolへ保存する。親宛DM、親を含む複数人宛、all全件が対象。親自身の発言と他席間のDMは対象外。
 
-どちらも`parent-join.sh`が先に作る`.team/parent-watch.json`のcursorを共有する。watcher不在中のDMは
-次回起動時にcatch-upされ、親以外宛・親自身の発言・pingでは親を起こさない。Lattice の ready 件数と
-active 件数は合計ではなくそれぞれ変化したら起こす（実装が全部閉じて親手番1件だけになっても起こす）。
-`--follow` は親セッションの stdin が閉じたら終了する。切れた番犬が seq だけ進めて親が起きない状態を作らない。
-`watch_error`が届いたら通常のDMとして扱わず、番犬の再着卓を行う。
+- Claude Code: 初回PostToolUseと後続Stopの公式asyncRewakeを使う。全toolを省略した受信turnでもStopが次の1slotを残す。期限controlは完成済み引数で同じ`parent_join`を呼ぶ。
+- Codex: 実callerの公式App Serverへqueueを1回投入する。同期PostToolUse/Stopは自身の入力だけを取得し、残りは公式queueが同じthreadを起こす。
+- Cursor: 作業中の公式hookとnative背景Shellが同じclaimを共有する。`wait_process.native_tool`の完成済みinputをそのtoolへ渡す。生きたwaitがあるreceiptには新しいtoolが無い。背景完了後は`parent_read`の次receiptを登録する。
+- Grok Build: 完成済み`run_terminal_command(background:true)`を登録する。完了済みの正確なtask IDを`get_command_or_subagent_output`でtimeoutなしに取得し、そこで示された配送IDを`parent_read`で回収して次receiptを登録する。
+
+長文は同じ配送ID・digest・継続tokenで最後まで回収する。`unknown`は自動再送しない。Cursor/Grokは外部作業がない受信turnでも受信維持toolを登録する。全toolを省略した場合は`rearm_pending`であり健康ではない。receipt作成だけで背景登録済みとしない。耳疎通が受信口を通って`verified`となり、現在runtimeが`armed`であることを診断する。同じ会話のprobeが既知の失敗となった場合は、`parent_join`で新しい確認を開始する。新確認が届くまで復旧済みとせず、旧失敗記録と本文を保持する。`unknown`は再送しない。`parent_leave`は受信登録だけを閉じ、親harnessを終了しない。
 
 ## 試験結果の監査
 
@@ -127,9 +113,8 @@ peertable_parent_post() {
    `peertable_parent_post <宛先> '<本文>'` を使う。抽象名 `$TOKEN` や手組みJSONへ置き換えない
 3. 工程正本で照合する（Lattice 併用: `lattice todo status --json`。単独: `.team/tasks.md` と
    room ログの突き合わせ）。食い違ったら工程正本が正で、食い違い自体を room へ出す
-4. member 登録は残っているので `parent-join.sh` を再実行しない。名前を確認するだけでよい
-5. harnessに応じて番犬を張り直す。ClaudeとGrokは旧Monitorを止めて`--follow`を1回起動する。Codexは旧background
-   taskを止め、1秒ごとの`--poll` loopを起動する。永続cursorが不在時間のDMをcatch-upする
+4. 現在の実会話から`parent_join`を呼んで束縛を取り直す。同じ会話は同じendpointとcursorへ復旧し、別会話は新世代になる。旧本文・unknownは新会話へ移さない
+5. Cursor/Grokでは返却されたnative背景tool入力を登録する。Claude/Codexは公式受信口で継続する。耳疎通と現在runtimeの確認が済むまで再着卓完了としない
 6. 順序の要点は「room と工程正本を読み終えるまで発言しない」
 
 ## 席の縮退・散会

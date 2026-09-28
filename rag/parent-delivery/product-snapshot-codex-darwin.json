@@ -1,0 +1,291 @@
+{
+  "schema": "peertable.parent-product-draft-smoke.v1",
+  "platform": "darwin",
+  "surface": "codex-cli-app-server",
+  "room": "parent-codex-e856357e-fb6a-4fee-89ae-b29af2d3187d",
+  "thread": "01a0e88e-8362-7911-9010-c1b7121b844e",
+  "endpoint": "f38a6fc1-ac87-48cd-b39b-a63ec62b39ac",
+  "sent": [
+    {
+      "label": "ALL",
+      "nonce": "PEERTABLE_PRODUCT_CODEX_ALL_acaca205-c3f0-49ae-abd8-97888f43674a",
+      "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_ALL_acaca205-c3f0-49ae-abd8-97888f43674a です。",
+      "posted": {
+        "seq": 3,
+        "ts": "2026-09-28T15:07:44.451Z",
+        "from": "probe",
+        "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_ALL_acaca205-c3f0-49ae-abd8-97888f43674a です。",
+        "to": "all",
+        "room_saved": true,
+        "delivery": {
+          "bell": {
+            "state": "pending",
+            "reason": "parent_receiver経由"
+          }
+        }
+      }
+    },
+    {
+      "label": "DM",
+      "nonce": "PEERTABLE_PRODUCT_CODEX_DM_68dedc41-1941-4f5e-accc-32f480fed844",
+      "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_DM_68dedc41-1941-4f5e-accc-32f480fed844 です。",
+      "posted": {
+        "seq": 4,
+        "ts": "2026-09-28T15:08:39.393Z",
+        "from": "probe",
+        "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_DM_68dedc41-1941-4f5e-accc-32f480fed844 です。",
+        "to": "bell",
+        "room_saved": true,
+        "delivery": {
+          "bell": {
+            "state": "pending",
+            "reason": "parent_receiver経由"
+          }
+        }
+      }
+    },
+    {
+      "label": "MULTI",
+      "nonce": "PEERTABLE_PRODUCT_CODEX_MULTI_3801cb1f-1256-42eb-b0ec-084d065f2280",
+      "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_MULTI_3801cb1f-1256-42eb-b0ec-084d065f2280 です。",
+      "posted": {
+        "seq": 5,
+        "ts": "2026-09-28T15:08:42.943Z",
+        "from": "probe",
+        "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_MULTI_3801cb1f-1256-42eb-b0ec-084d065f2280 です。",
+        "to_names": [
+          "bell",
+          "rui"
+        ],
+        "room_saved": true,
+        "delivery": {
+          "bell": {
+            "state": "pending",
+            "reason": "parent_receiver経由"
+          },
+          "rui": {
+            "state": "seat_unavailable",
+            "reason": "member_not_found"
+          }
+        }
+      }
+    }
+  ],
+  "replies": [
+    {
+      "thread": "01a0e88e-8362-7911-9010-c1b7121b844e",
+      "turn": "01a0e88e-841d-7273-aefe-5e3961fbc1e4",
+      "text": "peertable_parent.parent_joinを指定のprojectとnameで一度呼び出します。結果を確認したら、同じ会話に届くroom観測データの受信を維持します。"
+    },
+    {
+      "thread": "01a0e88e-8362-7911-9010-c1b7121b844e",
+      "turn": "01a0e88e-841d-7273-aefe-5e3961fbc1e4",
+      "text": "初回。受信登録は`receiving`です。届いたroom観測データは次のとおりです。\n\n- 配送確認符号: `498a130d-c687-404d-a82c-6920aa49b1e4`\n- 送信者: `peertable`\n- 宛先: `bell`\n- seq: `probe:498a130d-c687-404d-a82c-6920aa49b1e4`"
+    },
+    {
+      "thread": "01a0e88e-8362-7911-9010-c1b7121b844e",
+      "turn": "01a0e88e-841d-7273-aefe-5e3961fbc1e4",
+      "text": "room観測データを受信しました。\n\n- 配送確認符号: 本文に明示なし\n- 送信者: `system`\n- 宛先: `bell`\n- seq: `2`\n- 配送ID: `b393f75a-a7a1-4bf2-916b-2fd8248d90a4`"
+    },
+    {
+      "thread": "01a0e88e-8362-7911-9010-c1b7121b844e",
+      "turn": "01a0e88e-841d-7273-aefe-5e3961fbc1e4",
+      "text": "room観測データを受信しました。\n\n- 配送確認符号: 本文に明示なし\n- 送信者: `peertable`\n- 宛先: `bell`\n- seq: `e69e2cf953ea73d1238b193cbaf8e9e1cd2f44a427ff7c2509d15d1bbc22fafc`\n- 配送ID: `c22a1294-e3cc-4e95-9889-ad0b7f9e200c`"
+    },
+    {
+      "thread": "01a0e88e-8362-7911-9010-c1b7121b844e",
+      "turn": "01a0e88e-841d-7273-aefe-5e3961fbc1e4",
+      "text": "room観測データを受信しました。\n\n- 配送確認符号: `PEERTABLE_PRODUCT_CODEX_ALL_acaca205-c3f0-49ae-abd8-97888f43674a`\n- 送信者: `probe`\n- 宛先: `all`\n- seq: `3`"
+    },
+    {
+      "thread": "01a0e88e-8362-7911-9010-c1b7121b844e",
+      "turn": "01a0e88e-841d-7273-aefe-5e3961fbc1e4",
+      "text": "room観測データを受信しました。\n\n- 配送確認符号: `PEERTABLE_PRODUCT_CODEX_DM_68dedc41-1941-4f5e-accc-32f480fed844`\n- 送信者: `probe`\n- 宛先: `bell`\n- seq: `4`"
+    },
+    {
+      "thread": "01a0e88e-8362-7911-9010-c1b7121b844e",
+      "turn": "01a0e88e-841d-7273-aefe-5e3961fbc1e4",
+      "text": "room観測データを受信しました。\n\n- 配送確認符号: `PEERTABLE_PRODUCT_CODEX_MULTI_3801cb1f-1256-42eb-b0ec-084d065f2280`\n- 送信者: `probe`\n- 宛先: `[\"bell\",\"rui\"]`\n- seq: `5`"
+    }
+  ],
+  "receipts": [
+    {
+      "schema": "peertable.delivery.v1",
+      "seq": 3,
+      "room_saved": true,
+      "delivery": {
+        "bell": {
+          "state": "delivered",
+          "reason": "codex_hook_output_complete",
+          "at": "2026-09-28T15:08:33.961Z",
+          "queued_submission_id": "01a0e88f-225a-7911-9322-2d62e0544da7",
+          "accepted_at": "2026-09-28T15:08:09.691Z",
+          "receipt_revision": 2
+        }
+      }
+    },
+    {
+      "schema": "peertable.delivery.v1",
+      "seq": 4,
+      "room_saved": true,
+      "delivery": {
+        "bell": {
+          "state": "delivered",
+          "reason": "codex_hook_output_complete",
+          "at": "2026-09-28T15:08:39.627Z",
+          "queued_submission_id": "01a0e88f-96dd-7e63-9db9-e83cee19e33d",
+          "accepted_at": "2026-09-28T15:08:39.524Z",
+          "receipt_revision": 2
+        }
+      }
+    },
+    {
+      "schema": "peertable.delivery.v1",
+      "seq": 5,
+      "room_saved": true,
+      "delivery": {
+        "bell": {
+          "state": "delivered",
+          "reason": "codex_hook_output_complete",
+          "at": "2026-09-28T15:08:43.131Z",
+          "queued_submission_id": "01a0e88f-a49e-7482-a406-fdf09516ca6b",
+          "accepted_at": "2026-09-28T15:08:43.039Z",
+          "receipt_revision": 2
+        },
+        "rui": {
+          "state": "seat_unavailable",
+          "reason": "member_not_found"
+        }
+      }
+    }
+  ],
+  "harness": "codex",
+  "passed": true,
+  "runtime_digest": "27c5c1980b1d6ce2165889a84e57aeee228120f126d56fbb0e439bcc91f1ef47",
+  "source_status": "未commit固定snapshotの実製品smoke。最終版とdigestが異なるため525件の受入manifestへ算入しない。",
+  "local_records": [
+    {
+      "delivery_id": "9cc6ba05-146e-46e3-aac4-8f34ce0779fa",
+      "state": "submitted",
+      "event": {
+        "schema": "peertable.parent-watch-event.v1",
+        "type": "parent_room_update",
+        "parent": "bell",
+        "seq": 3,
+        "from": "probe",
+        "to": "all",
+        "to_names": null,
+        "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_ALL_acaca205-c3f0-49ae-abd8-97888f43674a です。",
+        "message": {
+          "seq": 3,
+          "ts": "2026-09-28T15:07:44.451Z",
+          "from": "probe",
+          "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_ALL_acaca205-c3f0-49ae-abd8-97888f43674a です。",
+          "to": "all"
+        },
+        "room": "parent-codex-e856357e-fb6a-4fee-89ae-b29af2d3187d",
+        "event_id": "room:3"
+      },
+      "digest": "eaf12ddf1009ebe5cb0e1da9dd70c863982a0ec38291ba5fe4d73c00259353ec",
+      "queued_submission_id": "01a0e88f-225a-7911-9322-2d62e0544da7",
+      "accepted_at": "2026-09-28T15:08:09.691Z",
+      "hook_state": "output_complete",
+      "receipt": {
+        "seq": 3,
+        "recipient": "bell",
+        "result": "delivered",
+        "reason": "codex_hook_output_complete",
+        "route": "parent_receiver",
+        "endpoint_id": "f38a6fc1-ac87-48cd-b39b-a63ec62b39ac",
+        "receipt_revision": 2,
+        "queued_submission_id": "01a0e88f-225a-7911-9322-2d62e0544da7",
+        "accepted_at": "2026-09-28T15:08:09.691Z",
+        "pending": false
+      }
+    },
+    {
+      "delivery_id": "151db00f-1bc0-480e-9d8a-843e258450ca",
+      "state": "submitted",
+      "event": {
+        "schema": "peertable.parent-watch-event.v1",
+        "type": "parent_dm",
+        "parent": "bell",
+        "seq": 4,
+        "from": "probe",
+        "to": "bell",
+        "to_names": null,
+        "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_DM_68dedc41-1941-4f5e-accc-32f480fed844 です。",
+        "message": {
+          "seq": 4,
+          "ts": "2026-09-28T15:08:39.393Z",
+          "from": "probe",
+          "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_DM_68dedc41-1941-4f5e-accc-32f480fed844 です。",
+          "to": "bell"
+        },
+        "room": "parent-codex-e856357e-fb6a-4fee-89ae-b29af2d3187d",
+        "event_id": "room:4"
+      },
+      "digest": "6b06094db9af54134dc9bf8bc436573010c7c76bc50c2a8eda293c9780b3e407",
+      "queued_submission_id": "01a0e88f-96dd-7e63-9db9-e83cee19e33d",
+      "accepted_at": "2026-09-28T15:08:39.524Z",
+      "hook_state": "output_complete",
+      "receipt": {
+        "seq": 4,
+        "recipient": "bell",
+        "result": "delivered",
+        "reason": "codex_hook_output_complete",
+        "route": "parent_receiver",
+        "endpoint_id": "f38a6fc1-ac87-48cd-b39b-a63ec62b39ac",
+        "receipt_revision": 2,
+        "queued_submission_id": "01a0e88f-96dd-7e63-9db9-e83cee19e33d",
+        "accepted_at": "2026-09-28T15:08:39.524Z",
+        "pending": false
+      }
+    },
+    {
+      "delivery_id": "b2ecb795-2173-4e3d-ab5d-cd64b5c81271",
+      "state": "submitted",
+      "event": {
+        "schema": "peertable.parent-watch-event.v1",
+        "type": "parent_dm",
+        "parent": "bell",
+        "seq": 5,
+        "from": "probe",
+        "to": null,
+        "to_names": [
+          "bell",
+          "rui"
+        ],
+        "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_MULTI_3801cb1f-1256-42eb-b0ec-084d065f2280 です。",
+        "message": {
+          "seq": 5,
+          "ts": "2026-09-28T15:08:42.943Z",
+          "from": "probe",
+          "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_MULTI_3801cb1f-1256-42eb-b0ec-084d065f2280 です。",
+          "to_names": [
+            "bell",
+            "rui"
+          ]
+        },
+        "room": "parent-codex-e856357e-fb6a-4fee-89ae-b29af2d3187d",
+        "event_id": "room:5"
+      },
+      "digest": "1cad3ad53c0506f6a2a86d4e9359c7b26677041a3a2c2e25a39354b1792fcb4f",
+      "queued_submission_id": "01a0e88f-a49e-7482-a406-fdf09516ca6b",
+      "accepted_at": "2026-09-28T15:08:43.039Z",
+      "hook_state": "output_complete",
+      "receipt": {
+        "seq": 5,
+        "recipient": "bell",
+        "result": "delivered",
+        "reason": "codex_hook_output_complete",
+        "route": "parent_receiver",
+        "endpoint_id": "f38a6fc1-ac87-48cd-b39b-a63ec62b39ac",
+        "receipt_revision": 2,
+        "queued_submission_id": "01a0e88f-a49e-7482-a406-fdf09516ca6b",
+        "accepted_at": "2026-09-28T15:08:43.039Z",
+        "pending": false
+      }
+    }
+  ]
+}

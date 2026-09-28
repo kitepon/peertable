@@ -47,15 +47,18 @@ test('resumeは未登録席の管理markerと生存Cursor席の両方でMCP設�
     }
     const members = managedLegacy ? [] : [{ ...member, harness: 'cursor', status_reason: 'fresh' }]
     let runtimeChecked = false
+    let connected = false
     const result = await resumeProject({ project, probe: false }, {
       aiterm: { sessions: async () => sessions, observe: async () => ({ exists: true, harness_alive: true, state: 'idle' }) },
       api: { members: async () => members },
       runScript: () => 'fixture-credential-path',
+      connectCommand: async () => { connected = true; return { status: 'registered' } },
       ensureProjectRuntime: async () => {
+        assert.equal(connected, true)
         assert.deepEqual(JSON.parse(readFileSync(join(project, '.cursor', 'mcp.json'))).mcpServers.room, expectedCursorRoomMcp(packageRoot))
         assert.deepEqual(JSON.parse(readFileSync(join(project, '.mcp.json'))).mcpServers.room, expectedRoomMcp(packageRoot))
         runtimeChecked = true
-        return {}
+        return { status: 'ready' }
       },
     })
     assert.equal(runtimeChecked, true)

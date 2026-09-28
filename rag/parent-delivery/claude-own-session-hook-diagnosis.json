@@ -1,0 +1,127 @@
+{
+  "schema": "peertable.parent-claude-hook-diagnosis.v1",
+  "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
+  "runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
+  "harness_version": "2.1.284 (Claude Code)",
+  "parent_session": "f012f4ff-853b-4da3-bb30-a526726c52b0",
+  "endpoint_id": "4376e283-52e1-4b3f-9072-da1e0896e17c",
+  "product_live": false,
+  "formal_acceptance_credit": 0,
+  "independent_native_transcript_review": true,
+  "started_at": "2026-09-28T20:57:33.537Z",
+  "finished_at": "2026-09-28T20:58:12.230Z",
+  "normal_probe_literal": "fffc1fa8-7397-469b-9148-72f5e7fccedf",
+  "normal_probe_assistant_entry": "a178ecfe-d369-4c20-aa1b-4a43e8528313",
+  "official_mcp_tool_results": [
+    {
+      "tool_use_id": "toolu_01Gc36oaSyu1NCLYLguYCeg2",
+      "use_order": 43,
+      "result_order": 45,
+      "value": {
+        "schema": "peertable.parent-join-result.v1",
+        "endpoint_id": "4376e283-52e1-4b3f-9072-da1e0896e17c",
+        "state": "receiving",
+        "harness": "claude",
+        "wait_process": null,
+        "actor_environment": null,
+        "error_code": null
+      }
+    },
+    {
+      "tool_use_id": "toolu_01SfDCgQGVuk1tBb4K8ANZGc",
+      "use_order": 71,
+      "result_order": 72,
+      "value": {
+        "schema": "peertable.parent-error.v1",
+        "state": "failed",
+        "error_code": "PARENT_CALLER_UNBOUND",
+        "detail": "PARENT_CALLER_UNBOUND"
+      }
+    },
+    {
+      "tool_use_id": "toolu_016sscg7nV6doWGz1ZSzJvsd",
+      "use_order": 87,
+      "result_order": 89,
+      "value": {
+        "schema": "peertable.parent-join-result.v1",
+        "endpoint_id": "4376e283-52e1-4b3f-9072-da1e0896e17c",
+        "state": "verified",
+        "harness": "claude",
+        "wait_process": null,
+        "actor_environment": null,
+        "error_code": null
+      }
+    }
+  ],
+  "fixture_native_owners": [
+    {
+      "pid": 21381,
+      "parent": 21365,
+      "started": "Tue Sep 29 05:57:34 2026",
+      "executable": "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+      "command": "/opt/homebrew/bin/claude --settings /Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/claude-hook-complete/native-fixtures/claude-a1684e3b-e0eb-4568-b9f4-e8c0255d2a6a/project/session-settings.json"
+    },
+    {
+      "pid": 22928,
+      "parent": 22913,
+      "started": "Tue Sep 29 05:57:52 2026",
+      "executable": "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+      "command": "/opt/homebrew/bin/claude --resume f012f4ff-853b-4da3-bb30-a526726c52b0 --settings /Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/claude-hook-complete/native-fixtures/claude-a1684e3b-e0eb-4568-b9f4-e8c0255d2a6a/project/session-settings.json"
+    },
+    {
+      "pid": 23488,
+      "parent": 23469,
+      "started": "Tue Sep 29 05:58:01 2026",
+      "executable": "/opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+      "command": "/opt/homebrew/bin/claude --resume f012f4ff-853b-4da3-bb30-a526726c52b0 --settings /Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/claude-hook-complete/native-fixtures/claude-a1684e3b-e0eb-4568-b9f4-e8c0255d2a6a/project/session-settings.json"
+    }
+  ],
+  "hook_fault": {
+    "official_option": "--settings",
+    "disabled": {
+      "permissions": {
+        "allow": [
+          "mcp__peertable_parent__parent_join",
+          "mcp__peertable_parent__parent_read",
+          "mcp__peertable_parent__parent_leave"
+        ]
+      },
+      "disableAllHooks": true
+    },
+    "restored": {
+      "permissions": {
+        "allow": [
+          "mcp__peertable_parent__parent_join",
+          "mcp__peertable_parent__parent_read",
+          "mcp__peertable_parent__parent_leave"
+        ]
+      }
+    },
+    "global_changed_reported": false,
+    "global_bytes_equality": "専用controllerの比較結果。初期global原bytesをrootが独立再照合したとは主張しない。"
+  },
+  "restored_body_delivery_verified": false,
+  "fixture_closed": true,
+  "server_gone": true,
+  "errors": [],
+  "private_raw": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/claude-hook-complete",
+  "files": [
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/claude-hook-complete/result.json",
+      "sha256": "9cf4d2670a673cb44d7eaeaa5479fa0ea8f725ba48647d201d0a1f5461d87f55"
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/claude-hook-complete/reproduce.mjs",
+      "sha256": "bb98ca2e7199bcb58fadc67d47f5e11e425ea07b7c39c51b6eb065adc2583d77"
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/claude-hook-complete/startup-84.mjs",
+      "sha256": "03c251cf85d703ed3d96b2c3056342879d5e668841aaca83ea76eef4a7496164"
+    },
+    {
+      "file": "/Users/kite/.claude/projects/-Users-kite--codex-worktrees-parent-cli-scenarios-peertable--lease-execution-017-b639-diagnostics-claude-hook-complete-native-fixtures-claude-a1684e3b-e0eb-4568-b9f4-e8c0255d2a6a-project/f012f4ff-853b-4da3-bb30-a526726c52b0.jsonl",
+      "sha256": "94ff7ecd909b486db7576076d51aeed3c4c8fa6c6abe2df1ce494ccd8acaf8dc"
+    }
+  ],
+  "startup_source_review": "84deのharness.mjsから切り出したstartup関数本文が一致。captureには末尾改行が1byte多く、全moduleのbyte一致とは扱わない。"
+}

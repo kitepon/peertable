@@ -1,0 +1,58 @@
+{
+  "schema": "peertable.parent-lease-probe.v1",
+  "passed": true,
+  "platform": "win32",
+  "node": "v24.19.0",
+  "session_id": "63bc3983-2009-4534-b693-1db6385bf5ce",
+  "endpoint_id": "718a0f5f-24ef-406b-8f2f-598cc55d083c",
+  "calls": [
+    {
+      "session_id": "63bc3983-2009-4534-b693-1db6385bf5ce",
+      "endpoint_id": "718a0f5f-24ef-406b-8f2f-598cc55d083c",
+      "count": 1,
+      "tool_use_id": "toolu_01V4EMcHLThekPnfsMYAb84r"
+    },
+    {
+      "session_id": "63bc3983-2009-4534-b693-1db6385bf5ce",
+      "endpoint_id": "718a0f5f-24ef-406b-8f2f-598cc55d083c",
+      "count": 2,
+      "tool_use_id": "toolu_01UhNKBYqXRbe92djPVBMbch"
+    }
+  ],
+  "emitted": [
+    {
+      "session_id": "63bc3983-2009-4534-b693-1db6385bf5ce",
+      "schema": "peertable.parent-control.v1",
+      "code": "PARENT_RECEIVER_EXPIRED",
+      "endpoint_id": "718a0f5f-24ef-406b-8f2f-598cc55d083c"
+    },
+    {
+      "session_id": "63bc3983-2009-4534-b693-1db6385bf5ce",
+      "schema": "peertable.parent-message.v1",
+      "room": "配送試験",
+      "from": "probe",
+      "to": "bell",
+      "seq": 1,
+      "body": "配送確認の符号は PEERTABLE_LEASE_RESUMED です。"
+    }
+  ],
+  "replies": [
+    {
+      "text": "Peertableの受信登録を開始します。最初にparent_joinを呼び出します。"
+    },
+    {
+      "text": "登録が完了しました。以下の情報を報告します：\n\n**登録されたendpoint_id:** `718a0f5f-24ef-406b-8f2f-598cc55d083c`\n\n- session_id: 63bc3983-2009-4534-b693-1db6385bf5ce\n- count: 1\n\nこれでproject=\"配送試験\", name=\"bell\"の受信登録が完了しました。次は**PARENT_RECEIVER_EXPIREDの制御通知**を待ちます。その通知が届いたら、同じproject/nameでparent_joinをもう一度呼び出して登録を更新します。\n\nその後、room投稿から配送確認の符号を抜き出して日本語で報告いたします。"
+    },
+    {
+      "text": "**PARENT_RECEIVER_EXPIRED通知を受信しました。** endpoint_id `718a0f5f-24ef-406b-8f2f-598cc55d083c` の登録の更新が必要です。\n\n同じproject/nameでparent_joinをもう一度呼び出します。"
+    },
+    {
+      "text": "登録を更新しました。\n\n**更新結果:**\n- endpoint_id: `718a0f5f-24ef-406b-8f2f-598cc55d083c`（同じ）\n- count: 2（登録回数が増加）\n\n登録の更新が完了しました。次は**room投稿から配送確認の符号**を待ちます。その投稿が届いたら、符号を抜き出して日本語で報告いたします。"
+    },
+    {
+      "text": "**room投稿を受信しました。**\n\n配送確認の符号を抜き出して報告します：\n\n**配送確認の符号：PEERTABLE_LEASE_RESUMED**\n\nこのメッセージはproject「配送試験」のroom内で、probeから送信されました。登録の更新と配送確認が正常に完了したことを示しています。"
+    }
+  ],
+  "native_hook_evidence_complete": false,
+  "hook_evidence": "親のverify.mjsがnative PostToolUse exit2×2を照合してpassed。raw hook_responseはこの投影へ未回収。"
+}

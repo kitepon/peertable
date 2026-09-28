@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { isParentMember } from '../../room/parent-kind.mjs'
 // 既存のsetup記録があるprojectだけを巡回する。npm導入からは呼ばない。
 import { existsSync, readdirSync, statSync, writeFileSync, appendFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -23,7 +24,7 @@ try {
       const state = readSetup(project)
       await ensureProjectRuntime(project, { aiterm })
       const members = await new RoomApi(state).members()
-      const missing = members.filter(member => member.delivery?.kind !== 'parent_watch' && (member.harness ?? member.vendor)
+      const missing = members.filter(member => !isParentMember(member) && (member.harness ?? member.vendor)
         && !findSeatSession(member, sessions, state.room))
       if (!missing.length) continue
       const lock = join(project, '.team', 'seat-revive.lock')

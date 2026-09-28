@@ -1,0 +1,520 @@
+{
+  "schema": "peertable.parent-live-case.v1",
+  "case_id": "win32/cursor/cli/audience",
+  "status": "passed",
+  "reasons": [],
+  "native": true,
+  "os": "win32",
+  "harness": "cursor",
+  "surface": "cli",
+  "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+  "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+  "package_version": "0.8.63",
+  "client_version": "0.8.63",
+  "package_tarball_sha256": "55f7f8789b24f4a316b9b67414b5e96a63a2422110085215dcb5b485c58e6fc6",
+  "harness_version": "2026.09.26-dd393fe",
+  "node_version": "v24.20.0",
+  "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+  "parent_process": {
+    "parent": 41816,
+    "pid": 59872,
+    "executable": "C:\\Users\\kite_\\AppData\\Local\\cursor-agent\\versions\\2026.09.26-dd393fe\\node.exe",
+    "command": "\"C:\\Users\\kite_\\AppData\\Local\\cursor-agent\\versions\\2026.09.26-dd393fe\\node.exe\" C:\\Users\\kite_\\AppData\\Local\\cursor-agent\\versions\\2026.09.26-dd393fe\\index.js --model auto --trust --approve-mcps --force",
+    "started": "2026-09-28T18:04:34.0854670Z"
+  },
+  "endpoint_id": "bd2b10ce-400d-4181-ba49-72e3edc6e4a8",
+  "room": "qa-cg",
+  "owner_input_required": false,
+  "isolation": {
+    "fixture": "dedicated room server + token file, dedicated private QA dir",
+    "home": "normal HOME/auth (no fake HOME)",
+    "harness_config": "project .cursor/.grok fixture hooks+MCP (no global connect)",
+    "install": "npm pack tarball installed with npm install --prefix; product room/client/hook run from the installed package",
+    "model": "Auto",
+    "permission": "--force --approve-mcps --trust"
+  },
+  "observations": [
+    {
+      "kind": "parent_join",
+      "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+      "turn_id": "7b004158-d12c-4fb4-9c1a-e9ce6a938114",
+      "tool_use_id": "a597ae38-e2da-4f00-b400-d0ed248aac3a",
+      "endpoint_id": "bd2b10ce-400d-4181-ba49-72e3edc6e4a8",
+      "caller_owner": {
+        "parent": 41816,
+        "pid": 59872,
+        "executable": "C:\\Users\\kite_\\AppData\\Local\\cursor-agent\\versions\\2026.09.26-dd393fe\\node.exe",
+        "command": "\"C:\\Users\\kite_\\AppData\\Local\\cursor-agent\\versions\\2026.09.26-dd393fe\\node.exe\" C:\\Users\\kite_\\AppData\\Local\\cursor-agent\\versions\\2026.09.26-dd393fe\\index.js --model auto --trust --approve-mcps --force",
+        "started": "2026-09-28T18:04:34.0854670Z"
+      },
+      "call_generation": "df8f9dfe-0e16-434d-a65f-773806c1cd6e"
+    },
+    {
+      "kind": "native_background_task_armed",
+      "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+      "turn_id": "7b004158-d12c-4fb4-9c1a-e9ce6a938114",
+      "task_id": "326765",
+      "task_pid": 71008,
+      "task_process_started": "2026-09-28T18:09:11.9147650Z",
+      "waiter_pid": 50576,
+      "waiter_started": "2026-09-28T18:09:12.4236450Z",
+      "runtime": "armed",
+      "task_id_transitions": [
+        "POSITIVE A seq 4 task 326762 -> 326763\r",
+        "POSITIVE D seq 5 task 326763 -> 326764\r",
+        "NEGATIVE X seq 6 (expect no delivery to bell)\r",
+        "POSITIVE M seq 7 task 326764 -> 326765\r",
+        "NEGATIVE S seq 8 (expect no delivery to bell)\r",
+        "STATE 326765\r"
+      ]
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "dm",
+      "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+      "turn_id": "891fe515-2eb3-4cc6-b313-aaa65d99edcd",
+      "seq": 5,
+      "delivery_id": "14e09a1a-371a-4e70-b4e2-d095075711f6",
+      "entry": {
+        "type": "native_task_output_file",
+        "task_id": "326763"
+      },
+      "boundary": {
+        "source": "cursor native background task output terminals/326763.txt",
+        "raw_body_equal": true
+      }
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "dm",
+      "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+      "turn_id": "891fe515-2eb3-4cc6-b313-aaa65d99edcd",
+      "seq": 5,
+      "reply_excerpt": "受信:\n[Peertable room=qa-cg from=worker to=\"bell\" seq=5]\n本文: QA-D-WCUR: 親だけ宛のDMです。符号 DM-WCUR\n[配送ID=14e09a1a-371a-4e70-b4e2-d095075711f6 digest=19fa1a6eb55c6c6d9580d21a0af7a529f292488d968b0f1872a4e9fba06"
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "multiple",
+      "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+      "turn_id": "e0307272-990c-488c-9b2e-34cae2e2f2da",
+      "seq": 7,
+      "delivery_id": "b7dcbcff-3c74-46ea-8b91-c94cb775ea73",
+      "entry": {
+        "type": "native_task_output_file",
+        "task_id": "326764"
+      },
+      "boundary": {
+        "source": "cursor native background task output terminals/326764.txt",
+        "raw_body_equal": true
+      }
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "multiple",
+      "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+      "turn_id": "e0307272-990c-488c-9b2e-34cae2e2f2da",
+      "seq": 7,
+      "reply_excerpt": "受信:\n[Peertable room=qa-cg from=worker to=[\"bell\",\"peer2\"] seq=7]\n本文: QA-M-WCUR: 親とpeer2宛の複数宛です。符号 MULTI-WCUR\n[配送ID=b7dcbcff-3c74-46ea-8b91-c94cb775ea73 digest=eda5f6301891ca3eee5259a57fcfbe70c81a435b7"
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "all",
+      "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+      "turn_id": "56b6e31b-0f5e-4793-b3c5-b1d19715f552",
+      "seq": 4,
+      "delivery_id": "68c98eb6-2391-4157-8fee-65841bc8a514",
+      "entry": {
+        "type": "native_task_output_file",
+        "task_id": "326762"
+      },
+      "boundary": {
+        "source": "cursor native background task output terminals/326762.txt",
+        "raw_body_equal": true
+      }
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "all",
+      "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+      "turn_id": "56b6e31b-0f5e-4793-b3c5-b1d19715f552",
+      "seq": 4,
+      "reply_excerpt": "受信:\n[Peertable room=qa-cg from=worker to=\"all\" seq=4]\n本文: QA-A-WCUR: 全員宛の確認です。符号 ALL-WCUR\n[配送ID=68c98eb6-2391-4157-8fee-65841bc8a514 digest=14b389913a7a9feef3cca91bbbdf4cc9d2091a7150f037c0dc5225c85d49"
+    }
+  ],
+  "receipts": [
+    {
+      "seq": 5,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "cursor_native_background_output",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    },
+    {
+      "seq": 7,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "cursor_native_background_output",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    },
+    {
+      "seq": 4,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "cursor_native_background_output",
+      "receipt_revision": 1,
+      "queued_submission_id": null,
+      "accepted_at": null
+    }
+  ],
+  "body_checks": [
+    {
+      "label": "dm",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WCUR: 親だけ宛のDMです。符号 DM-WCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WCUR: 親だけ宛のDMです。符号 DM-WCUR"
+      }
+    },
+    {
+      "label": "multiple",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WCUR: 親とpeer2宛の複数宛です。符号 MULTI-WCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WCUR: 親とpeer2宛の複数宛です。符号 MULTI-WCUR"
+      }
+    },
+    {
+      "label": "all",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WCUR: 全員宛の確認です。符号 ALL-WCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WCUR: 全員宛の確認です。符号 ALL-WCUR"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "dm",
+      "recipient": "bell",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WCUR: 親だけ宛のDMです。符号 DM-WCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WCUR: 親だけ宛のDMです。符号 DM-WCUR"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "bell",
+        "seq": 5,
+        "body": "QA-D-WCUR: 親だけ宛のDMです。符号 DM-WCUR",
+        "delivery_id": "14e09a1a-371a-4e70-b4e2-d095075711f6",
+        "digest": "19fa1a6eb55c6c6d9580d21a0af7a529f292488d968b0f1872a4e9fba06181e4",
+        "preview": false,
+        "order": 11,
+        "session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+        "turn_id": "891fe515-2eb3-4cc6-b313-aaa65d99edcd",
+        "boundary": {
+          "source": "cursor native background task output terminals/326763.txt",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "type": "native_task_output_file",
+          "task_id": "326763"
+        }
+      },
+      "reply": {
+        "session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+        "text": "受信:\n[Peertable room=qa-cg from=worker to=\"bell\" seq=5]\n本文: QA-D-WCUR: 親だけ宛のDMです。符号 DM-WCUR\n[配送ID=14e09a1a-371a-4e70-b4e2-d095075711f6 digest=19fa1a6eb55c6c6d9580d21a0af7a529f292488d968b0f1872a4e9fba06181e4]\n\n今回は私（`bell`）だけに宛てたDMだったよ。本文は背景待機の完了出力に全文そろっていて（`complete: true`）、それをそのまま貼った。`parent_read`でも回収したけど、本文の追加ページはなかった（`page: null`）。返ってきた入力で受信待機を張り直したから、また待つね。",
+        "order": 14,
+        "turn_id": "891fe515-2eb3-4cc6-b313-aaa65d99edcd",
+        "entry_uuid": null
+      },
+      "spool": {
+        "delivery_id": "14e09a1a-371a-4e70-b4e2-d095075711f6",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "cursor_native_background_output"
+      },
+      "receipt": {
+        "seq": 5,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "cursor_native_background_output",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      },
+      "tui_full_body_present": true
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "multiple",
+      "recipient": "bell",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WCUR: 親とpeer2宛の複数宛です。符号 MULTI-WCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WCUR: 親とpeer2宛の複数宛です。符号 MULTI-WCUR"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": [
+          "bell",
+          "peer2"
+        ],
+        "seq": 7,
+        "body": "QA-M-WCUR: 親とpeer2宛の複数宛です。符号 MULTI-WCUR",
+        "delivery_id": "b7dcbcff-3c74-46ea-8b91-c94cb775ea73",
+        "digest": "eda5f6301891ca3eee5259a57fcfbe70c81a435b7bf6f9eb17abdf4812003ac4",
+        "preview": false,
+        "order": 16,
+        "session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+        "turn_id": "e0307272-990c-488c-9b2e-34cae2e2f2da",
+        "boundary": {
+          "source": "cursor native background task output terminals/326764.txt",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "type": "native_task_output_file",
+          "task_id": "326764"
+        }
+      },
+      "reply": {
+        "session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+        "text": "受信:\n[Peertable room=qa-cg from=worker to=[\"bell\",\"peer2\"] seq=7]\n本文: QA-M-WCUR: 親とpeer2宛の複数宛です。符号 MULTI-WCUR\n[配送ID=b7dcbcff-3c74-46ea-8b91-c94cb775ea73 digest=eda5f6301891ca3eee5259a57fcfbe70c81a435b7bf6f9eb17abdf4812003ac4]\n\n今回は私（`bell`）と`peer2`の二人宛のメッセージだったよ。本文は背景待機の完了出力に全文そろっていて（`complete: true`）、それをそのまま貼った。`parent_read`でも回収したけど、本文の追加ページはなかった（`page: null`）。返ってきた入力で受信待機を張り直したから、また待つね。",
+        "order": 19,
+        "turn_id": "e0307272-990c-488c-9b2e-34cae2e2f2da",
+        "entry_uuid": null
+      },
+      "spool": {
+        "delivery_id": "b7dcbcff-3c74-46ea-8b91-c94cb775ea73",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "cursor_native_background_output"
+      },
+      "receipt": {
+        "seq": 7,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "cursor_native_background_output",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      },
+      "tui_full_body_present": true
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "all",
+      "recipient": "bell",
+      "original": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WCUR: 全員宛の確認です。符号 ALL-WCUR"
+      },
+      "received": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WCUR: 全員宛の確認です。符号 ALL-WCUR"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "qa-cg",
+        "from": "worker",
+        "to": "all",
+        "seq": 4,
+        "body": "QA-A-WCUR: 全員宛の確認です。符号 ALL-WCUR",
+        "delivery_id": "68c98eb6-2391-4157-8fee-65841bc8a514",
+        "digest": "14b389913a7a9feef3cca91bbbdf4cc9d2091a7150f037c0dc5225c85d49d827",
+        "preview": false,
+        "order": 6,
+        "session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+        "turn_id": "56b6e31b-0f5e-4793-b3c5-b1d19715f552",
+        "boundary": {
+          "source": "cursor native background task output terminals/326762.txt",
+          "raw_body_equal": true
+        },
+        "entry": {
+          "type": "native_task_output_file",
+          "task_id": "326762"
+        }
+      },
+      "reply": {
+        "session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+        "text": "受信:\n[Peertable room=qa-cg from=worker to=\"all\" seq=4]\n本文: QA-A-WCUR: 全員宛の確認です。符号 ALL-WCUR\n[配送ID=68c98eb6-2391-4157-8fee-65841bc8a514 digest=14b389913a7a9feef3cca91bbbdf4cc9d2091a7150f037c0dc5225c85d49d827]\n\n上の本文は、背景待機の完了出力に全文そろって入っていたもの（`complete: true`）をそのまま貼ったよ。`parent_read`でも回収したけど、本文の追加ページは返ってこなくて（`page: null`）、次の待機用の入力だけが返ってきた。その入力で受信待機を張り直したから、また待つね。",
+        "order": 9,
+        "turn_id": "56b6e31b-0f5e-4793-b3c5-b1d19715f552",
+        "entry_uuid": null
+      },
+      "spool": {
+        "delivery_id": "68c98eb6-2391-4157-8fee-65841bc8a514",
+        "state": "submitted",
+        "queued_submission_id": null,
+        "accepted_at": null,
+        "reason": "cursor_native_background_output"
+      },
+      "receipt": {
+        "seq": 4,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "cursor_native_background_output",
+        "receipt_revision": 1,
+        "queued_submission_id": null,
+        "accepted_at": null
+      },
+      "tui_full_body_present": true
+    }
+  ],
+  "negative_controls": [
+    {
+      "condition": "other_to_other_dm(worker->peer2)",
+      "seq": 6,
+      "room_delivery_keys": [
+        "peer2"
+      ],
+      "bell_in_room_deliveries": false,
+      "in_bell_spool": false,
+      "received_in_harness_record": 0,
+      "reply_mentions": 0
+    },
+    {
+      "condition": "parent_self_post(bell->all)",
+      "seq": 8,
+      "room_delivery_keys": [
+        "worker",
+        "peer2"
+      ],
+      "bell_in_room_deliveries": false,
+      "in_bell_spool": false,
+      "received_in_harness_record": 0,
+      "reply_mentions": 0
+    }
+  ],
+  "negative_controls_ok": true,
+  "tui_full_body_present": {
+    "dm": true,
+    "multiple": true,
+    "all": true
+  },
+  "native_task_records": [
+    {
+      "task_id": "326762",
+      "pid": "31952",
+      "status": "succeeded",
+      "started_at": "2026-09-28T18:05:26.038Z"
+    },
+    {
+      "task_id": "326763",
+      "pid": "24628",
+      "status": "succeeded",
+      "started_at": "2026-09-28T18:06:30.596Z"
+    },
+    {
+      "task_id": "326764",
+      "pid": "28540",
+      "status": "succeeded",
+      "started_at": "2026-09-28T18:07:36.964Z"
+    },
+    {
+      "task_id": "326765",
+      "pid": "71008",
+      "status": "running",
+      "started_at": "2026-09-28T18:09:11.911Z"
+    }
+  ],
+  "hook_events": {
+    "total": 26,
+    "nonzero_exit": 0,
+    "stdin_prefix_hex": [
+      "efbbbf7b"
+    ]
+  },
+  "task_output_reader": "model Read of the Cursor-saved terminals/<shell_id>.txt (native task output file) then parent_read",
+  "evidence_files": {
+    "state": "/private/tmp/claude-501/qa-cursor-grok/f-win-cursor/final-state.json",
+    "hook_events": "/private/tmp/claude-501/qa-cursor-grok/f-win-cursor/hook-events.jsonl",
+    "tui": "/private/tmp/claude-501/qa-cursor-grok/f-win-cursor/tui-scrollback.txt"
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "schema": "peertable.parent-product-native-snapshot-projection.v1",
+  "source_status": "UTF-8修理後の固定snapshotによるLONG 1通のnative idle観測。最終525件製品受入へ算入しない。",
+  "platform": "darwin",
+  "surface": "codex-cli-app-server",
+  "room": "parent-codex-6e386b7b-c2d9-448b-9ec2-b43cf801ad12",
+  "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+  "endpoint": "01144806-26fd-4b6a-9c0a-8b7664ebfdf4",
+  "runtime_digest": "3fc3484d597bd326539f4b102e346c8386562d35c2cdbfe7e5dbce0b46863161",
+  "snapshot": null,
+  "cli_version": null,
+  "node_version": null,
+  "idle_checks": [
+    {
+      "label": "beforeALL",
+      "at": "2026-09-28T15:34:27.087Z",
+      "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+      "status": {
+        "type": "idle"
+      }
+    },
+    {
+      "label": "beforeLONG",
+      "at": "2026-09-28T15:34:28.589Z",
+      "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+      "status": {
+        "type": "idle"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "label": "LONG",
+      "seq": 3,
+      "nonce": "PEERTABLE_PRODUCT_CODEX_LONG_acf64911-70fd-480d-9a3b-89aba91cc453",
+      "from": "probe",
+      "audience": "all",
+      "raw_equal": true,
+      "body_sha256": "5a0913af79aabeb616592ca19302da4d2e70015f3979f40f29b3b26940ce4e11",
+      "queue_body_sha256": "5a0913af79aabeb616592ca19302da4d2e70015f3979f40f29b3b26940ce4e11",
+      "unicode_codepoints": 36096,
+      "utf16_code_units": 40097,
+      "utf8_bytes": 104151,
+      "body": null,
+      "queued_submission_id": "01a0e8a7-3a2c-7c32-bbe4-ec593e1ea8d8",
+      "accepted_at": "2026-09-28T15:34:28.655Z",
+      "receipt": {
+        "state": "delivered",
+        "reason": "codex_queue_accepted",
+        "at": "2026-09-28T15:34:28.662Z",
+        "queued_submission_id": "01a0e8a7-3a2c-7c32-bbe4-ec593e1ea8d8",
+        "accepted_at": "2026-09-28T15:34:28.655Z",
+        "receipt_revision": 1
+      },
+      "reply": {
+        "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+        "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+        "text": "room観測データを受信しました。\n\n- 配送確認符号：`PEERTABLE_PRODUCT_CODEX_LONG_acf64911-70fd-480d-9a3b-89aba91cc453`\n- 送信者：`probe`\n- 宛先：`all`\n- seq：`3`\n- 配送ID：`9b32f0ca-c2ee-4d30-8e25-19e0a1b03fd6`"
+      },
+      "same_cid_new_turn": true,
+      "native_hooks": [
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609674,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609674,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609674,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609674,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609674,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609674,
+          "completed_at": 1790609674,
+          "duration_ms": 250
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609674,
+          "completed_at": 1790609674,
+          "duration_ms": 228
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609674,
+          "completed_at": 1790609674,
+          "duration_ms": 127
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609674,
+          "completed_at": 1790609674,
+          "duration_ms": 111
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8e04-7bd2-b93d-0da16943e04d",
+          "turn": "01a0e8a7-4f81-7a13-a32f-2516ea6664f1",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609674,
+          "completed_at": 1790609674,
+          "duration_ms": 318
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { parentRecipients } from '../../room/parent-kind.mjs'
 // Aitermの公開観測をroomの稼働表示と継続番犬へつなぐ。
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, writeFileSync, unlinkSync } from 'node:fs'
@@ -133,14 +134,7 @@ async function nudgeIfDropped(name, busySince) {
 // to:"all" は失効させない——親の待機宣言運用（起きても返信不要）と両立させるため。
 const PATROL_INTERVAL_MS = 30_000
 const PATROL_NAG_INTERVAL_MS = 300_000 // 条件が続く席へは5分間隔で再吠えする（1回きりにしない）
-// 通報先の親名は parent-watch の記録から読む（wakeup-bridge と同じ解決規則）
-const parentName = (() => {
-  if (process.env.PEERTABLE_PARENT_NAME) return process.env.PEERTABLE_PARENT_NAME
-  try {
-    const watch = JSON.parse(readFileSync(join(proj, '.team', 'parent-watch.json'), 'utf8'))
-    return typeof watch.parent === 'string' ? watch.parent : null
-  } catch { return null }
-})()
+// 通報先はroomの現在の親delivery.kindから解決する。
 const PATROL_ESCALATE_AFTER = 3 // 連続催促がこの回数に達したら親へ縮退疑いを1回通報する
 const patrolLastNag = new Map() // seat -> epoch_ms
 const patrolNagStreak = new Map() // seat -> 連続催促数（催促条件が消えたらリセット）
@@ -187,14 +181,19 @@ async function patrolClaims() {
     // 1時間催促を繰り返し、誰にも知られず空転した）。3回で親へ1回だけ通報する。
     // 親宛DMはparent-watchが即時に親を起こす
     if (streak >= PATROL_ESCALATE_AFTER && !patrolEscalated.has(seat)) {
-      patrolEscalated.add(seat)
       try {
-        await fetch(`${url}/api/${encodeURIComponent(room)}/messages`, {
+        const response = await fetch(`${url}/api/${encodeURIComponent(room)}/members`)
+        if (!response.ok) throw new Error(`members HTTP ${response.status}`)
+        const parents = parentRecipients((await response.json()).members)
+        if (!parents.length) throw new Error("PARENT_RECIPIENT_MISSING")
+        const posted = await fetch(`${url}/api/${encodeURIComponent(room)}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Peertable-Token': token } : {}) },
-          body: JSON.stringify({ from: 'alarm', to: parentName ?? 'bell',
+          body: JSON.stringify({ from: 'alarm', to: parents.length === 1 ? parents[0] : parents,
             body: `[縮退疑い] ${seat} は工程 ${task} を保有したまま、継続催促${streak}回に停止宣言も進捗も返していない。空返事ループの可能性が高い。席の再起動を検討すること` }),
         })
+        if (!posted.ok) throw new Error(`縮退通報 HTTP ${posted.status}`)
+        patrolEscalated.add(seat)
         console.error(`seat-status-bridge: 縮退疑いを親へ通報した（${seat} / ${task} / 催促${streak}回）`)
       } catch (e) {
         console.error(`seat-status-bridge: 縮退通報に失敗: ${e.message}`)

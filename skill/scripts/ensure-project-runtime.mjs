@@ -10,6 +10,7 @@ import { bridgeRecordLive } from './bridge-record-live.mjs'
 import { packageRoot } from './install-skill.mjs'
 import { projectPath, readSetup, readJson, runScript, fail } from './project-scaffold.mjs'
 import { runtimeLaunchCommand } from './runtime-launch-command.mjs'
+import { parentRuntimeStatus } from './parent-runtime.mjs'
 
 export const bridgeKinds = Object.freeze(['alarm', 'seat-status', 'wakeup'])
 export const bridgeSession = (project, room, kind) => `peertable-${kind}-${room}-${createHash('sha256').update(project).digest('hex').slice(0, 8)}`
@@ -73,7 +74,8 @@ export async function ensureProjectRuntime(project, options = {}) {
   try {
     const bridges = []
     for (const kind of bridgeKinds) bridges.push(await ensureBridge(project, kind, { ...options, aiterm }))
-    return { schema: 'peertable.runtime-result.v1', status: 'ready', bridges }
+    const parent = await parentRuntimeStatus(project, { restart: true })
+    return { schema: 'peertable.runtime-result.v1', status: parent.status, bridges, parent }
   } finally {
     if (!options.aiterm) await aiterm.close()
   }

@@ -1,0 +1,96 @@
+{
+  "diagnostic_only": true,
+  "product_live": false,
+  "source_commit": "4402c6cf761c668455527080c7ac831236b60256",
+  "parent_session": "01a0e9c0-73e3-7a73-bc79-0d4cc0c0d546",
+  "endpoint_id": "9d2d45d9-865a-44e3-94e2-a0ea32ac984b",
+  "owner": {
+    "pid": 60210,
+    "parent": 60192,
+    "started": "Tue Sep 29 05:41:55 2026",
+    "executable": "/Users/kite/.codex/packages/standalone/releases/0.155.1-aarch64-apple-darwin/bin/codex",
+    "command": "/Users/kite/.codex/packages/standalone/releases/0.155.1-aarch64-apple-darwin/bin/codex app-server --listen stdio://"
+  },
+  "watcher": {
+    "pid": 60192,
+    "parent": 59546,
+    "started": "Tue Sep 29 05:41:54 2026",
+    "executable": "/opt/homebrew/Cellar/node/26.10.0_1/bin/node",
+    "command": "/opt/homebrew/Cellar/node/26.10.0_1/bin/node /private/tmp/peertable-release-4402c6c/prefix/node_modules/peertable/skill/scripts/parent-watch.mjs /Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-fixed-deadline/native-fixtures/codex-b89017c2-de00-471e-8050-e8375a1fb00a/project fixture-76870bdd --deliver 9d2d45d9-865a-44e3-94e2-a0ea32ac984b"
+  },
+  "parent": {
+    "pid": 59477,
+    "parent": 59460,
+    "started": "Tue Sep 29 05:41:38 2026",
+    "executable": "/Users/kite/.codex/packages/standalone/releases/0.155.1-aarch64-apple-darwin/bin/codex",
+    "command": "/Users/kite/.local/bin/codex -c mcp_servers.peertable_parent.env_vars=[\"PEERTABLE_TOKEN_SOURCE_FILE\"] -c check_for_update_on_startup=false -c mcp_servers.peertable_parent.env_vars=[\"PEERTABLE_TOKEN_SOURCE_FILE\",\"NODE_OPTIONS\",\"PEERTABLE_DIAGNOSTIC_SPAWN_CONFIG\"]"
+  },
+  "receiver_check_hooks_request_at": "2026-09-28T20:41:54.797Z",
+  "first_probe_connection_suspended_at": "2026-09-28T20:41:55.124Z",
+  "probe_deadline": "2026-09-28T20:42:24.936Z",
+  "probe_failed_at": "2026-09-28T20:42:39.414Z",
+  "deadline_lag_ms": 14478,
+  "receiver_check_preceded_fault": true,
+  "first_probe_queue_add_issued": false,
+  "official_queue_accept_after_fault": [
+    {
+      "at": "2026-09-28T20:42:14.203Z",
+      "rows": [
+        {
+          "id": 2,
+          "result": {
+            "queuedSubmission": {
+              "id": "01a0e9c0-fd3a-7523-a9e7-6657a819fb77",
+              "input": [
+                {
+                  "type": "text",
+                  "text": "[Peertable room=codex-probe-diagnostic-392cce82-e9c0-4710-9291-778be966c253 from=system to=\"fixture-76870bdd\" seq=2]\n本文: fixture-76870bdd が参加した\n[配送ID=59dd4a15-5b61-44b2-a6a0-62989219ed3b digest=6f84efaf9a29cc884b21021e6376ef897af4a66b16b6702e29a5bad67644a55d]",
+                  "text_elements": []
+                }
+              ],
+              "clientUserMessageId": "59dd4a15-5b61-44b2-a6a0-62989219ed3b"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "at": "2026-09-28T20:42:14.282Z",
+      "rows": [
+        {
+          "id": 2,
+          "result": {
+            "queuedSubmission": {
+              "id": "01a0e9c0-fd8a-7611-973d-b5868382b6a5",
+              "input": [
+                {
+                  "type": "text",
+                  "text": "[Peertable room=codex-probe-diagnostic-392cce82-e9c0-4710-9291-778be966c253 from=peertable to=\"fixture-76870bdd\" seq=039976fb4191af11c7f8b9d62045347818820c97f34cc39c0790935c6237f957]\n本文: 親番犬を張り直した。room の親宛と工程件数を追従する。\n[配送ID=deed2955-44aa-4f95-b2bc-7d824cd1235e digest=34a20a2937d09482c25381c75697858710ef23fe9a06b0da12b1ec96171fba65]",
+                  "text_elements": []
+                }
+              ],
+              "clientUserMessageId": "deed2955-44aa-4f95-b2bc-7d824cd1235e"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "typed_failure": "PARENT_PROBE_TIMEOUT",
+  "room_health": {
+    "state": "failed",
+    "endpoints": [
+      {
+        "recipient": "fixture-76870bdd",
+        "endpoint_id": "9d2d45d9-865a-44e3-94e2-a0ea32ac984b",
+        "state": "failed",
+        "beat_at": "2026-09-28T20:42:39.324Z",
+        "detail": "{\"endpoint_id\":\"9d2d45d9-865a-44e3-94e2-a0ea32ac984b\",\"state\":\"failed\",\"error_code\":\"PARENT_PROBE_TIMEOUT\"}"
+      }
+    ]
+  },
+  "fixture_closed": true,
+  "server_gone": true,
+  "contract_30_seconds_passed": false,
+  "heartbeat_timing_inference": "停止接続17秒SIGTERM→約2秒retry後queue受付→次failed healthが約25秒後。SSE rawframe自体は保存していないため到着相関はコードと実時刻からの推論。"
+}

@@ -1,0 +1,14 @@
+{
+  "schema": "peertable.claude-stop-transcript.v1",
+  "platform": "darwin",
+  "session": "102a0c3d-350e-4623-8dd2-5e2cc2f94750",
+  "passed": true,
+  "replies": [
+    "初回",
+    "PEERTABLE_STOP_WAKE_1",
+    "PEERTABLE_STOP_WAKE_2"
+  ],
+  "hooks": [],
+  "hook_evidence": "保存済みの公開投影は同じsessionの返信のみ。親が観測したnative hook_responseのraw証拠はこの投影へ未回収。",
+  "native_hook_evidence_complete": false
+}

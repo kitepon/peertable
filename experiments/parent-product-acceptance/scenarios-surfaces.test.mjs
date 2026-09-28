@@ -1,0 +1,129 @@
+// 公式snapshot/readerの判定とOS起動だけをfocusedで確認する。実機合格の代用にはしない。
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir, homedir } from 'node:os'
+import { join } from 'node:path'
+import { nativeInvocation, grokControlledTaskEnd, createBackgroundSurfaceAdapters, resolveOfficialCli, assertNativeTaskRead } from './scenarios-surfaces.mjs'
+import * as platform from '../../skill/scripts/parent-platform.mjs'
+const { shellCommand } = platform
+
+const fixture = () => {
+  const output = '受信processの終了\n', id = 'own-task', session = 'own-session'
+  const snapshot = { task_id: id, owner_session_id: session, completed: true, explicitly_killed: true, output, output_file: '/own/output', output_total_bytes: Buffer.byteLength(output), exit_code: null, signal: 15 }
+  const seen = { tasks: [{ type: 'task_completed', task_id: id, session, order: 12, raw_output: snapshot }], toolUses: [
+    { id: 'cancel-use', name: 'kill_task', input: { task_id: id }, output: { 公式結果: '原値を保持' }, output_order: 13, order: 10, session },
+    { id: 'reader-use', name: 'get_command_or_subagent_output', input: { task_ids: [id] }, order: 14, session, output: { type: 'TaskOutput', Result: { task_id: id, status: 'completed', truncated: false, output, output_file: snapshot.output_file, raw_output_bytes: snapshot.output_total_bytes } } },
+  ] }
+  return { seen, request: { operation: 'cancel', id, session, before: 10 } }
+}
+
+test('Grok cancelは同taskの公式kill・明示取消snapshot・全量readerを全て照合する', () => {
+  const { seen, request } = fixture(), result = grokControlledTaskEnd(seen, request, { sameProcess: () => false })
+  assert.equal(result.outcome, 'cancel'); assert.equal(result.control.id, 'cancel-use'); assert.equal(result.reader_tool_use_id, 'reader-use'); assert.equal(result.output, seen.tasks[0].raw_output.output)
+  seen.tasks[0].raw_output.owner_session_id = '他会話'
+  assert.throws(() => grokControlledTaskEnd(seen, request, { sameProcess: () => false }), { code: 'ACCEPTANCE_GROK_NATIVE_TASK_OWNER' })
+})
+
+test('既に終了済みtaskや別task取消・短縮readerはcancel成功にしない', () => {
+  for (const mutate of [seen => { seen.tasks[0].raw_output.explicitly_killed = false }, seen => { seen.toolUses[0].input.task_id = '別task' }]) {
+    const { seen, request } = fixture(); mutate(seen)
+    assert.throws(() => grokControlledTaskEnd(seen, request, { sameProcess: () => false }), { code: 'ACCEPTANCE_GROK_CANCEL_NOT_OBSERVED' })
+  }
+  const { seen, request } = fixture(); seen.toolUses[1].input.timeout_ms = 1
+  assert.equal(grokControlledTaskEnd(seen, request, { sameProcess: () => false }), null)
+  delete seen.toolUses[1].input.timeout_ms; seen.toolUses[1].output.Result.output = '切詰め'
+  assert.throws(() => grokControlledTaskEnd(seen, request, { sameProcess: () => false }), { code: 'ACCEPTANCE_GROK_NATIVE_FULL_READ' })
+})
+
+test('Grok exitは取消と区別してown受信process消失と異常task終了を要求する', () => {
+  const { seen, request } = fixture(); request.operation = 'exit'; request.receiver_owner = { pid: 123, started: 'own-start' }; request.process_fault = { operation: 'SIGTERM', owner: request.receiver_owner }; seen.tasks[0].raw_output.explicitly_killed = false
+  assert.equal(grokControlledTaskEnd(seen, request, { sameProcess: () => false }).outcome, 'exit')
+  assert.throws(() => grokControlledTaskEnd(seen, request, { sameProcess: () => true }), { code: 'ACCEPTANCE_GROK_EXIT_NOT_OBSERVED' })
+  seen.tasks[0].raw_output.signal = null; seen.tasks[0].raw_output.exit_code = 0
+  assert.throws(() => grokControlledTaskEnd(seen, request, { sameProcess: () => false }), { code: 'ACCEPTANCE_GROK_EXIT_NOT_OBSERVED' })
+})
+
+test('取消後のready本文を検出して本文配送との混同を拒否できる', () => {
+  const { seen, request } = fixture(), output = JSON.stringify({ schema: 'peertable.parent-background-result.v1', outcome: 'ready' }) + '\n'
+  Object.assign(seen.tasks[0].raw_output, { output, output_total_bytes: Buffer.byteLength(output) })
+  Object.assign(seen.toolUses[1].output.Result, { output, raw_output_bytes: Buffer.byteLength(output) })
+  assert.equal(grokControlledTaskEnd(seen, request, { sameProcess: () => false }).delivered, true)
+})
+
+test('Windows起動はPowerShell7 EncodedCommandへspace/quote argvを閉じ、対話stdinを妨げない', () => {
+  const executable = "C:\\Program Files\\親'入口.ps1", argv = ['空白 引数', "quote'\"", '$env:HOME', '`literal']
+  const invocation = nativeInvocation(executable, argv, { platformName: 'win32', shellCommand, interactive: true })
+  assert.equal(invocation.executable, 'pwsh.exe'); assert.ok(!invocation.argv.includes('-NonInteractive'))
+  const script = Buffer.from(invocation.argv.at(-1), 'base64').toString('utf16le')
+  assert.ok(script.includes(shellCommand(executable, argv, 'win32')))
+  assert.ok(nativeInvocation(executable, argv, { platformName: 'win32', shellCommand }).argv.includes('-NonInteractive'))
+})
+
+test('POSIX起動はargv/env/cwd/stdinを実childへそのまま渡す', async () => {
+  const args = ['空白 引数', "quote'\"", '$HOME', '`literal']
+  const invocation = nativeInvocation(process.execPath, ['-e', "let input='';for await(const part of process.stdin)input+=part;console.log(JSON.stringify({args:process.argv.slice(1),cwd:process.cwd(),value:process.env.PEERTABLE_FIXTURE_LITERAL,input}));", ...args], { platformName: 'darwin', shellCommand, interactive: true })
+  const cwd = process.cwd(), child = spawn(invocation.executable, invocation.argv, { cwd, env: { ...process.env, PEERTABLE_FIXTURE_LITERAL: "値 $HOME ' \"" }, stdio: ['pipe', 'pipe', 'inherit'] })
+  let output = ''; child.stdout.on('data', part => { output += part }); child.stdin.end('日本語 stdin\n')
+  const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', resolve) })
+  assert.equal(code, 0); assert.deepEqual(JSON.parse(output), { args, cwd, value: "値 $HOME ' \"", input: '日本語 stdin\n' })
+})
+
+
+test('専用hook入口は実ファイルIOで確定行を読み、追記途中と壊れた確定行を区別する', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'peertable-surface-hook-')); t.after(() => rmSync(directory, { recursive: true, force: true }))
+  const adapters = await createBackgroundSurfaceAdapters({ pkg: process.cwd(), tokenFile: join(directory, 'token'), backgroundObserverFactory: () => { throw new Error('この試験では会話observerを起動しません') } })
+  for (const harness of ['cursor', 'grok']) {
+    const adapter = adapters[harness].bind({ directory, project: join(directory, 'project') })
+    const value = { event: { conversation_id: 'own', text: '原字面 日本語 &' }, stdout: '{}', code: 0 }
+    writeFileSync(adapter.hookFile, JSON.stringify(value) + '\n' + '{追記途中')
+    assert.deepEqual(adapter.hookEvents(), [value])
+    writeFileSync(adapter.hookFile, '{壊れた確定行}\n')
+    assert.throws(() => adapter.hookEvents(), { code: 'ACCEPTANCE_HOOK_EVENT_CORRUPT' })
+  }
+})
+
+test('通常導入の4公式CLIを正規pathと実version応答で解決する', () => {
+  for (const harness of ['claude', 'codex', 'cursor', 'grok']) {
+    const actual = resolveOfficialCli(harness, platform)
+    assert.ok(actual.executable); assert.ok(actual.version)
+    assert.ok(!/not found|error/iu.test(actual.version))
+  }
+})
+
+
+test('期限通知のCursor Readはown native taskファイルの全量に限定する', () => {
+  const project = '/専用 lease project', id = 'task', session = 'own', endpointId = 'endpoint', path = join(homedir(), '.cursor/projects', project.replace(/[^a-zA-Z0-9]+/gu, '-').replace(/^-+/u, ''), 'terminals', `${id}.txt`)
+  const reader = { id: 'read-use', session, name: 'Read', input: { path } }, read = { reader_tool_use_id: reader.id, session, result: { endpoint_id: endpointId }, output_file: path, raw_bytes: Buffer.from('元bytes') }
+  const options = { harness: 'cursor', id, session, endpointId, project, read, toolUses: [reader] }
+  assert.equal(assertNativeTaskRead(options), reader)
+  reader.input.limit = 1
+  assert.throws(() => assertNativeTaskRead(options), { code: 'ACCEPTANCE_CURSOR_NATIVE_FULL_READ' })
+  delete reader.input.limit; read.session = '他会話'
+  assert.throws(() => assertNativeTaskRead(options), { code: 'ACCEPTANCE_NATIVE_TASK_RESULT_OWNER' })
+})
+
+test('期限通知のGrok readerは同会話taskの完了snapshotと全文byte数を照合する', () => {
+  const { seen, request } = fixture(), reader = seen.toolUses[1], completed = seen.tasks[0]
+  const read = { session: request.session, reader_tool_use_id: reader.id, result: { endpoint_id: 'own-endpoint' }, raw_output: reader.output.Result }
+  const options = { harness: 'grok', ...request, endpointId: 'own-endpoint', project: '/専用', read, completed, toolUses: seen.toolUses }
+  assert.equal(assertNativeTaskRead(options), reader)
+  reader.input.timeout_ms = 1
+  assert.throws(() => assertNativeTaskRead(options), { code: 'ACCEPTANCE_GROK_NATIVE_FULL_READ' })
+  delete reader.input.timeout_ms; read.raw_output.raw_output_bytes += 1
+  assert.throws(() => assertNativeTaskRead(options), { code: 'ACCEPTANCE_GROK_NATIVE_FULL_READ' })
+})
+
+
+// 公式Windows Grok 1.0.41の5〜30秒保存画面。原保存ready-screen.txt SHA256 1a5560e2cd271d39a930fd13d897ecbac9336d16bf796ced89dfd309284de6a4
+const windowsGrok1041Screen = "\n  ≡ main ~/q/diag-startup/proj\n\n\n   ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮\n   │                                                                                                                │\n   │  Grok Build  1.0.41                                                                                            │\n   │                                                                                                                │\n   │  Grok 4.7 is here!                                                                                             │\n   │  Select 'Grok 4.7' under /model.                                                                               │\n   │                                                                                                                │\n   │  New worktree                                                                                          ctrl+w  │\n   │  Resume session                                                                                        ctrl+r  │\n   │  Changelog                                                                                                     │\n   │  Quit                                                                                                  ctrl+q  │\n   │                                                                                                                │\n   ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯\n\n\n\n\n\n   Tip: Try out workflows using /workflows.\n\n  ╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮\n  │ >                                                                                                                │\n  ╰─────────────────────────────────────────────────────────────────────────────── Grok 4.6 (high) · always-approve ─╯\n\n                                                                                                              [stable]"
+test('公式Windows Grok 1.0.41の罫線内の空promptをstartupとして判定する', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'peertable-grok-startup-')); t.after(() => rmSync(directory, { recursive: true, force: true }))
+  const adapters = await createBackgroundSurfaceAdapters({ pkg: process.cwd(), tokenFile: join(directory, 'token'), backgroundObserverFactory: () => { throw new Error('この試験ではobserverを起動しません') } })
+  const adapter = adapters.grok.bind({ directory, project: join(directory, 'project') })
+  assert.equal(/❯|›|>\s*$/mu.test(windowsGrok1041Screen), false)
+  assert.deepEqual(adapter.startup(windowsGrok1041Screen), { ready: true })
+  assert.equal(adapter.startup(windowsGrok1041Screen.replace(/Grok/gu, '別製品')), null)
+  assert.equal(adapter.startup(windowsGrok1041Screen.replace(/│ >[ \t]*│/u, '│ > 作業中の文字 │')), null)
+})

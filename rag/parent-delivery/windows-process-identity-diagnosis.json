@@ -1,0 +1,91 @@
+{
+  "schema": "peertable.windows-process-identity-diagnosis.v1",
+  "observed_at": "2026-09-28T22:36:42.066Z",
+  "source": "所有dummyと実Windows APIのraw記録。rootが原JSONと提案sourceを照合。",
+  "confidence": "実測。製品統合後の競合試験は別に必要。",
+  "formal_acceptance_credit": 0,
+  "platform": "win32",
+  "node": "v24.20.0",
+  "koffi": "3.3.2",
+  "elevated": true,
+  "precision": {
+    "cim_rows": 465,
+    "native_ok": 463,
+    "exact_100ns": 59,
+    "equal_after_truncate_us": 463,
+    "equal_after_round_us": 0,
+    "mismatch": [],
+    "open_failed": {
+      "OpenProcess:87": 2
+    },
+    "cim_last_digit_nonzero": 0,
+    "delta_ticks_hist": {}
+  },
+  "live": {
+    "pid": 47612,
+    "cim_started": "2026-09-28T22:36:42.8649470Z",
+    "native": {
+      "alive": true,
+      "waitResult": 258,
+      "started_100ns": "2026-09-28T22:36:42.8649472Z",
+      "started_us": "2026-09-28T22:36:42.8649470Z"
+    },
+    "equal_us": true,
+    "exact_100ns": false
+  },
+  "exited_held": {
+    "pid": 67708,
+    "held_handle_ok": true,
+    "wait0": 0,
+    "cim_row": "ABSENT",
+    "get_process": "Get-Process:ABSENT"
+  },
+  "exited_released": {
+    "ok": false,
+    "win32": 87,
+    "stage": "OpenProcess"
+  },
+  "pid_reuse": {
+    "pid": 50260,
+    "first_started": "2026-09-28T22:36:45.0345963Z",
+    "second_started": "2026-09-28T22:36:46.3259653Z",
+    "spawned": 816,
+    "native_says_first_is_same_as_second": false
+  },
+  "handles": {
+    "calls": 2000,
+    "handle_count_before": 201,
+    "handle_count_after": 202,
+    "closeHandle_returned_nonzero": true,
+    "GetHandleInformation_before_close": true,
+    "GetHandleInformation_after_close": false,
+    "win32_after_close": 6,
+    "closeHandleFailures": 0
+  },
+  "timing_ms": {
+    "native_mean_per_call": 0.0038,
+    "cim_via_pwsh_median": 386,
+    "cim_min": 380,
+    "cim_max": 524,
+    "ratio_cim_over_native": 102603
+  },
+  "implementation": "OpenProcessで取得した同一handleをGetProcessTimesとWaitForSingleObject(0)へ渡し、必ずCloseHandleする。FILETIMEをCIMの1µs切捨て・UTC7桁へ適合する。ERROR_INVALID_PARAMETERは終了、ACCESS_DENIEDとその他失敗はtyped error。",
+  "limitations": [
+    "実測は昇格済みprocessで行った。非昇格での実測は未実施。",
+    "採用する権限の組合せでACCESS_DENIEDを実機再現していない。拒否とその他API失敗はfake APIによるfocused testで区別した。",
+    "タイミングはこの端末の平均と中央値の対照。競合頻度や製品の配達速度を表さない。",
+    "提案の14試験は実機とfakeの混在。製品統合後の6process競合とCursor本文到達は未測定。"
+  ],
+  "primary_sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-openprocess",
+    "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocesstimes",
+    "https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject"
+  ],
+  "private_raw": "/private/tmp/claude-501/qa-cursor-grok/diag-980cbeb",
+  "fingerprints": {
+    "raw/winproc/result.json": "c2ebb61ad0c148cf729e53f84f89a07989dcdf0863fcbb3d43b987d27c835dad",
+    "raw/winproc/extra-elevated.json": "bed274fa4754af58ce6115cd1f9e7fe29855e1bcd5df515cf03c2ac8bb5d03b6",
+    "raw/winproc/proposal-test-result.json": "a86ec0f8043ffeabdf8f000735ba9c7862118b9278eb8883363223753ad9b664",
+    "controllers/winproc/parent-windows-process.proposal.mjs": "8ad77bc4853ba91d96d8ffdad7b96cd6589653946a414a354afe781c82465232"
+  }
+}

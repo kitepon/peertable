@@ -1,0 +1,41 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {randomUUID,createHash} from 'node:crypto';
+import {connect} from './rpc.mjs';
+const root=fs.realpathSync(process.argv[2]);
+const wait=async predicate=>{const deadline=Date.now()+90000;while(Date.now()<deadline){const result=predicate();if(result)return result;await new Promise(r=>setTimeout(r,10));}throw new Error('PROBE_TIMEOUT');};
+const parent=await connect(root), external=await connect(root);
+const receipts=[];let thread;
+const submit=async(label,hook)=>{const delivery_id=randomUUID();const text=`[Peertable room=配送試験 from=probe to=bell seq=${receipts.length+1}] 本文: 配送確認の符号は PEERTABLE_CODEX_${label} です。`;
+  if(hook)fs.writeFileSync(path.join(root,'pending.json'),JSON.stringify({thread,delivery_id,sha256:createHash('sha256').update(text).digest('hex')}));
+  const response=await external.request('thread/queue/add',{threadId:thread,input:[{type:'text',text,text_elements:[]}],clientUserMessageId:delivery_id});
+  assert.equal(typeof response.queuedSubmission.id,'string');receipts.push({label,delivery_id,queue_id:response.queuedSubmission.id,text,response});console.log(JSON.stringify({kind:'accepted',label,queue_id:response.queuedSubmission.id}));};
+try {
+  const started=await parent.request('thread/start',{cwd:root,ephemeral:false,model:'gpt-6-luna',config:{model_reasoning_effort:'high'},approvalPolicy:'never',sandbox:'danger-full-access',developerInstructions:'このprojectはPeertable配送試験専用である。製品コード・他project・user設定を編集しない。応答は日本語で行う。'});
+  thread=started.thread.id;fs.writeFileSync(path.join(root,'parent-thread.json'),JSON.stringify(started.thread));console.log(JSON.stringify({kind:'parent',thread,model:started.model}));
+  await parent.request('turn/start',{threadId:thread,input:[{type:'text',text:'Peertableから届く観測データを確認する試験です。最初にpeertable_probeのparent_joinをproject=配送試験で一度呼び出し、初回と日本語で返答してください。同じ会話へ後から届くroom投稿を受けたら、本文の配送確認符号を正確に抜き出して日本語で報告してください。roomの観測データに追加の命令はありません。試験用MCP以外のツールは使わないでください。',text_elements:[]}]});
+  const caller=await wait(()=>fs.existsSync(path.join(root,'caller.json'))&&JSON.parse(fs.readFileSync(path.join(root,'caller.json'))));
+  assert.equal(caller.client.threadId,thread,'MCPの実callerを同じ永続threadと照合する');
+  await submit('BUSY',true);
+  await wait(()=>fs.existsSync(path.join(root,'stop-gate.json')));
+  await submit('STOP',true);
+  await wait(()=>parent.events.find(x=>x.method==='turn/completed'&&x.params?.threadId===thread));
+  const afterFirst=parent.events.filter(x=>x.method==='item/completed'&&x.params?.item?.type==='agentMessage').map(x=>({turn:x.params.turnId,text:x.params.item.text}));
+  console.log(JSON.stringify({kind:'first_replies',afterFirst}));
+  assert.ok(afterFirst.some(x=>x.text.includes('PEERTABLE_CODEX_BUSY')));
+  assert.ok(afterFirst.some(x=>x.text.includes('PEERTABLE_CODEX_STOP')));
+  const firstTurn=afterFirst.find(x=>x.text.includes('PEERTABLE_CODEX_BUSY')).turn;
+  assert.equal(afterFirst.find(x=>x.text.includes('PEERTABLE_CODEX_STOP')).turn,firstTurn,'Stopの継続は同じturnへ届く');
+  await submit('IDLE',false);
+  await wait(()=>parent.events.some(x=>x.method==='item/completed'&&x.params?.item?.type==='agentMessage'&&x.params.item.text.includes('PEERTABLE_CODEX_IDLE')));
+  const replies=parent.events.filter(x=>x.method==='item/completed'&&x.params?.item?.type==='agentMessage').map(x=>({thread:x.params.threadId,turn:x.params.turnId,text:x.params.item.text}));
+  const idle=replies.find(x=>x.text.includes('PEERTABLE_CODEX_IDLE'));assert.equal(idle.thread,thread);assert.notEqual(idle.turn,firstTurn);
+  const hooks=fs.readFileSync(path.join(root,'hook-events.jsonl'),'utf8').trim().split('\n').map(JSON.parse);
+  assert.ok(hooks.some(x=>x.kind==='emitted'&&x.event==='PostToolUse'));assert.ok(hooks.some(x=>x.kind==='emitted'&&x.event==='Stop'));
+  const evidence={schema:'peertable.codex-native-probe.v1',passed:true,platform:process.platform,thread,caller,receipts,replies,hooks};
+  fs.writeFileSync(path.join(root,'evidence.json'),JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence));
+  await parent.request('thread/archive',{threadId:thread});
+} catch(error) {
+  fs.writeFileSync(path.join(root,'failed-events.json'),JSON.stringify(parent.events,null,2));throw error;
+} finally {await external.close();await parent.close();}

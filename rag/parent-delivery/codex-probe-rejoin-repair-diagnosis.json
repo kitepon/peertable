@@ -1,0 +1,48 @@
+{
+  "schema": "peertable.parent-probe-rejoin-repair-diagnosis.v1",
+  "source_commit": "c97b431cbcb75e07a45cc17de6d688442b736af3",
+  "runtime_digest": "ddaadee7f33139c2a7ea8d08b36d87446b3221b85c817b9a3e1afff34193186f",
+  "pack_sha256": "823336e4397dabc77001d03dc57089822e1b3e48fbd2b4248623323007796329",
+  "product_live": false,
+  "formal_acceptance_credit": 0,
+  "root_raw_audit": true,
+  "controller_factory_git_blob": "e8de1ec:experiments/parent-product-acceptance/scenarios-fixtures.mjs",
+  "controller_factory_exact": true,
+  "parent_session": "01a0e9ed-92a4-7dd2-9926-f008f2f1e15e",
+  "endpoint_id": "3c149bd3-559a-4007-83d8-c4ed84c442b6",
+  "old_probe_id": "3c5cd81d-74e0-4727-ad7a-c064128846f5",
+  "new_probe_id": "2453117f-639c-415c-ba4c-106b60226be3",
+  "old_failed_body_and_state_preserved": true,
+  "new_probe_literal_complete": true,
+  "subsequent_dm_body_exact": true,
+  "subsequent_dm_receipt": "delivered",
+  "final_health": {
+    "state": "up",
+    "endpoints": [
+      {
+        "recipient": "fixture-2a9c881a",
+        "endpoint_id": "3c149bd3-559a-4007-83d8-c4ed84c442b6",
+        "state": "armed",
+        "beat_at": "2026-09-28T21:32:21.040Z",
+        "detail": "{\"endpoint_id\":\"3c149bd3-559a-4007-83d8-c4ed84c442b6\",\"state\":\"verified\",\"error_code\":null}"
+      }
+    ]
+  },
+  "cleanup": {
+    "fixture_closed": true,
+    "server_gone": true,
+    "errors": []
+  },
+  "limitations": [
+    "診断用の既存spawn observerを使用し、新正式adapterの実機合格には算入しない",
+    "診断sourceはWindows CIの保存エラーが残り正式受入を保留"
+  ],
+  "private_raw": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-c97/",
+  "fingerprints": {
+    "result.json": "f553bc135019e802da67d2ed56540d18a8c6d291991ca20f3647f9a954830318",
+    "own-transcript.jsonl": "7e19864caf0b57b3cf45c98a3a773b33600447a4c31bc9d808c82e4637fc8288",
+    "factory-at-start.mjs.txt": "3ba297bb65ec16a4b94164df4c748dcb965d0b5ba56b3b6dcf277150e2edda8f",
+    "diagnostic-summary.json": "ab347c70816f95e961e66e4ff1ceedf3e4c2377323274b97ec46574130e47f0a",
+    "rpc-os-raw.jsonl": "d7a0e5060c75e47e47d557ffc3df83b174dd6deca5462775d71146c3f4f2c2e2"
+  }
+}

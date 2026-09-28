@@ -1,0 +1,83 @@
+{
+  "schema": "peertable.codex-native-probe.v1",
+  "passed": true,
+  "platform": "win32",
+  "thread": "01a0e85a-9f6e-7581-9eab-c79e34512dfe",
+  "caller": {
+    "threadId": "01a0e85a-9f6e-7581-9eab-c79e34512dfe",
+    "name": "parent_join"
+  },
+  "receipts": [
+    {
+      "label": "BUSY",
+      "delivery_id": "6f215fb9-7929-4cf5-9bdc-0f06edbd4d8f",
+      "queue_id": "01a0e85b-02d6-7053-915d-9fde83c41604",
+      "text": "[Peertable room=配送試験 from=probe to=bell seq=1] 本文: 配送確認の符号は PEERTABLE_CODEX_BUSY です。"
+    },
+    {
+      "label": "STOP",
+      "delivery_id": "4c14e213-cc92-4e9d-a70b-1caa8ba32f87",
+      "queue_id": "01a0e85b-599e-7ff3-901a-bcabf138d037",
+      "text": "[Peertable room=配送試験 from=probe to=bell seq=2] 本文: 配送確認の符号は PEERTABLE_CODEX_STOP です。"
+    },
+    {
+      "label": "IDLE",
+      "delivery_id": "14674774-b351-4c9a-ae0e-8f811e50c9b1",
+      "queue_id": "01a0e85b-85a8-7bc2-831c-42301d0d403b",
+      "text": "[Peertable room=配送試験 from=probe to=bell seq=3] 本文: 配送確認の符号は PEERTABLE_CODEX_IDLE です。"
+    }
+  ],
+  "replies": [
+    {
+      "thread": "01a0e85a-9f6e-7581-9eab-c79e34512dfe",
+      "turn": "01a0e85a-a0cd-7013-b332-cf05fca8a482",
+      "text": "初回の`parent_join`を`project=配送試験`で呼び出し、届いたroom投稿から配送確認符号をそのまま抜き出して日本語で報告します。試験用MCPだけを使います。"
+    },
+    {
+      "thread": "01a0e85a-9f6e-7581-9eab-c79e34512dfe",
+      "turn": "01a0e85a-a0cd-7013-b332-cf05fca8a482",
+      "text": "親登録は完了しました。配送確認符号としてroom投稿に含まれていた`PEERTABLE_CODEX_BUSY`を受け取りました。後続投稿も待ち受けられる試験用MCPの入口を確認します。"
+    },
+    {
+      "thread": "01a0e85a-9f6e-7581-9eab-c79e34512dfe",
+      "turn": "01a0e85a-a0cd-7013-b332-cf05fca8a482",
+      "text": "初回の`parent_join`を`project=配送試験`で呼び出し、親登録が完了しました。room投稿から抜き出した配送確認符号は **`PEERTABLE_CODEX_BUSY`** です。後続のroom投稿が届いたら、本文の符号を正確に報告します。"
+    },
+    {
+      "thread": "01a0e85a-9f6e-7581-9eab-c79e34512dfe",
+      "turn": "01a0e85a-a0cd-7013-b332-cf05fca8a482",
+      "text": "room投稿（seq=2）の配送確認符号は **`PEERTABLE_CODEX_STOP`** です。"
+    },
+    {
+      "thread": "01a0e85a-9f6e-7581-9eab-c79e34512dfe",
+      "turn": "01a0e85b-ab42-7290-8cf0-c32b125bccb1",
+      "text": "room投稿（seq=3）の配送確認符号は **`PEERTABLE_CODEX_IDLE`** です。"
+    }
+  ],
+  "hooks": [
+    {
+      "kind": "emitted",
+      "session_id": "01a0e85a-9f6e-7581-9eab-c79e34512dfe",
+      "turn_id": "01a0e85a-a0cd-7013-b332-cf05fca8a482",
+      "queue_id": "01a0e85b-02d6-7053-915d-9fde83c41604",
+      "event": "PostToolUse",
+      "value": {
+        "hookSpecificOutput": {
+          "hookEventName": "PostToolUse",
+          "additionalContext": "[Peertable room=配送試験 from=probe to=bell seq=1] 本文: 配送確認の符号は PEERTABLE_CODEX_BUSY です。"
+        }
+      }
+    },
+    {
+      "kind": "emitted",
+      "session_id": "01a0e85a-9f6e-7581-9eab-c79e34512dfe",
+      "turn_id": "01a0e85a-a0cd-7013-b332-cf05fca8a482",
+      "queue_id": "01a0e85b-599e-7ff3-901a-bcabf138d037",
+      "event": "Stop",
+      "value": {
+        "decision": "block",
+        "reason": "[Peertable room=配送試験 from=probe to=bell seq=2] 本文: 配送確認の符号は PEERTABLE_CODEX_STOP です。"
+      }
+    }
+  ]
+}

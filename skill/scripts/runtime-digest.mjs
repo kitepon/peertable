@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
-import { dirname, join, relative } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+export function runtimeDigest() {
 const root = dirname(fileURLToPath(import.meta.url))
 const files = []
 function walk(dir) {
@@ -14,6 +15,7 @@ function walk(dir) {
   }
 }
 walk(root)
+for (const name of ['client.mjs', 'parent-client.mjs', 'parent-kind.mjs']) files.push(join(root, '../../room', name))
 files.sort((a, b) => relative(root, a).localeCompare(relative(root, b), 'en'))
 const hash = createHash('sha256')
 for (const file of files) {
@@ -22,4 +24,6 @@ for (const file of files) {
   hash.update(readFileSync(file))
   hash.update('\0')
 }
-process.stdout.write(hash.digest('hex'))
+return hash.digest('hex')
+}
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.stdout.write(runtimeDigest())

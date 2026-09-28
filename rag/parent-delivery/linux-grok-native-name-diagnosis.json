@@ -1,0 +1,45 @@
+{
+  "product_live": false,
+  "base_source": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+  "base_module_sha256": "89e92694bc95e8b08f8af7877612f533312b2b1b153fb979fd2cc12a60d6ffc9",
+  "overlay_module_sha256": "bf5d4539ebb68651e3f15c45f352f80f697452603843ac8eeef1e4199aa24174",
+  "overlay_source": "aiterm-unified-delivery worktree 13a506f (uncommitted skill/scripts/parent-platform.mjs)",
+  "overlay_note": "私物copy(/tmp/qa-017/overlay)へ1module overlay。install/global/共有設定には触れない",
+  "at": "2026-09-28T20:22:42.826Z",
+  "live_grok_pid": 256026,
+  "identity": {
+    "pid": 256026,
+    "parent": 256025,
+    "started": "0ab63c2c-462b-4839-98b2-057f138353d6:34864100",
+    "executable": "/home/kite/.grok/downloads/grok-1.0.41-linux-x86_64",
+    "command": "grok --always-approve "
+  },
+  "exe_now": "/home/kite/.grok/downloads/grok-1.0.41-linux-x86_64",
+  "processHarness": "grok",
+  "harnessProcess_grok_owner": {
+    "pid": 256026,
+    "parent": 256025,
+    "started": "0ab63c2c-462b-4839-98b2-057f138353d6:34864100",
+    "executable": "/home/kite/.grok/downloads/grok-1.0.41-linux-x86_64",
+    "command": "grok --always-approve "
+  },
+  "owner_same_pid_start": true,
+  "owner_executable": "/home/kite/.grok/downloads/grok-1.0.41-linux-x86_64",
+  "negatives": {
+    "other harness claude from grok pid": null,
+    "diagnostic node process (not grok descendant)": {
+      "typed_error": "PARENT_PROCESS_API_FAILED",
+      "message": "PID 255627: EACCES: permission denied, readlink '/proc/255627/exe'"
+    }
+  },
+  "name_table": {
+    "grok-1.0.41-linux-x86_64": "grok",
+    "grok-linux-x86_64": "grok",
+    "grok-1.0.40-linux-x86_64": "grok",
+    "grok-9.9.9-freebsd-x86_64": null,
+    "grok-1.0-linux-x86_64": null,
+    "grok-1.0.41-linux-arm64": null,
+    "grok-x-linux-x86_64": null,
+    "grokbot-linux-x86_64": null
+  }
+}

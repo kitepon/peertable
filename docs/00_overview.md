@@ -8,6 +8,7 @@ Peertableは単独cloneで動作し、自身のsource、state、schema、着席�
 - [AGENTS.md](../AGENTS.md) — 開発、文書寿命、releaseの製品規約。
 - [skill/SKILL.md](../skill/SKILL.md) — install、setup、resume、teardownと円卓運用の正規入口。
 - [docs/current-design.md](current-design.md) — 製品境界、正本、協働、配送、runtime、releaseの現行設計契約。
+- [rag/parent-delivery/receivers.md](../rag/parent-delivery/receivers.md) — 親の公式受信口の一次資料・実測・受入目録への入口。
 - [deploy/README.md](../deploy/README.md) — room本番のreleaseとrollback。
 - [skill/02_models.snapshot.md](../skill/02_models.snapshot.md) — provenance付き着席配置の製品内既定値。外部表は明示opt-in時だけ使う。
 
@@ -22,6 +23,9 @@ Peertableは単独cloneで動作し、自身のsource、state、schema、着席�
 
 ## 検証
 
+- 親配送focused test: `node --test skill/scripts/parent-delivery.test.mjs room/parent-client.test.mjs`
+- 親配送実機gate: `npm run verify:parent-delivery`。実行面とscenarioは生成目録、結果は`rag/parent-delivery/product-acceptance.json`が正本。
+- 親接続: `peertable connect --target claude|codex|grok|cursor`。実会話の`parent_join`後に`peertable diagnostics <project>`で耳疎通と現在の受信継続を確認する。
 - runtime contract: `node --test skill/scripts/runtime-contract.test.mjs`
 - 着席配置: `node experiments/seat-placement-repro.mjs`
 - package gate: `npm pack --dry-run` と `npm run prepublishOnly`

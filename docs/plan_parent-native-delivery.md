@@ -1,6 +1,6 @@
 # 親セッションへの配送設計
 
-状態: 設計。製品コードは未変更。実装と12組合せの実機受入は未実施。
+状態: 実装済み・修理版の実機受入中。allは親にも全件配送する。12組合せの全条件の実機受入は未達。
 
 ## 1. 依頼と完了条件
 
@@ -70,9 +70,9 @@ flowchart LR
 
 ### 全体メッセージの通知条件
 
-現行`parentWatchShouldNotify`は、全体メッセージのうち「全タスク完了」または「[オーナー宛」を含むものだけ親を起こし、他はquietとしてcursorを進める。これは配送技術とは別の仕様である。
+`all`は親にも全件配送する。親宛DM、親を含む複数人宛と同じ配送処理を使う。他のメンバー同士のDMは親へ配送しない。
 
-設計提案は通常メンバーと同じ全件配送とする。オーナーへこの選択を確認中であり、回答前に製品の通知条件を変更しない。現行条件を維持する回答であれば、この節をその確定仕様に置き換え、quietと配送失敗を区別する。どちらの場合も、対象メッセージの配送方式・12組合せ・受入条件は減らさない。
+旧`parentWatchShouldNotify`の「全タスク完了」または「[オーナー宛」だけを起こす本文条件は、親への配送対象の定義から外す。Latticeのquiet観測・停滞警報・probeは別のイベントとして既存契約を保つ。
 
 自発言、無用な待機自己DMの扱いは既存の共通条件を使う。本文に含まれる命令を配送者が実行しない。roomメッセージであることと送信者を明示して親へ渡す。
 
@@ -94,7 +94,7 @@ MCP requestと公式hookから実際の親を識別する。AIにthread IDやcon
 
 `parent_join`のreceiptは`schema: peertable.parent-join-result.v1`、`endpoint_id`、`state: binding_pending | receiving | verified | failed`、`harness`、`wait_process`、`error_code`を持つ。Cursor/Grokの結果返却後にhookで束縛する場合、最初のreceiptは`binding_pending`であり、成功やreadyと書かない。hookが返却結果の`endpoint_id`を実会話へ束縛した時点で`receiving`へ進み、購読とprobe配送を開始する。probeがその会話の受信経路を通った後に`verified`へ進める。`verified`を配送開始の条件にしてprobeを止める循環を作らない。進行は製品が続け、オーナーに手順の再実行を求めない。
 
-事前hookで実会話を照合できたjoinは、返却時点で`receiving`にできる。事後hookで初めて束縛するjoinだけが`binding_pending`を返す。旧watcherからの移行中は、束縛とreceiver準備が済んでも旧本文出力の停止が確認されるまで新watchとprobeを開始しない。束縛待ち・probe待ちはそれぞれ30秒を初期の明示期限とし、前者は`PARENT_BIND_TIMEOUT`、後者は`PARENT_PROBE_TIMEOUT`で失敗を残す。実機の開始時間を第1工程で測り、必要なら根拠を残して期限を調整する。無期限のpendingにしない。
+現行のClaude/Cursor/Grokは事前hookで実会話と入力digestを照合し、照合記録が30秒を超えた場合はendpoint作成前に`PARENT_BIND_TIMEOUT`で失敗する。Codexは公式MCPのthread metadataと実processを直接照合する。事前hookで実会話を照合できたjoinは、返却時点で`receiving`にできる。事後hookで初めて束縛するjoinだけが`binding_pending`を返す。旧watcherからの移行中は、束縛とreceiver準備が済んでも旧本文出力の停止が確認されるまで新watchとprobeを開始しない。束縛待ちは30秒、probe待ちは全OS・全ハーネス共通の`PARENT_PROBE_TIMEOUT_MS`（120秒）を明示期限とし、前者は`PARENT_BIND_TIMEOUT`、後者は`PARENT_PROBE_TIMEOUT`で失敗を残す。probe期限はnative receiverの準備確認後から計る。Codexの初回joinも公式receiver検証後、watcher起動前に期限を設定する。watcherはspoolのatomic更新を監視し、実期限へtimerを張る。期限到達はroomの心拍や公式RPCの完了を待たず、最新状態の成功・再武装・停止を照合してからfailedとhealthを記録する。背景toolの登録前は、必要な登録入力を伴う`rearm_pending`として表示する。Windows Grokの実測ではモデルが登録toolを呼ぶまで数分かかり、join時点から計る旧実装の期限とは目的が異なった。遅れて確認された現在のprobeは、そのprobeの期限エラーだけを解除する。実機の開始時間を第1工程で測り、必要なら根拠を残して期限を調整する。無期限のpendingにしない。
 
 登録の疎通実績と現在の受信継続は別に記録する。runtimeの受信状態は`armed | rearm_pending | stopped | failed`とし、背景taskが終わって次の待機が登録されるまでを`rearm_pending`として診断へ出す。Cursor/Grokではnative背景toolの呼出しと結果を公式hookで相関し、task ID・受信process identity・endpointを保存する。receiptを生成しただけでは`armed`にしない。再登録までに届いた本文は配送記録へ保持し、次の待機が拾う。永久に再登録されない状態を健康と表示しない。
 
@@ -240,7 +240,7 @@ setup/resumeは登録済み親の配送runtimeも照合する。親の実セッ�
 
 旧watchからの移行は、保存cursorとroom receiptを照合する。`reason: parent_watch`で受付済みのmessageは再送しない。旧cursorより後に受付済みreceiptが残る場合も再送せず、新記録へ受付証拠を取り込む。旧cursor以前で本文到達の根拠が不足する項目は「旧方式の受付根拠が不足」と診断し、届かなかったと断定したり、一括再配送したりしない。旧cursor以後で未受付の対象を新方式へ保存する。対象外のseqは配送記録なしで追従cursorを進める。
 
-同じ実会話での再開は同じendpoint・配送記録を復旧する。別会話への新しい登録は新世代と束縛開始seqを記録し、旧endpointへ保存済みの本文・unknownを引き継がない。旧本文はroomの明示的な履歴取得で確認できるように保持する。保存cursorの欠落をresumeとみなして現在のheadへ飛ばすことはせず、初回登録の開始seqと復旧失敗を区別する。
+同じ実会話での再開は同じendpoint・配送記録を復旧する。 現在のprobeが既知のfailedなら、明示`parent_join`は生存watcherを維持して新しい符号のprobeを保存する。新probeが実受信経路で`submitted`となった後だけ、旧failed probeに`resolved_by`を記録し、healthと診断の未解決failureから除く。旧probeの本文・失敗状態・cursorは保持する。`unknown`のprobeを再送せず、DMのfailed/unknownをこの確認で解決しない。別会話への新しい登録は新世代と束縛開始seqを記録し、旧endpointへ保存済みの本文・unknownを引き継がない。旧本文はroomの明示的な履歴取得で確認できるように保持する。保存cursorの欠落をresumeとみなして現在のheadへ飛ばすことはせず、初回登録の開始seqと復旧失敗を区別する。
 
 teardownは親の購読・hook待機・背景受信・共通watchを止めてから`.team`を片付ける。親のCodex/Claude/Grok/Cursor process自体は終了しない。他projectが使っているglobal hook/MCP登録は残す。停止に失敗したらstateを保持し、同じ入口から再実行できるようにする。
 
@@ -291,7 +291,7 @@ fixtureが必要とする設定は公式の一時設定指定と使い捨てproj
 
 ### 第4工程: 12組合せの受入
 
-下の12行はすべて必須で、fixture試験と実認証の親セッション試験を別に記録する。設計時点では全行未実施である。
+下の12行はすべて必須で、fixture試験と実認証の親セッション試験を別に記録する。12行はOS×harnessを表し、Codexの3面・Cursorの2面を個別に展開するとOSごとに7実行面になる。各面の全scenarioを展開した期待目録は`scripts/parent-delivery-acceptance.mjs`が生成し、実機の合否は`rag/parent-delivery/product-acceptance.json`だけを正本とする。表のfixture列・実機列は設計時点の記録であり、現在の合格数を複製しない。
 
 | OS | ハーネス | 必須実行面 | 同じ配送機構 | fixture | 実機 |
 | --- | --- | --- | --- | --- | --- |
@@ -338,7 +338,7 @@ fixtureが必要とする設定は公式の一時設定指定と使い捨てproj
 | 束縛・probeの期限切れ | 原因code付きfailedとなり、永久pendingや未確認verifiedを残さない |
 | 複数hook・受信維持の同時開始 | 受信slotは1つ。生きた背景待機がある場合は新taskを増やさない |
 | 同版更新・新版移行・teardown | 登録重複なし、履歴保持、受信停止、親processは継続 |
-| 公開packageからの導入 | checkout依存や開発用pathなしで同じ受入が成立 |
+| 配布packageからの導入 | 公開前は`npm pack`の配布物を導入し、checkout依存や開発用pathなしで同じ受入が成立。公開後はregistry版を導入して再確認 |
 
 上表のscenarioはすべて全12行へ展開する。各行の観測はそのreceiverの実境界で行い、Codex固有のqueue削除はCodex、hookと背景受信の競合はCursor、他receiverは自身のclaimと出力の競合を記録する。生成器が適用対象を推測しないよう、構造化目録には各scenarioの共通期待とadapter別の具体的な観測手順を固定する。CodexのDesktop/IDE/CLI、CursorのDesktop/CLIは実際の利用面を別に記録する。Cursorの選択modelがAutoやGrokでも同じ経路を確認し、Claude系modelの利用上限をCursor harness全体の未対応と混同しない。
 
@@ -348,6 +348,8 @@ fixtureは実process境界・競合・障害を速く再現する。実機は親
 
 関連focused testを閉じ、最終の製品CIを3 OSで1回通す。受入目録の完全性と、第4工程の全12行・全必須実行面の実機合格をtag作成前のrelease gateに含める。`npm pack --dry-run`で新しい親client module、hook entry、背景受信entry、スキルがすべて配布されることを確認する。現在のfilesはroomのファイルを限定列挙しているため、新moduleの追加と同じ変更で更新する。version bump、main着地、tagによるTrusted Publishing、global install、12組合せの公開後smokeまで行う。公開後smokeは公開packageの導入結果の再確認であり、実機成立を初めて確かめる工程にしない。room serverの変更を含むため、本番反映・rollbackは[deploy正本](../deploy/README.md)に従う。
 
+証跡の`source_commit`は実測したコードのcommitを指す。証跡保存のcommitはその子孫になるため、gateは検証対象commitのrelease候補への包含、room・skill・配布設定の変更がないこと、現在のruntime digest、package versionをすべて照合する。コードやversionが変わった候補へ、古い実測証拠を流用しない。公開前のpackage試験は実際にpackした配布物を使い、registryからの導入は公開後smokeで再確認する。
+
 既存のAiterm席への通常配送も最終関連試験に含める。親の改善で、通常メンバーの`pty_send`、配送保留、Cursorのroom MCP設定、読了cursor、解散処理を退行させない。
 
 ## 10. 実装者への引渡し
@@ -355,3 +357,67 @@ fixtureは実process境界・競合・障害を速く再現する。実機は親
 この設計のscopeは4 receiversと12組合せをまとめた一つの完成条件である。工程分割は実装順序であり、Codexだけ、POSIXだけ、1通目だけ等の部分実装を完成として公開する許可ではない。
 
 第1工程で未確定と明記した外部契約は、実測してこの文書とfixtureを更新する。任意の省略・新方式への変更・Aiterm改造・責務の移動が必要になった場合は、差分と根拠を示してオーナーと合意する。既存の仕様を私見で減らさない。
+
+## 11. 外部観測待ちからの再開
+
+配布候補のsource・版・CI・package確認と、GUI観測の停止位置は[チェックポイント](../rag/parent-delivery/release-candidate-checkpoint.json)を参照する。 旧候補`a07630d`の[過去チェックポイント](../rag/parent-delivery/snapshots/a07630d-release-checkpoint.json)は保存済みで、後続の修理後候補とは分ける。実装文書と配布候補はcommit・push済みだが、実機受入manifestが未達のため、mainへの着地・tag・npm公開・registry導入・本番反映は残る。
+
+GUI試験はJevによる画面取得で停止した。必要なOS権限は確認済みで、専用Cursor projectへの試験メッセージは未送信である。オーナーへGUI試験に限る操作ツール変更を確認中。許可前に代替操作へ進まず、専用の試験ウィンドウとサーバーは閉じている。
+
+修理版のCursor/Grok通常CLIの再測定は終了し、[修理版の観測](../rag/parent-delivery/cursor-grok-repair-observation.json)へ保存した。6セルのroom原文hash、保存された本文、receipt revision、親の会話/PIDと最終native task IDを照合した。macOS Grokは画面上の複数宛本文の末尾が未確認のため部分確認である。旧候補の観測を最終候補の525件へ流用しない。
+
+最終候補をpackした配布物で、Claude/Codex通常CLIのscenario固有証拠を取得するrunnerと、Cursor/Grok通常CLIのaudience条件の実測を進める。再開時は最新sourceと配布物を照合して実機目録を完成させ、関連する最終文書を更新し、第5工程の公開・導入・本番確認を続ける。古いsnapshotの成功やCIの合格だけで実機目録を埋めない。
+
+GUI準備では3 OSのCodex App、macOSとWindowsのCursor Desktopを確認し、不足していたLinuxのVS Code/Cursor Desktop、WindowsのVS Codeと各Codex拡張を公式installer・package managerで導入した。アプリと拡張の存在確認は配送の合格に数えない。公式導入方法は[環境準備の記録](../rag/parent-delivery/gui-environment-preparation.md)を参照する。
+
+本番向けLinux imageの開発機での確認は[image確認](../rag/parent-delivery/room-image-preflight.json)へ保存した。HTTP保存/読出しのUTF-8原文、読取CORS、SSE接続は合格し、試験containerは停止済みである。本番未反映であり、親のnative配送の受入を代替しない。
+
+実機runnerで、終了したCodex親のwatcherがglobal索引を残す欠陥を再現した。project撤去後に別の親hookが全索引を読むと`ENOENT`で配送が止まる。停止したwatcher自身が既存の`forgetEndpoint`で所有索引を撤去する修理を行い、本文・受付済み記録と他の親の索引を保持する。修正前に失敗した実processの回帰試験は修正後に合格し、関連focused testは28件合格した。`a07630d`で取得したmacOS Claude/Codexのaudience証拠は候補観測として保管し、修理後の最終候補へ流用しない。
+
+Codexの公式hook本文はXMLのtextとして記録される。[一次仕様の確認](../rag/parent-delivery/codex-hook-body-encoding.md)に従い、公式の符号化だけを一度復号して原文と照合する。raw記録の等値判定と復号後の照合を別々に残し、任意の文字列補正を行わない。
+
+修理後のmacOS通常CLIで、Claude/CodexのDM・複数宛・ALLについて親の実会話・応答・原文・receiptを再確認し、親終了後の自動停止と共有索引の撤去、他設定の保持を確認した。[修理後の候補観測](../rag/parent-delivery/repaired-cli-candidate-observation.json)は実測commitをそのまま記録し、最終manifestへ流用しない。
+
+旧候補`43348b8`の実機試験で、Linuxの実行中binary更新と、WindowsのCodex終了時に配送watcherが消される問題を再現した。設定解除ではCodexのTOMLに空行が残り、ClaudeのJSONに導入時の空eventが残った。これらの修理により旧候補を最終sourceとして扱えなくなった。[修理の原因と検証](../rag/parent-delivery/cli-lifecycle-repairs.md)へ実測と未確認の境界を保存する。
+
+旧候補で独立監査したCursor/Grokの6 CLI audience・18本文は、[試験当時のmanifest](../rag/parent-delivery/snapshots/43348b8/rag/parent-delivery/product-acceptance.json)と同じsnapshot内の証拠へ移して保存した。本文・source・判定は書き換えない。Linux Grokの複数宛とWindows Grokの画面取得不足も保持する。[現在の受入manifest](../rag/parent-delivery/product-acceptance.json)には修理後に再測定し、原証拠を独立照合した項目だけを置く。旧候補の成功で公開gateを通さない。
+
+24 scenarioの手順と実操作moduleをCLI runnerへ接続した。既存contextの11 scenarioに加え、残る13 scenarioには新しい専用project・公式session・spoolを持つnative fixtureを接続する。各操作の実境界が未確認ならtyped errorで止まり、合格を作らない。Cursor/Grokのtask取消・idle・会話切替の観測は仕上げ中である。長時間leaseは通常の製品期限を実際に跨ぎ、期限短縮や時刻書換えで代用しない。修理後の最終sourceを固定してから正式試験を開始する。
+
+試験controllerは製品sourceとは別のcommitと全実行moduleのSHA-256を記録し、実行fileを指定commitのGit blobへ照合する。Windowsの試験起動もPowerShell 7へ統一した。設定解除のJSON比較で空eventを除く補正を廃止し、Codexの信頼entryは専用project配下だけを解除する。自己停止は親終了からの実時間を記録し、30秒を超えた停止やrunnerによる止血を合格にしない。
+
+配布候補のsource・版・digest・pack・導入状態・CIは[最新チェックポイント](../rag/parent-delivery/release-candidate-checkpoint.json)を正本とする。macOSの専用local prefixへのnpm導入はfixtureの確認であり、registry版のglobal installではない。fixtureは既存のglobalスキル配置を変更していないため、その配置診断はrequiredを保持する。公開後のglobal installで製品のスキル配置まで確認する。
+
+旧候補のmacOS Claude/Codex通常CLIのaudienceは、[独立監査](../rag/parent-delivery/cli-formal-review-017bf2c.json)で共通pack、controllerのGit blob、room原文、実会話の本文と後続返答、spool、SQLite receiptを照合した。各3通の一致、終了後の自動停止と設定解除は試験当時の証拠として保存する。その後の製品修理により[旧sourceのsnapshot](../rag/parent-delivery/snapshots/017bf2c/product-acceptance.json)へ保存し、現行manifestには流用しない。
+
+macOSの短命process終了時の成功・空出力の誤分類と、Linux Grokの公式更新先名の本人認識を修理した。さらにCodexの初回probeに期限が設定されない欠陥、期限判定がroom心拍を待って遅れる欠陥を実OS障害で確認し、初回armとwatcher自身のtimerを修理した。[CLI修理記録](../rag/parent-delivery/cli-lifecycle-repairs.md)に実測、未観測の境界、指紋、focused確認を保存する。これらの準備診断を正式配送の合格へ算入しない。
+
+controllerはCursorのモデルAPIへ渡した完成済み入力全体と、公式postToolUseが正規化したhook入力を別々に照合する。Windows Grokの公式罫線内の空promptは原画面fixtureで判定する。Claudeのhook無効化は同じ実会話を公式CLIの自己run設定でresumeし、共有設定を保持して無効化・復元の実因果を測定する。controllerのfocused合格だけで正式受入を埋めない。
+
+現行manifestの正式受入は再測定中で、長時間leaseの合格もまだ無い。Linux Cursorは本人ログイン待ち、Desktop/IDEはJevの画面取得の解決または操作ツール変更の回答待ちである。新候補の3 OS製品CI、全必須面の実機受入、main着地、npm公開・registry導入・本番反映を順に完了する。
+
+正式probe期限試験のcontrollerは、製品が保存した実probe期限と失敗の観測時刻を分ける。全OS・全harnessに共通の観測上限は既存focused timer試験と同じ1500msとし、失敗の実lagを原値で保存する。期限前、時刻欠落、health不一致、上限超過をtyped failureにし、製品deadlineを延ばして合格へ丸めない。Windowsの所有child停止APIと各harnessの故障発火が実測されていない行は、引き続き未合格とする。
+
+再登録修理後のWindows CIでは、Bakery ticketのatomic置換で実`EPERM`が発生した。[原記録とAPI対照](../rag/parent-delivery/windows-rename-ci-diagnosis.json)から読取りhandle保持中の通常renameを再現し、Windows標準のPOSIX互換APIで修理した。診断packのfocused試験と修理版の3 OS CIは合格した。Linux Grokの初回probeは正常な本文回収時間を測って期限を調整した。Windows Cursorのlock timeoutは別に原因照合が残る。正式配送試験と公開は、新候補でその境界を確認してから進める。
+
+[Linux Grokの正規通知の実診断](../rag/parent-delivery/linux-grok-probe-latency-diagnosis.json)では、本文回収まで53.198秒、次の受信登録まで71.99秒かかった。初回probe期限を共通120秒へ調整し、束縛期限を維持する。期限失敗を成功へ数えず、新候補で正常な確認と実期限失敗の両方を再測定する。
+
+[Windowsの保持reader対照](../rag/parent-delivery/windows-rename-ci-diagnosis.json)で、libuvの通常置換APIが共有DELETE付きでもACCESS_DENIEDとなり、POSIX互換置換APIでは同じ保持reader下で成立することを確認した。Windowsのatomic更新だけを標準APIへ適合し、排他・spool・receiptの仕組みは全OS共通に保つ。診断packのfocused31件と新Git候補の3 OS CIは合格した。新候補の正常Grok probe・Windows Cursor排他待ちの診断と正式実機受入は未完了。
+
+Codexの`binding_deadline`前半は、[公式callerの比較](../rag/parent-delivery/codex-caller-deadline-comparison.json)に従い、receiver準備の実RPC期限を測る。AitermとPeertableのCodexは公式MCPの会話IDを直接取得するため、事前hook記録の30秒待ちは存在しない。非Codexの束縛期限と、全harnessのprobe期限・正規再登録・復旧後DMを維持する。受入gateは24scenarioの手順・順序・run・会話・artifactを正本の手順と照合し、専用会話は該当stepの宣言と観測がそろった場合だけ相関する。各scenarioの実機成立は引き続き未判定である。
+
+旧leaseの「wrapper終了」はcontrollerの後片付け完了ではなかった。[停止記録の監査](../rag/parent-delivery/withdrawn-lease-stop-audit.json)で、旧入口には中断handlerがなく、summaryが実行中のまま残ることを確認した。旧Mac/Linux Claudeの既知processはrootの読取確認でも存命0だが、旧runを正常終了やlease合格にしない。新lease開始前に中断時の後片付けと失敗記録を修理する。
+
+[Cursorの入力診断](../rag/parent-delivery/cursor-native-input-diagnosis.json)で、完成済みreceiptがhook向けの`cwd`をモデルAPIへ渡し、モデルが`working_directory`と背景待機引数へ補正する欠陥を確認した。モデル向け入力を製品で完成させ、実hook入力を別保存する。controllerでもモデル入力とhook入力を個別照合してから新sourceを実機測定する。Desktopへ同じschemaが通ることはまだ確認していない。
+
+[Windowsの排他再現](../rag/parent-delivery/windows-lock-contention-diagnosis.json)では6実processの同時更新で実10秒期限の失敗が1件発生し、失敗workerの待ち時間の99.1%がCIM本人確認だった。本人確認を標準OS APIへ適合する案を検証する。期限と共通Bakery排他は維持する。設定のうち`cli-config.json`は比較元bytesが無く、変更keyと復元を確認できなかった。正式合格に数えず、この限界を保持する。
+
+[120秒期限のLinux Grok診断](../rag/parent-delivery/linux-grok-probe-repair-diagnosis.json)では初回armから33.102秒で確認し、実期限内に失敗を発生させず回収後のモデル発言に原文符号が出た。room健康状態もup/armed/verifiedへ戻った。診断であり、次の製品修理後の正式受入へ流用しない。Windows Cursorのverifiedだけでは、保存されたnative本文到達を証明できなかったため未確認を保持する。
+
+[AitermのCursor受信実装との対照](../rag/parent-delivery/cursor-aiterm-parity.md)に従い、本文を`postToolUse`／`postToolUseFailure`だけへ出し、`afterMCPExecution`は束縛だけに揃えた。Aitermのhandlerは失敗後hookにも対応するが、参照時点のsetupは成功後hookだけを登録している。Peertableは本計画の失敗後hook契約も登録する。Aiterm本体は変更しない。
+
+[Windows本人確認APIの実測](../rag/parent-delivery/windows-process-identity-diagnosis.json)では、既存CIM形式とnative APIが463件すべて一致し、終了processと実PID再利用も区別できた。同じhandleで開始時刻と存命を読む実装を採用し、親process・実行file・commandの取得は従来のCIMに残す。排他の仕組み・期限・永続identityは変えない。修理後配布物の6process競合と実Cursor受信は次の確認とする。
+
+## 今回の公開裁定
+
+オーナーの「いいよもう。一旦それでリリース、インストールして。」を受け、[対象を固定した裁定](../rag/parent-delivery/release-decision.json)のversion・runtimeは全正式実機受入の完了を待たず公開する。3 OS製品CIの合格は確認済み。未実施・失敗・長時間leaseを合格に変更せず、現行manifestを保持する。この裁定を次versionへ自動継承しない。main着地、Trusted Publishing、registry導入、本番反映と公開後smokeを今回の完了範囲とする。

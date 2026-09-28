@@ -1,3 +1,4 @@
+import { isParentMember } from '../../room/parent-kind.mjs'
 // 状態と活動の観測はAitermが所有し、Peertableはroom表示へ対応づける。
 import { seatSessionId, findSeatSession } from './seat-session.mjs'
 import { combineSeatLamp } from './seat-usage.mjs'
@@ -21,7 +22,7 @@ export class SeatObserver {
     const result = new Map()
     const mainIds = new Set(members.map(seatSessionId).filter(Boolean))
     for (const member of members) {
-      if (member.delivery?.kind === 'parent_watch') continue
+      if (isParentMember(member)) continue
       const id = seatSessionId(member)
       if (!id) continue
       try { findSeatSession(member, sessions, this.room) }

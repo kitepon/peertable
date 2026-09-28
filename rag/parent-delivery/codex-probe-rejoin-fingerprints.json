@@ -1,0 +1,70 @@
+{
+  "product_live": false,
+  "formal_acceptance_credit": 0,
+  "product_source": "84de74a097469ef4abd43698635805696b1302ff",
+  "controller_base": "f306a0cb31c6df9ec6405d9154732f37c2b3a7d6",
+  "controller_uncommitted": "factory processEnvironment / pending target only; inherited diagnostic overrides unchanged",
+  "files": [
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/reproduce.mjs",
+      "sha256": "676a5f5985530397beb58d514aed29937045da469ce8069c2d7929d8329b320c",
+      "audited_file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/reproduce.mjs",
+      "sha256_verified": true
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/observe-spawn.mjs",
+      "sha256": "3ee23b3c0fd32c8e3d924670668dff01a2231032a4d35012ce7580d1be1f5748",
+      "audited_file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/observe-spawn.mjs",
+      "sha256_verified": true
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/experiments/parent-product-acceptance/scenarios-fixtures.mjs",
+      "sha256": "9221eb6c4827bef5ac0616604f2e1de43f5ac788ea550dad513bfefa775ef881",
+      "audited_file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/factory-at-start.mjs.txt",
+      "sha256_verified": true
+    },
+    {
+      "file": "/private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-platform.mjs",
+      "sha256": "bf5d4539ebb68651e3f15c45f352f80f697452603843ac8eeef1e4199aa24174",
+      "audited_file": "/private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-platform.mjs",
+      "sha256_verified": true,
+      "product_git_blob_verified": true
+    },
+    {
+      "file": "/private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-runtime.mjs",
+      "sha256": "fc1dbc30ce7f5c74a78e35ae3f58c33cf8d949b6d3aff9a85c94f14b248207af",
+      "audited_file": "/private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-runtime.mjs",
+      "sha256_verified": true,
+      "product_git_blob_verified": true
+    },
+    {
+      "file": "/private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-watch.mjs",
+      "sha256": "374523f6a7127e4bded108911e2740fa34eb0b2216d0716e7a425aca6fc85183",
+      "audited_file": "/private/tmp/peertable-release-84de74a/prefix/node_modules/peertable/skill/scripts/parent-watch.mjs",
+      "sha256_verified": true,
+      "product_git_blob_verified": true
+    }
+  ],
+  "raw_files": [
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/result.json",
+      "sha256": "7df72d98a024bdfa4b9c2971359fb0cc875abf612095468a066efcb256e2f6eb"
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/diagnostic-summary.json",
+      "sha256": "8f8e1d3bebecd569ea862ba7b82a64c535f5da5358136e1b6e269b0f6dc9a445"
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/rpc-os-raw.jsonl",
+      "sha256": "39f20004e698d1abf888c4f53cecb046f29a595af5e503088e9eab75fffae5a8"
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/own-transcript.jsonl",
+      "sha256": "8508e9c4acd524ba69afd5dec750cf9cbf66366063508cef09662ccf3c954b91"
+    },
+    {
+      "file": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw/factory-at-start.mjs.txt",
+      "sha256": "9221eb6c4827bef5ac0616604f2e1de43f5ac788ea550dad513bfefa775ef881"
+    }
+  ]
+}

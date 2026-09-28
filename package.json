@@ -1,6 +1,6 @@
 {
   "name": "peertable",
-  "version": "0.8.62",
+  "version": "0.8.63",
   "description": "A round table of peer agents. No orchestrator at the head. Turn Claude Code, Codex, Grok, and Cursor sessions into a team of equal, long-lived peers.",
   "type": "module",
   "license": "MIT",
@@ -27,6 +27,7 @@
   "scripts": {
     "postinstall": "node skill/scripts/install-skill.mjs --postinstall",
     "verify:release-commit": "node scripts/verify-release-commit.mjs",
+    "verify:parent-delivery": "node scripts/parent-delivery-acceptance.mjs rag/parent-delivery/product-acceptance.json",
     "test:docs": "node --test scripts/docs-contract.test.mjs",
     "prepublishOnly": "node scripts/prepublish.mjs"
   },
@@ -39,6 +40,8 @@
     ".github/og.png",
     "room/server.mjs",
     "room/client.mjs",
+    "room/parent-client.mjs",
+    "room/parent-kind.mjs",
     "room/message-bounds.mjs",
     "room/Dockerfile",
     "skill/",
@@ -49,7 +52,8 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "koffi": "3.3.2"
   },
   "devDependencies": {
     "parse-srcset": "1.0.2",

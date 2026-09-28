@@ -1,0 +1,75 @@
+{
+  "schema": "peertable.withdrawn-lease-stop-audit.v1",
+  "formal_acceptance_credit": 0,
+  "controller_commit": "843ca88",
+  "controller_source_sha256": "6348a310b1f56a350eb6c38c3bcd6b729bef369da408229a1a837a55f024becc",
+  "signal_handler_present": false,
+  "controller_summary_running_retained": true,
+  "wrapper_finished_is_controller_finally_proof": false,
+  "stop_mechanism": "外側で所有processを停止・回収。controllerの正常終了ではない。",
+  "root_process_checks": [
+    {
+      "os": "darwin",
+      "pids": [
+        28456,
+        28560,
+        28578,
+        28743,
+        28865,
+        29065,
+        29104,
+        35619,
+        32373
+      ],
+      "checked_at": "2026-09-28T22:11:37.726013+00:00",
+      "command": [
+        "/bin/ps",
+        "-p",
+        "28456,28560,28578,28743,28865,29065,29104,35619,32373",
+        "-o",
+        "pid=",
+        "-o",
+        "lstart=",
+        "-o",
+        "comm="
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "",
+      "alive_now": 0,
+      "worker_snapshot_sha256": "93e98a1f8d065428c9acbc371529543b1f83a5ec6a281243440a0ec4cb8647f5",
+      "limitation": "存命processがない確認。終了時にcontroller finallyが実行された証拠ではない。Linux wrapper/paneは保存された開始identityがない。"
+    },
+    {
+      "os": "linux",
+      "pids": [
+        603044,
+        603384,
+        603440,
+        603468,
+        603514,
+        603851,
+        603858,
+        614516,
+        605987
+      ],
+      "checked_at": "2026-09-28T22:11:38.378291+00:00",
+      "command": [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=10",
+        "main-server",
+        "ps -p 603044,603384,603440,603468,603514,603851,603858,614516,605987 -o pid= -o lstart= -o comm="
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "",
+      "alive_now": 0,
+      "worker_snapshot_sha256": "ba957d3597cb55109a03ba3b3fa32275a77e44b0d80d1c0b1931d53723a4ea97",
+      "limitation": "存命processがない確認。終了時にcontroller finallyが実行された証拠ではない。Linux wrapper/paneは保存された開始identityがない。"
+    }
+  ],
+  "remaining": "新leaseの開始前にcontroller中断でcleanupと失敗summaryを完了させる。endpoint/port/configの完全な終了時証跡は別途照合する。"
+}
