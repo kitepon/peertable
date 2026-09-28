@@ -54,7 +54,7 @@ export function fixtureJoinInstruction({ harness, project, name }) {
 
 // 2.1.284の実resume画面はversionヘッダを表示しない。指定CID argvの新しい自己CLI本人まで照合する。
 export function claudeResumeReady({ screen, session, executable, owners, sameProcess }) {
-  if (!session || !/^[0-9a-f-]{36}$/u.test(session) || !/· Claude Pro/u.test(screen) || !/^[ \t]*❯[ \t\u00a0]*$/mu.test(screen)) return false
+  if (!session || !/^[0-9a-f-]{36}$/u.test(session) || !(/· Claude Pro/u.test(screen) || /⏵⏵ auto mode on \(shift\+tab to cycle\)/u.test(screen)) || !/^[ \t]*❯[ \t\u00a0]*$/mu.test(screen)) return false
   const command = new RegExp(`(?:^|\\s)--resume\\s+"?${session}"?(?:\\s|$)`, 'u')
   return owners.some(owner => sameProcess(owner) && command.test(owner.command) && realpathSync(owner.executable) === realpathSync(executable))
 }

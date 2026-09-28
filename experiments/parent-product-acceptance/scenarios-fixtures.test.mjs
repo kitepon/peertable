@@ -139,6 +139,7 @@ test('Claudeのヘッダ無しresumeは実CID argv・存命CLI本人・公式空
   const session = 'ac5f033b-462c-49c6-971b-d38a13ed5ad8', screen = ' ▝▜██████▀  Sonnet 5.5 · Claude Pro\n❯ \n', owner = { pid: 10, started: '専用開始', executable: process.execPath, command: `${process.execPath} --resume ${session} --settings /専用設定` }
   const input = { screen, session, executable: process.execPath, owners: [owner], sameProcess: () => true }
   assert.equal(claudeResumeReady(input), true)
+  assert.equal(claudeResumeReady({ ...input, screen: '過去の自己会話\n❯ \n  ⏵⏵ auto mode on (shift+tab to cycle) · ← for agents' }), true)
   assert.equal(claudeResumeReady({ ...input, sameProcess: () => false }), false)
   assert.equal(claudeResumeReady({ ...input, session: '00000000-0000-0000-0000-000000000000' }), false)
   assert.equal(claudeResumeReady({ ...input, screen: screen.replace('❯ ', '❯ 作業中') }), false)
