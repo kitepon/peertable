@@ -17,7 +17,7 @@ export const scenarios = {
   receipt_retry: '受付後のreceipt失敗はreceiptだけ復旧', session_change: 'clear/終了/別会話/resumeで旧本文誤流入なし', parallel_rooms: '複数room/親会話の所有分離',
   unavailable_hook: '無効/未承認/実行file欠落は原因付き失敗', foreign_ownership: '利用者/Aitermのqueue・hook・承認・順序保持', compatibility_hooks: '互換hookの二重相関なし',
   background_end: 'task cancel/timeout/終了は成功へ丸めない', lease: '有限lease更新とendpoint/cursor/本文保持', binding_deadline: '束縛/probe期限のtyped failure',
-  slot_race: '複数hook開始でも1slot', lifecycle: '同版/新版更新・teardownで親processと履歴保持', package: '公開packageから同じ経路が成立',
+  slot_race: '複数hook開始でも1slot', lifecycle: '同版/新版更新・teardownで親processと履歴保持', package: 'npm packの配布物から同じ経路が成立。公開後もregistry版で再確認',
 }
 export const adapterObservations = {
   claude: ['実session/tool_use_idとMCP claudecode/toolUseId', 'PostToolUse/Stop asyncRewakeのnative hook_response exit2と後続assistant', 'PID+開始identityのsession1slot'],
@@ -29,6 +29,18 @@ export function expectedCases() {
   return ['darwin', 'linux', 'win32'].flatMap(os => Object.entries(surfaces).flatMap(([harness, executionSurfaces]) => executionSurfaces.flatMap(surface => Object.entries(scenarios).map(([scenario, expected]) => ({
     id: `${os}/${harness}/${surface}/${scenario}`, os, harness, surface, scenario, expected, observations: adapterObservations[harness],
   })))))
+}
+export function testedSourceCommit(records, { repo = root, sourceCommit } = {}) {
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim()
+  const tested = sourceCommit ?? records[0]?.source_commit ?? head
+  if (!/^[0-9a-f]{40}$/u.test(tested)) throw Object.assign(new Error('検証対象のcommitが不正です'), { code: 'PARENT_ACCEPTANCE_SOURCE_INVALID' })
+  // 証拠を保存するcommit自身のSHAは証拠に書けない。検証済みcommitの包含と現在のruntime digestを別々に照合する。
+  try { execFileSync('git', ['merge-base', '--is-ancestor', tested, head], { cwd: repo, stdio: ['ignore', 'pipe', 'pipe'] }) }
+  catch (error) { throw Object.assign(new Error('検証対象のcommitがrelease候補に含まれていません', { cause: error }), { code: 'PARENT_ACCEPTANCE_SOURCE_NOT_INCLUDED' }) }
+  // runtime digestが対象としないroom serverや配布設定も、検証後に変わっていないことを照合する。
+  const changed = execFileSync('git', ['diff', '--name-only', tested, '--', 'room', 'skill', 'package.json', 'package-lock.json'], { cwd: repo, encoding: 'utf8' }).trim().split('\n').filter(file => file && !file.endsWith('.test.mjs'))
+  if (changed.length) throw Object.assign(new Error(`検証後に製品sourceが変わっています: ${changed.join(', ')}`), { code: 'PARENT_ACCEPTANCE_SOURCE_CHANGED' })
+  return tested
 }
 export function auditAcceptance(records, { sourceCommit, sourceDigest, packageVersion, readEvidence = file => JSON.parse(readFileSync(resolve(root, file), 'utf8')) } = {}) {
   const byId = new Map(), errors = []
@@ -60,6 +72,8 @@ export function auditAcceptance(records, { sourceCommit, sourceDigest, packageVe
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [file, commit] = process.argv.slice(2)
-  const records = JSON.parse(readFileSync(file, 'utf8')).records
-  const result = auditAcceptance(records, { sourceCommit: commit ?? execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(), sourceDigest: runtimeDigest(), packageVersion: JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version }); console.log(JSON.stringify(result)); if (result.status !== 'passed') process.exitCode = 1
+  const manifest = JSON.parse(readFileSync(file, 'utf8')), records = manifest.records
+  try {
+    const result = auditAcceptance(records, { sourceCommit: testedSourceCommit(records, { sourceCommit: commit ?? manifest.source_commit }), sourceDigest: runtimeDigest(), packageVersion: JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version }); console.log(JSON.stringify(result)); if (result.status !== 'passed') process.exitCode = 1
+  } catch (error) { console.log(JSON.stringify({ schema: 'peertable.parent-acceptance-audit.v1', status: 'failed', expected: expectedCases().length, errors: [{ code: error.code ?? 'PARENT_ACCEPTANCE_SOURCE_FAILED', detail: error.message }] })); process.exitCode = 1 }
 }

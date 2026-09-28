@@ -338,7 +338,7 @@ fixtureが必要とする設定は公式の一時設定指定と使い捨てproj
 | 束縛・probeの期限切れ | 原因code付きfailedとなり、永久pendingや未確認verifiedを残さない |
 | 複数hook・受信維持の同時開始 | 受信slotは1つ。生きた背景待機がある場合は新taskを増やさない |
 | 同版更新・新版移行・teardown | 登録重複なし、履歴保持、受信停止、親processは継続 |
-| 公開packageからの導入 | checkout依存や開発用pathなしで同じ受入が成立 |
+| 配布packageからの導入 | 公開前は`npm pack`の配布物を導入し、checkout依存や開発用pathなしで同じ受入が成立。公開後はregistry版を導入して再確認 |
 
 上表のscenarioはすべて全12行へ展開する。各行の観測はそのreceiverの実境界で行い、Codex固有のqueue削除はCodex、hookと背景受信の競合はCursor、他receiverは自身のclaimと出力の競合を記録する。生成器が適用対象を推測しないよう、構造化目録には各scenarioの共通期待とadapter別の具体的な観測手順を固定する。CodexのDesktop/IDE/CLI、CursorのDesktop/CLIは実際の利用面を別に記録する。Cursorの選択modelがAutoやGrokでも同じ経路を確認し、Claude系modelの利用上限をCursor harness全体の未対応と混同しない。
 
@@ -347,6 +347,8 @@ fixtureは実process境界・競合・障害を速く再現する。実機は親
 ### 第5工程: 公開と導入
 
 関連focused testを閉じ、最終の製品CIを3 OSで1回通す。受入目録の完全性と、第4工程の全12行・全必須実行面の実機合格をtag作成前のrelease gateに含める。`npm pack --dry-run`で新しい親client module、hook entry、背景受信entry、スキルがすべて配布されることを確認する。現在のfilesはroomのファイルを限定列挙しているため、新moduleの追加と同じ変更で更新する。version bump、main着地、tagによるTrusted Publishing、global install、12組合せの公開後smokeまで行う。公開後smokeは公開packageの導入結果の再確認であり、実機成立を初めて確かめる工程にしない。room serverの変更を含むため、本番反映・rollbackは[deploy正本](../deploy/README.md)に従う。
+
+証跡の`source_commit`は実測したコードのcommitを指す。証跡保存のcommitはその子孫になるため、gateは検証対象commitのrelease候補への包含、room・skill・配布設定の変更がないこと、現在のruntime digest、package versionをすべて照合する。コードやversionが変わった候補へ、古い実測証拠を流用しない。公開前のpackage試験は実際にpackした配布物を使い、registryからの導入は公開後smokeで再確認する。
 
 既存のAiterm席への通常配送も最終関連試験に含める。親の改善で、通常メンバーの`pty_send`、配送保留、Cursorのroom MCP設定、読了cursor、解散処理を退行させない。
 

@@ -1,6 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { expectedCases, auditAcceptance } from './parent-delivery-acceptance.mjs'
+import { expectedCases, auditAcceptance, testedSourceCommit } from './parent-delivery-acceptance.mjs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { execFileSync } from 'node:child_process'
 test('全12組合せの必須実行面は欠落/skip/fixtureを製品実機passedにしない', () => {
   const expected = expectedCases()
   for (const os of ['darwin', 'linux', 'win32']) for (const harness of ['claude', 'codex', 'cursor', 'grok']) assert.ok(expected.some(item => item.os === os && item.harness === harness))
@@ -19,4 +23,22 @@ test('実機passedの宣言だけでは受けず、同source/会話/原文の証
   assert.ok(auditAcceptance([actual], { readEvidence: () => evidence }).errors.some(error => error.id === item.id && error.code === 'PARENT_ACCEPTANCE_EVIDENCE_INVALID'))
   evidence.body_checks[0].received = structuredClone(original)
   assert.ok(!auditAcceptance([actual], { readEvidence: () => evidence }).errors.some(error => error.id === item.id))
+  assert.ok(auditAcceptance([actual], { sourceDigest: '3'.repeat(64), readEvidence: () => evidence }).errors.some(error => error.id === item.id && error.code === 'PARENT_ACCEPTANCE_INVALID'))
+})
+test('証拠保存commitは検証済みsourceを包含し、別branchのsourceは通さない', t => {
+  const repo = mkdtempSync(join(tmpdir(), 'peertable-source-provenance-'))
+  t.after(() => rmSync(repo, { recursive: true, force: true }))
+  const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  git('init', '--quiet'); git('config', 'user.name', 'Peertable試験'); git('config', 'user.email', 'fixture@example.invalid')
+  mkdirSync(join(repo, 'room')); writeFileSync(join(repo, 'room', 'server.mjs'), 'export const value = 1\n'); git('add', 'room/server.mjs'); git('commit', '--quiet', '-m', '検証対象')
+  const tested = git('rev-parse', 'HEAD'), branch = git('branch', '--show-current')
+  writeFileSync(join(repo, 'evidence.json'), JSON.stringify({ source_commit: tested })); git('add', 'evidence.json'); git('commit', '--quiet', '-m', '実測証拠')
+  assert.notEqual(git('rev-parse', 'HEAD'), tested)
+  assert.equal(testedSourceCommit([{ source_commit: tested }], { repo }), tested)
+  writeFileSync(join(repo, 'room', 'server.mjs'), 'export const value = 2\n'); git('add', 'room/server.mjs'); git('commit', '--quiet', '-m', '製品変更')
+  assert.throws(() => testedSourceCommit([{ source_commit: tested }], { repo }), { code: 'PARENT_ACCEPTANCE_SOURCE_CHANGED' })
+  git('checkout', '--quiet', '-b', '別試験', tested)
+  writeFileSync(join(repo, 'room', 'server.mjs'), 'export const value = 3\n'); git('add', 'room/server.mjs'); git('commit', '--quiet', '-m', '別source')
+  const unrelated = git('rev-parse', 'HEAD'); git('checkout', '--quiet', branch)
+  assert.throws(() => testedSourceCommit([{ source_commit: unrelated }], { repo }), { code: 'PARENT_ACCEPTANCE_SOURCE_NOT_INCLUDED' })
 })
