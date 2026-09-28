@@ -52,6 +52,13 @@ export function fixtureJoinInstruction({ harness, project, name }) {
   return common + registration + read + 'continuation_tokenがある間は同じ配送のparent_readを完了まで続けます。その結果の次wait_processも同じ完成入力で登録してください。'
 }
 
+// 2.1.284の実resume画面はversionヘッダを表示しない。指定CID argvの新しい自己CLI本人まで照合する。
+export function claudeResumeReady({ screen, session, executable, owners, sameProcess }) {
+  if (!session || !/^[0-9a-f-]{36}$/u.test(session) || !/· Claude Pro/u.test(screen) || !/^[ \t]*❯[ \t\u00a0]*$/mu.test(screen)) return false
+  const command = new RegExp(`(?:^|\\s)--resume\\s+"?${session}"?(?:\\s|$)`, 'u')
+  return owners.some(owner => sameProcess(owner) && command.test(owner.command) && realpathSync(owner.executable) === realpathSync(executable))
+}
+
 // 共有設定fileを書かず、公式--settingsを次の自己CLI runへ渡す。同じ実会話をresumeする。
 export async function setClaudeSessionHookFault(fixture, disabled) {
   if (fixture.harness !== 'claude' || !fixture.session) fail('ACCEPTANCE_CLAUDE_SESSION_FAULT_UNBOUND', '既知の専用Claude会話が必要です')
@@ -286,7 +293,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         writeJson(fixture.identityArtifact, { at: new Date().toISOString(), project, harness, pty: fixture.pty, pane: fixture.paneOwner, native: fixture.nativeOwners, receiver: fixture.receiverOwners })
         await fixture.trackOwnProcesses()
         await fixture.aiterm.send(fixture.pty, platform.shellCommand(process.execPath, [launcher, input]))
-        await until('通常HOMEの公式CLI起動', async () => { await fixture.trackOwnProcesses(); const action = adapter.startup(await fixture.aiterm.screen(fixture.pty)); if (action?.blocked) fail('ACCEPTANCE_FIXTURE_HARNESS_BLOCKED', action.blocked); if (action?.keys) { for (const key of action.keys) { await fixture.aiterm.key(fixture.pty, key); await sleep(500) } return false } return action?.ready }, 120000, 1500)
+        await until('通常HOMEの公式CLI起動', async () => { await fixture.trackOwnProcesses(); const view = await fixture.aiterm.screen(fixture.pty), action = resume && harness === 'claude' && claudeResumeReady({ screen: view, session: resume, executable: cli.executable, owners: fixture.nativeOwners, sameProcess: platform.sameProcess }) ? { ready: true } : adapter.startup(view); if (action?.blocked) fail('ACCEPTANCE_FIXTURE_HARNESS_BLOCKED', action.blocked); if (action?.keys) { for (const key of action.keys) { await fixture.aiterm.key(fixture.pty, key); await sleep(500) } return false } return action?.ready }, 120000, 1500)
         fixture.ready = true
         if (adapter.afterStartup) await adapter.afterStartup()
         return fixture

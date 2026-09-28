@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { processIdentity, sameProcess } from '../../skill/scripts/parent-platform.mjs'
-import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit, nativeHookObserverSource, appendGrokProductObserver, observeFixtureProcessIdentity, fixtureJoinInstruction, setClaudeSessionHookFault } from './scenarios-fixtures.mjs'
+import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit, nativeHookObserverSource, appendGrokProductObserver, observeFixtureProcessIdentity, fixtureJoinInstruction, setClaudeSessionHookFault, claudeResumeReady } from './scenarios-fixtures.mjs'
 
 test('fixture終了は実child消失の後も製品自己停止と索引撤去を待つ', async t => {
   const child = spawn(process.execPath, ['-e', 'setTimeout(()=>process.exit(0),150)'], { stdio: 'ignore' })
@@ -132,4 +132,15 @@ test('Claude hook障害は同CIDの自己CLI設定だけを変え、元session�
   assert.equal(fixture.sessionSettings, original); assert.equal(fixture.claudeHookFault, null)
   assert.deepEqual(actions[6], { options: { resume: '自己会話' }, settings: original })
   await assert.rejects(setClaudeSessionHookFault({ ...fixture, harness: 'cursor' }, true), { code: 'ACCEPTANCE_CLAUDE_SESSION_FAULT_UNBOUND' })
+})
+
+
+test('Claudeのヘッダ無しresumeは実CID argv・存命CLI本人・公式空promptを照合する', () => {
+  const session = 'ac5f033b-462c-49c6-971b-d38a13ed5ad8', screen = ' ▝▜██████▀  Sonnet 5.5 · Claude Pro\n❯ \n', owner = { pid: 10, started: '専用開始', executable: process.execPath, command: `${process.execPath} --resume ${session} --settings /専用設定` }
+  const input = { screen, session, executable: process.execPath, owners: [owner], sameProcess: () => true }
+  assert.equal(claudeResumeReady(input), true)
+  assert.equal(claudeResumeReady({ ...input, sameProcess: () => false }), false)
+  assert.equal(claudeResumeReady({ ...input, session: '00000000-0000-0000-0000-000000000000' }), false)
+  assert.equal(claudeResumeReady({ ...input, screen: screen.replace('❯ ', '❯ 作業中') }), false)
+  assert.equal(claudeResumeReady({ ...input, screen: screen.replace('Claude Pro', '別製品') }), false)
 })
