@@ -155,6 +155,9 @@ test('CursorのNode optionとGrok公式native名を認識し、preloadや評価�
   assert.equal(processHarness({ executable: node, command: `node --eval "${cursor}"` }), null)
   assert.equal(processHarness({ executable: '/home/kite/.grok/downloads/grok-linux-x86_64', command: 'grok --always-approve' }), 'grok')
   assert.equal(processHarness({ executable: '/home/kite/.grok/downloads/grok-macos-aarch64', command: 'grok' }), 'grok')
+  assert.equal(processHarness({ executable: '/home/kite/.grok/downloads/grok-1.0.41-linux-x86_64', command: 'grok --always-approve' }), 'grok')
+  assert.equal(processHarness({ executable: '/home/kite/.grok/downloads/grok-1.0.41-macos-aarch64', command: 'grok' }), 'grok')
+  assert.equal(processHarness({ executable: '/tmp/grok-1.0.41-unknown-x86_64', command: 'grok' }), null)
   assert.equal(processHarness({ executable: '/tmp/grok-unknown-name', command: 'grok' }), null)
 })
 

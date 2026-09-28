@@ -79,7 +79,9 @@ export function processIdentity(pid, { includeExecutable = true } = {}) {
       try { readFileSync(`/proc/${pid}/stat`) }
       catch (probe) { if (probe.code === 'ENOENT') return null; throw failure('PARENT_PROCESS_API_FAILED', probe.message) }
     }
-    if (process.platform === 'darwin' && error.status === 1) {
+    // ps成功後に短命processが終了すると、lsofは成功のまま空出力になる。
+    // OSで本人の消失を確認した場合だけ終了とし、存命中の形式異常は保持する。
+    if (process.platform === 'darwin' && (error.status === 1 || error.code === 'PARENT_PROCESS_API_SCHEMA_INVALID')) {
       try { execFileSync('/bin/ps', ['-p', String(pid), '-o', 'pid='], { stdio: ['ignore', 'pipe', 'pipe'] }) }
       catch (probe) { if (probe.status === 1 && !String(probe.stdout ?? '').trim() && !String(probe.stderr ?? '').trim()) return null; throw failure('PARENT_PROCESS_API_FAILED', probe.message) }
     }
@@ -104,7 +106,8 @@ export function processHarness(identity) {
   const executable = (identity.executable_name ?? basename(identity.executable ?? '')).toLowerCase()
   const native = { 'claude': 'claude', 'claude.exe': 'claude', 'codex': 'codex', 'codex.exe': 'codex', 'grok': 'grok', 'grok.exe': 'grok', 'cursor-agent': 'cursor', 'cursor.exe': 'cursor', 'cursor': 'cursor' }
   if (native[executable]) return native[executable]
-  if (/^grok-(?:macos|linux)-(?:aarch64|x86_64)$/u.test(executable)) return 'grok'
+  // 公式installerの更新先はgrok-1.0.41-linux-x86_64のように版を含む。
+  if (/^grok-(?:\d+\.\d+\.\d+-)?(?:macos|linux)-(?:aarch64|x86_64)$/u.test(executable)) return 'grok'
   if (executable !== 'node' && executable !== 'node.exe') return null
   // Node直下の実entryだけを読む。shell -cや後続引数に含まれる名前は本人の根拠にしない。
   const tokens = (identity.command ?? '').match(/"[^"]*"|'[^']*'|[^\s]+/gu) ?? []
