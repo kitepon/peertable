@@ -8,7 +8,7 @@
 //        parent-watch.mjs <project_dir> [parent_name] --next
 //        parent-watch.mjs <project_dir> [parent_name] --follow
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, renameSync, statSync, unlinkSync, watch, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveLatticeExecutable, resolvePostToken } from './seat-usage.mjs'
 import { addressedToParent as messageAddressedToParent, latticeStaffingChanged, tableStallUpdate } from './parent-watch-logic.mjs'
@@ -184,6 +184,39 @@ function releaseLock() {
 }
 acquireLock()
 process.on('exit', releaseLock)
+
+if (spool) {
+  let probeTimer
+  const watchFailed = error => {
+    process.stderr.write(`PARENT_PROBE_WATCH_FAILED: ${error.message}\n`)
+    process.exit(1)
+  }
+  const scheduleProbe = () => {
+    clearTimeout(probeTimer)
+    const saved = spool.read()
+    if (saved.runtime === 'stopped' || ['verified', 'failed'].includes(saved.state) || saved.probe_deadline == null) return
+    probeTimer = setTimeout(() => {
+      try {
+        // 他processの再武装・成功・終了を、同じatomic状態で再照合する。
+        const expired = spool.transact(current => {
+          if (current.runtime === 'stopped' || ['verified', 'failed'].includes(current.state) || current.probe_deadline == null || Date.now() < current.probe_deadline) return false
+          current.state = 'failed'; current.runtime = 'failed'; current.error_code = 'PARENT_PROBE_TIMEOUT'
+          return true
+        })
+        if (expired) spool.publishHealth().catch(watchFailed)
+        else scheduleProbe()
+      } catch (error) { watchFailed(error) }
+    }, Math.max(0, saved.probe_deadline - Date.now()))
+  }
+  // spoolはatomic renameで更新される。fileの古いinodeではなく所有directoryを監視する。
+  const probeWatch = watch(spool.root, (_, file) => {
+    if (file != null && String(file) !== 'spool.json') return
+    try { scheduleProbe() } catch (error) { watchFailed(error) }
+  })
+  probeWatch.on('error', watchFailed)
+  process.on('exit', () => { clearTimeout(probeTimer); probeWatch.close() })
+  scheduleProbe()
+}
 
 const addressedToParent = message => messageAddressedToParent(message, parent)
 
@@ -372,8 +405,6 @@ async function maintainReceiver() {
     try { await spool.flushReceipts(new RoomApi(setup, { credential: spool.read().credential })) }
     catch (error) { process.stderr.write(`${error.code}: ${error.message}\n`) }
     if (spool.read().harness === 'codex') while (await queueCodex(spool)) {}
-    const status = spool.read()
-    if (status.state !== 'verified' && status.probe_deadline != null && Date.now() > status.probe_deadline) spool.update({ state: 'failed', runtime: 'failed', error_code: 'PARENT_PROBE_TIMEOUT' })
     await spool.publishHealth()
   }
 }

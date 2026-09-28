@@ -15,6 +15,45 @@ const waitFor = async condition => {
   const deadline = Date.now() + 30000
   while (!condition()) { if (Date.now() >= deadline) throw new Error('観測期限を超過しました'); await delay(20) }
 }
+test('probe実期限はSSEの心拍・新投稿を待たず、atomic再武装と成功にも追従する', async t => {
+  const project = mkdtempSync(join(tmpdir(), 'peertable-probe-timer-'))
+  let spool, watcher, stream
+  const health = []
+  const server = createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk
+    const json = value => { res.setHeader('content-type', 'application/json'); res.end(JSON.stringify(value)) }
+    if (req.url.endsWith('/events')) { res.writeHead(200, { 'content-type': 'text/event-stream' }); res.flushHeaders(); stream = res; return }
+    if (req.url.endsWith('/members')) return json({ members: [{ name: 'parent', delivery: { kind: 'parent_receiver', endpoint_id: spool.id } }] })
+    if (req.url.includes('/messages')) return json({ messages: [] })
+    if (req.url.endsWith('/bridges')) { health.push(JSON.parse(raw)); return json({ ok: true }) }
+    res.statusCode = 404; json({ error: 'fixture_path_unknown' })
+  })
+  t.after(async () => {
+    if (watcher?.exitCode === null) { watcher.kill(); await once(watcher, 'exit') }
+    stream?.destroy(); await new Promise(resolve => server.close(resolve))
+    rmSync(project, { recursive: true, force: true })
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}`, credential = join(project, 'credential')
+  writeFileSync(credential, 'fixture', { mode: 0o600 })
+  spool = ParentSpool.create(project, { name: 'parent', room: 'fixture', server_url: base, credential, start_seq: 0, harness: 'cursor', caller: { conversation: 'fixture', owner: processIdentity(process.pid) } })
+  atomicJson(join(project, '.team', 'setup-state.json'), { room: 'fixture', server_url: base })
+  watcher = spawn(process.execPath, [fileURLToPath(new URL('./parent-watch.mjs', import.meta.url)), project, 'parent', '--deliver', spool.id], { stdio: ['ignore', 'ignore', 'pipe'] })
+  let stderr = ''; watcher.stderr.on('data', chunk => { stderr += chunk })
+  await waitFor(() => stream)
+  // 成功したprobeのtimerが遅れて失敗を上書きしない。
+  spool.update({ runtime: 'armed', probe_deadline: Date.now() + 200 })
+  await delay(75); spool.update({ state: 'verified' }); await delay(250)
+  assert.equal(spool.read().state, 'verified', stderr)
+  assert.equal(spool.read().error_code, undefined)
+  const deadline = Date.now() + 200
+  spool.update({ state: 'receiving', runtime: 'armed', probe_deadline: deadline })
+  await waitFor(() => spool.read().error_code === 'PARENT_PROBE_TIMEOUT' && health.some(item => item.state === 'failed' && JSON.parse(item.detail).error_code === 'PARENT_PROBE_TIMEOUT'))
+  assert.ok(Date.now() < deadline + 1500, '心拍の25秒間隔に依存していません')
+  assert.equal(spool.read().runtime, 'failed')
+  assert.equal(spool.read().cursor, 0)
+  assert.equal(watcher.exitCode, null, stderr)
+})
 test('SSEが正常で新seqが無くてもreceipt retry/孤児回収/probe期限/healthが進む', async t => {
   const project = mkdtempSync(join(tmpdir(), 'peertable-source-runtime-'))
   let spool, watcher, eventsConnected = false, receiptFailures = 0
