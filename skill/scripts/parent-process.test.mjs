@@ -4,7 +4,9 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
-import { launchDetached } from './parent-process.mjs'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { launchDetached, parseWmiResult } from './parent-process.mjs'
 import { processIdentity, sameProcess } from './parent-platform.mjs'
 
 // 全OS共通の契約: env全量・cwd・argv・stdin無効・同じlogへのstdout/stderr・pid+開始identityでの生死。
@@ -41,4 +43,24 @@ setInterval(() => {}, 1000)
   while (sameProcess(identity) && Date.now() < stop) await delay(50)
   assert.equal(sameProcess(identity), false)
   assert.equal(existsSync(join(root, 'watch.launch.json')), false)
+})
+
+test('WMIの壊れた/欠けた/非0応答はPARENT_WATCH_START_FAILEDになる', () => {
+  for (const raw of ['not json', '', '{}', '{"return_value":0}', '{"pid":5}', '{"return_value":"0","pid":5}', '{"return_value":0,"pid":0}', 'null', '{"return_value":9,"pid":5}']) {
+    assert.throws(() => parseWmiResult(raw), { code: 'PARENT_WATCH_START_FAILED' }, JSON.stringify(raw))
+  }
+  assert.equal(parseWmiResult('{"return_value":0,"pid":5}').pid, 5)
+})
+
+// bootstrapの起動失敗(log open/cwd/executable)はhandshakeへtyped失敗を書いて終了する。
+test('bootstrapは起動失敗をhandshakeへ書いて終了する', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'peertable-bootstrap-')))
+  try {
+    for (const [label, log, cwd, executable] of [['open', join(root, 'nodir', 'w.log'), root, process.execPath], ['cwd', join(root, 'w.log'), join(root, 'nocwd'), process.execPath], ['exe', join(root, 'w.log'), root, join(root, 'noexe')]]) {
+      const handshake = join(root, `${label}.json`)
+      const run = spawnSync(process.execPath, [fileURLToPath(new URL('./parent-process.mjs', import.meta.url)), '--bootstrap', handshake, log, cwd, executable, '-e', '0'], { encoding: 'utf8', timeout: 15000 })
+      assert.equal(run.status, 1, `${label}: ${run.stderr}`)
+      assert.equal(typeof JSON.parse(readFileSync(handshake, 'utf8')).error, 'string', label)
+    }
+  } finally { rmSync(root, { recursive: true, force: true }) }
 })
