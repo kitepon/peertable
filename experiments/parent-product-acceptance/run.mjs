@@ -252,7 +252,7 @@ try {
       const seen = active === context ? await until('transcript末尾の確定', () => { const value = observe(); return value.pending_tail === 0 ? value : null }, 30000, 1000) : null
       if (seen) copyFileSync(file, join(privateDir, `transcript-${meta.parent_session}.jsonl`))
       const evidence = buildCase({ meta: caseMeta, scenario: name, checks: measured.checks, observations: measured.observations,
-        extra: { run_id: measured.run_id, trace: measured.trace, boundaries: measured.boundaries,
+        extra: { run_id: measured.run_id, trace: measured.trace, page_chars: measured.page_chars, boundaries: measured.boundaries,
           ...(seen ? { transcript_rows: seen.rows, turns_seen: seen.turns } : {}) } })
       writeCase(evidence)
     }

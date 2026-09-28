@@ -396,10 +396,14 @@ controllerはCursorの公式postToolUseが確定した入力全体を照合す�
 
 現行manifestの正式受入は再測定中で、長時間leaseの合格もまだ無い。Linux Cursorは本人ログイン待ち、Desktop/IDEはJevの画面取得の解決または操作ツール変更の回答待ちである。新候補の3 OS製品CI、全必須面の実機受入、main着地、npm公開・registry導入・本番反映を順に完了する。
 
-正式probe期限試験のcontrollerは、製品の実30秒期限と失敗の観測時刻を分ける。全OS・全harnessに共通の観測上限は既存focused timer試験と同じ1500msとし、失敗の実lagを原値で保存する。期限前、時刻欠落、health不一致、上限超過をtyped failureにし、製品deadlineを延ばして合格へ丸めない。Windowsの所有child停止APIと各harnessの故障発火が実測されていない行は、引き続き未合格とする。
+正式probe期限試験のcontrollerは、製品が保存した実probe期限と失敗の観測時刻を分ける。全OS・全harnessに共通の観測上限は既存focused timer試験と同じ1500msとし、失敗の実lagを原値で保存する。期限前、時刻欠落、health不一致、上限超過をtyped failureにし、製品deadlineを延ばして合格へ丸めない。Windowsの所有child停止APIと各harnessの故障発火が実測されていない行は、引き続き未合格とする。
 
 再登録修理後のWindows CIでは、Bakery ticketのatomic置換で実`EPERM`が発生した。[原記録とAPI対照](../rag/parent-delivery/windows-rename-ci-diagnosis.json)から読取りhandle保持中の通常renameを再現し、Windows標準のPOSIX互換APIで修理した。診断packのfocused試験と修理版の3 OS CIは合格した。Linux Grokの初回probeは正常な本文回収時間を測って期限を調整した。Windows Cursorのlock timeoutは別に原因照合が残る。正式配送試験と公開は、新候補でその境界を確認してから進める。
 
 [Linux Grokの正規通知の実診断](../rag/parent-delivery/linux-grok-probe-latency-diagnosis.json)では、本文回収まで53.198秒、次の受信登録まで71.99秒かかった。初回probe期限を共通120秒へ調整し、束縛期限を維持する。期限失敗を成功へ数えず、新候補で正常な確認と実期限失敗の両方を再測定する。
 
 [Windowsの保持reader対照](../rag/parent-delivery/windows-rename-ci-diagnosis.json)で、libuvの通常置換APIが共有DELETE付きでもACCESS_DENIEDとなり、POSIX互換置換APIでは同じ保持reader下で成立することを確認した。Windowsのatomic更新だけを標準APIへ適合し、排他・spool・receiptの仕組みは全OS共通に保つ。診断packのfocused31件と新Git候補の3 OS CIは合格した。新候補の正常Grok probe・Windows Cursor排他待ちの診断と正式実機受入は未完了。
+
+Codexの`binding_deadline`前半は、[公式callerの比較](../rag/parent-delivery/codex-caller-deadline-comparison.json)に従い、receiver準備の実RPC期限を測る。AitermとPeertableのCodexは公式MCPの会話IDを直接取得するため、事前hook記録の30秒待ちは存在しない。非Codexの束縛期限と、全harnessのprobe期限・正規再登録・復旧後DMを維持する。受入gateは24scenarioの手順・順序・run・会話・artifactを正本の手順と照合し、専用会話は該当stepの宣言と観測がそろった場合だけ相関する。各scenarioの実機成立は引き続き未判定である。
+
+旧leaseの「wrapper終了」はcontrollerの後片付け完了ではなかった。[停止記録の監査](../rag/parent-delivery/withdrawn-lease-stop-audit.json)で、旧入口には中断handlerがなく、summaryが実行中のまま残ることを確認した。旧Mac/Linux Claudeの既知processはrootの読取確認でも存命0だが、旧runを正常終了やlease合格にしない。新lease開始前に中断時の後片付けと失敗記録を修理する。

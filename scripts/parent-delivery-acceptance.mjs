@@ -8,17 +8,10 @@ import { isDeepStrictEqual } from 'node:util'
 import { runtimeDigest } from '../skill/scripts/runtime-digest.mjs'
 const root = fileURLToPath(new URL('../', import.meta.url))
 export const surfaces = { claude: ['cli'], codex: ['desktop', 'ide', 'cli'], grok: ['cli'], cursor: ['desktop', 'cli'] }
-export const scenarios = {
-  audience: 'DM・親を含む複数宛・all各1回、送信者/room/seq/宛先/原文一致',
-  busy: '作業を保持して同じ会話へ配送', final_race: '最終応答/終了競合で欠落重複なし', idle: 'オーナー入力なしで同じ会話が再開',
-  consecutive: 'seq順の連続配送と2通目以降の待機', no_external_tools: '外部作業toolなしでも受信維持', no_tools: '全tool省略時の維持または明示rearm_pendingと原文保持',
-  original: '日本語・改行・引用・長文の全量回収', burst: '回収上限超過の未読保持', source_reconnect: 'HTTP/SSE再接続catch-upで重複欠落なし',
-  process_recovery: 'ready継承/sending unknown/submitted再送なし', claim_race: '受信口間claimで1回だけ出力', output_interruption: '削除/claim後中断はunknownと原文保持',
-  receipt_retry: '受付後のreceipt失敗はreceiptだけ復旧', session_change: 'clear/終了/別会話/resumeで旧本文誤流入なし', parallel_rooms: '複数room/親会話の所有分離',
-  unavailable_hook: '無効/未承認/実行file欠落は原因付き失敗', foreign_ownership: '利用者/Aitermのqueue・hook・承認・順序保持', compatibility_hooks: '互換hookの二重相関なし',
-  background_end: 'task cancel/timeout/終了は成功へ丸めない', lease: '有限lease更新とendpoint/cursor/本文保持', binding_deadline: '束縛/probe期限のtyped failure',
-  slot_race: '複数hook開始でも1slot', lifecycle: '同版/新版更新・teardownで親processと履歴保持', package: 'npm packの配布物から同じ経路が成立。公開後もregistry版で再確認',
-}
+export { scenarios } from './parent-delivery-acceptance-contract.mjs'
+import { scenarios } from './parent-delivery-acceptance-contract.mjs'
+import { scenarioPlan, validateBoundary } from '../experiments/parent-product-acceptance/scenarios.mjs'
+
 export const adapterObservations = {
   claude: ['実session/tool_use_idとMCP claudecode/toolUseId', 'PostToolUse/Stop asyncRewakeのnative hook_response exit2と後続assistant', 'PID+開始identityのsession1slot'],
   codex: ['実MCP threadIdと実caller binary/store', 'queue受付IDと同期PostToolUse/Stopのdelete:true・同turn返信', 'idle公式queueの新turn起床・他所有queue不変更'],
@@ -42,6 +35,24 @@ export function testedSourceCommit(records, { repo = root, sourceCommit } = {}) 
   if (changed.length) throw Object.assign(new Error(`検証後に製品sourceが変わっています: ${changed.join(', ')}`), { code: 'PARENT_ACCEPTANCE_SOURCE_CHANGED' })
   return tested
 }
+// 各手順の観測を、その手順・run・会話・artifactへ戻して照合する。
+export function auditScenarioSteps(evidence, item, session) {
+  const invalid = detail => { throw Object.assign(new Error(detail), { code: 'PARENT_ACCEPTANCE_SCENARIO_INVALID' }) }
+  const plan = scenarioPlan(item.scenario, { harness: item.harness, pageChars: evidence.page_chars })
+  if (!evidence.run_id || !Array.isArray(evidence.trace) || evidence.trace.length !== plan.length || !Array.isArray(evidence.observations)) invalid('手順またはrunの相関がありません')
+  const used = new Set()
+  for (const [index, expected] of plan.entries()) {
+    const actual = evidence.trace[index]
+    if (actual.step !== index || actual.action !== expected.action || actual.expectation !== expected.expectation || !Array.isArray(actual.artifacts) || !actual.artifacts.length
+      || (actual.related_sessions !== undefined && (!Array.isArray(actual.related_sessions) || actual.related_sessions.some(value => typeof value !== 'string' || !value)))) invalid('手順の期待値・順序・artifactが一致しません')
+    const rows = evidence.observations.filter(row => actual.artifacts.includes(row.artifact))
+    if (rows.length !== actual.artifacts.length || new Set(actual.artifacts).size !== actual.artifacts.length || rows.some(row => row.kind !== expected.expectation || used.has(row.artifact))) invalid('手順の実観測が欠けているか再使用されています')
+    validateBoundary({ expectation: expected.expectation, verified: true, observations: rows, related_sessions: actual.related_sessions }, { expectation: expected.expectation, session, runId: evidence.run_id, scenario: item.scenario })
+    for (const related of actual.related_sessions ?? []) if (!rows.some(row => row.parent_session === related)) invalid('観測のない別会話です')
+    for (const row of rows) used.add(row.artifact)
+  }
+  if (used.size !== evidence.observations.length) invalid('手順に属さない観測があります')
+}
 export function auditAcceptance(records, { sourceCommit, sourceDigest, packageVersion, readEvidence = file => JSON.parse(readFileSync(resolve(root, file), 'utf8')) } = {}) {
   const byId = new Map(), errors = []
   for (const record of records) { if (byId.has(record.id)) errors.push({ id: record.id, code: 'PARENT_ACCEPTANCE_DUPLICATE' }); byId.set(record.id, record) }
@@ -53,11 +64,15 @@ export function auditAcceptance(records, { sourceCommit, sourceDigest, packageVe
     if (actual.kind === 'product_live' && actual.evidence_file) {
       try {
         const evidence = readEvidence(actual.evidence_file)
+        if (item.scenario !== 'audience') {
+          try { auditScenarioSteps(evidence, item, actual.parent_session) }
+          catch (error) { errors.push({ id: item.id, code: 'PARENT_ACCEPTANCE_SCENARIO_INVALID', detail: error.code ?? error.message }) }
+        }
         if (evidence.schema !== 'peertable.parent-live-case.v1' || evidence.case_id !== item.id || evidence.native !== true
           || evidence.source_commit !== actual.source_commit || evidence.harness_version !== actual.harness_version || evidence.parent_session !== actual.parent_session
           || evidence.runtime_digest !== actual.runtime_digest || evidence.package_version !== actual.package_version
           || evidence.os !== item.os || evidence.harness !== item.harness || evidence.surface !== item.surface
-          || evidence.owner_input_required !== false || !Array.isArray(evidence.observations) || !evidence.observations.length || evidence.observations.some(event => !event.kind || event.parent_session !== actual.parent_session || !event.turn_id)
+          || evidence.owner_input_required !== false || !Array.isArray(evidence.observations) || !evidence.observations.length || evidence.observations.some(event => !event.kind || (item.scenario === 'audience' && event.parent_session !== actual.parent_session) || !event.turn_id)
           || !Array.isArray(evidence.receipts) || !evidence.receipts.length || evidence.receipts.some(receipt => !Number.isSafeInteger(receipt.seq) || receipt.seq <= 0 || !receipt.recipient || receipt.route !== 'parent_receiver' || !['delivered', 'failed', 'unknown'].includes(receipt.result) || !Number.isSafeInteger(receipt.receipt_revision) || receipt.receipt_revision <= 0
             || (item.harness === 'codex' && receipt.result === 'delivered' && (!receipt.queued_submission_id || !receipt.accepted_at)))
           || !Array.isArray(evidence.body_checks) || !evidence.body_checks.length

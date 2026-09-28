@@ -77,6 +77,16 @@
       "passed": 25,
       "failed": 0,
       "live_acceptance_credit": 0
+    },
+    "acceptance_step_gate": {
+      "passed": 16,
+      "failed": 0,
+      "live_acceptance_credit": 0
+    },
+    "acceptance_controller_contract_provenance": {
+      "passed": 1,
+      "failed": 0,
+      "live_acceptance_credit": 0
     }
   },
   "documentation_tests": {
@@ -119,7 +129,8 @@
     "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
     "reason": "製品runtimeの再登録欠陥で候補撤回。原記録を保持し、所有試験だけを停止する。",
     "active": 0,
-    "cleanup_status": "worker報告は自己processゼロ。rootの原記録監査は進行中。"
+    "cleanup_status": "rootは旧Mac/Linux Claude既知processの存命0を独立確認。旧controller finallyは未実行でsummary running残留。新run前に中断入口の修理が必要。",
+    "cleanup_evidence": "rag/parent-delivery/withdrawn-lease-stop-audit.json"
   },
   "gui_observation": {
     "status": "blocked",

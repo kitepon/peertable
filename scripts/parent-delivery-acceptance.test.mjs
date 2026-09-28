@@ -1,12 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { expectedCases, auditAcceptance, testedSourceCommit } from './parent-delivery-acceptance.mjs'
+import { expectedCases, auditAcceptance, auditScenarioSteps, testedSourceCommit } from './parent-delivery-acceptance.mjs'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { scenarioPlan } from '../experiments/parent-product-acceptance/scenarios.mjs'
 test('全12組合せの必須実行面は欠落/skip/fixtureを製品実機passedにしない', () => {
   const expected = expectedCases()
+  assert.equal(expected.length, 525)
   for (const os of ['darwin', 'linux', 'win32']) for (const harness of ['claude', 'codex', 'cursor', 'grok']) assert.ok(expected.some(item => item.os === os && item.harness === harness))
   assert.equal(auditAcceptance([]).errors.length, expected.length)
   assert.equal(auditAcceptance([{ id: expected[0].id, status: 'passed', kind: 'fixture' }]).status, 'failed')
@@ -41,4 +43,44 @@ test('証拠保存commitは検証済みsourceを包含し、別branchのsource�
   writeFileSync(join(repo, 'room', 'server.mjs'), 'export const value = 3\n'); git('add', 'room/server.mjs'); git('commit', '--quiet', '-m', '別source')
   const unrelated = git('rev-parse', 'HEAD'); git('checkout', '--quiet', branch)
   assert.throws(() => testedSourceCommit([{ source_commit: unrelated }], { repo }), { code: 'PARENT_ACCEPTANCE_SOURCE_NOT_INCLUDED' })
+})
+
+// fixtureはgateの照合だけを試し、実機受入の成績には使わない。
+const scenarioEvidence = (item, session = 'session') => {
+  const plan = scenarioPlan(item.scenario, { harness: item.harness, pageChars: 100 })
+  return { run_id: 'run', page_chars: 100,
+    trace: plan.map((step, index) => ({ step: index, action: step.action, expectation: step.expectation, artifacts: [`/fixture/step-${index}.json`] })),
+    observations: plan.map((step, index) => ({ kind: step.expectation, run_id: 'run', scenario: item.scenario, parent_session: session, turn_id: 'turn', artifact: `/fixture/step-${index}.json`, source: 'official_hook' })) }
+}
+test('全harnessの24scenarioは各手順の期待値・順序・観測相関をgateで照合する', () => {
+  for (const item of expectedCases().filter(item => item.os === 'darwin' && item.scenario !== 'audience')) assert.doesNotThrow(() => auditScenarioSteps(scenarioEvidence(item), item, 'session'))
+  const item = { scenario: 'binding_deadline', harness: 'codex' }
+  for (const mutation of [
+    evidence => evidence.trace.pop(),
+    evidence => evidence.trace.reverse(),
+    evidence => { evidence.trace[0].expectation = '別期待値' },
+    evidence => { evidence.observations[0].kind = 'native_delivery' },
+    evidence => { evidence.observations[0].run_id = '別run' },
+    evidence => { evidence.observations[0].scenario = 'busy' },
+    evidence => { evidence.observations[0].parent_session = '別会話' },
+    evidence => { evidence.trace[1].artifacts = [...evidence.trace[0].artifacts] },
+    evidence => evidence.observations.push({ ...evidence.observations[0], artifact: '/fixture/余剰.json' }),
+  ]) {
+    const evidence = scenarioEvidence(item); mutation(evidence)
+    assert.throws(() => auditScenarioSteps(evidence, item, 'session'))
+  }
+})
+test('専用会話は該当stepの宣言とそのstepの実観測が両方ある場合だけ照合する', () => {
+  const item = { scenario: 'binding_deadline', harness: 'codex' }, evidence = scenarioEvidence(item)
+  evidence.observations[2].parent_session = '専用会話'
+  assert.throws(() => auditScenarioSteps(evidence, item, 'session'))
+  evidence.trace[2].related_sessions = ['専用会話']
+  assert.doesNotThrow(() => auditScenarioSteps(evidence, item, 'session'))
+  evidence.trace[1].related_sessions = ['観測なし会話']
+  assert.throws(() => auditScenarioSteps(evidence, item, 'session'))
+})
+test('原文・上限超過の手順は導入物page上限を証拠に持つ', () => {
+  const item = { scenario: 'original', harness: 'claude' }, evidence = scenarioEvidence(item)
+  delete evidence.page_chars
+  assert.throws(() => auditScenarioSteps(evidence, item, 'session'), { code: 'ACCEPTANCE_PAGE_LIMIT_MISSING' })
 })

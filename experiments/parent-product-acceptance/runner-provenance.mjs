@@ -17,5 +17,14 @@ export function runnerProvenance(directory, commit) {
     if (!actual.equals(committed)) fail(`${name}は指定したcontroller commitと一致しません`)
     return [name, sha(actual)]
   }))
-  return { commit, modules_sha256, product_source_is_separate: true }
+  // 目録とgateも実行時依存。controllerだけの指紋へ隠さない。
+  const contract_files_sha256 = Object.fromEntries(['parent-delivery-acceptance.mjs', 'parent-delivery-acceptance-contract.mjs'].map(name => {
+    const path = `scripts/${name}`, actual = readFileSync(join(directory, '../../', path))
+    let committed
+    try { committed = execFileSync('git', ['show', `${commit}:${path}`], { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] }) }
+    catch { fail(`${path}のGit blobを指定したcontroller commitから取得できません`) }
+    if (!actual.equals(committed)) fail(`${path}は指定したcontroller commitと一致しません`)
+    return [path, sha(actual)]
+  }))
+  return { commit, modules_sha256, contract_files_sha256, product_source_is_separate: true }
 }

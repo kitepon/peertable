@@ -1,7 +1,7 @@
 // 実機受入24scenarioの手順。公式親の会話と実境界の観測が揃うまで合格を作らない。
 import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
-import { scenarios as inventory } from '../../scripts/parent-delivery-acceptance.mjs'
+import { scenarios as inventory } from '../../scripts/parent-delivery-acceptance-contract.mjs'
 
 export const scenarioNames = Object.keys(inventory).filter(name => name !== 'audience')
 const fail = (code, detail) => { throw Object.assign(new Error(detail), { code }) }
@@ -98,10 +98,10 @@ export async function runScenario(name, context) {
       if (nonces.has(check.nonce)) fail('ACCEPTANCE_SCENARIO_EVIDENCE_REUSED', `${name}: 同じ観測を再使用しています`)
       nonces.add(check.nonce); checks.push(check)
     }
-    trace.push({ step: index, action: item.action, expectation: item.expectation, artifacts: result.observations.map(row => row.artifact) })
+    trace.push({ step: index, action: item.action, expectation: item.expectation, artifacts: result.observations.map(row => row.artifact), ...(result.related_sessions ? { related_sessions: result.related_sessions } : {}) })
   }
   if (!checks.length) fail('ACCEPTANCE_NO_NATIVE_DELIVERY', `${name}: 専用本文の実親受信がありません`)
   if (['consecutive', 'source_reconnect', 'burst'].includes(name) && checks.some((check, index) => index && (check.original.seq <= checks[index - 1].original.seq || check.delivery.order <= checks[index - 1].delivery.order))) fail('ACCEPTANCE_SEQ_ORDER', `${name}: seq順に配送されていません`)
-  return { scenario: name, run_id: runId, checks, observations, trace, boundaries: receiverBoundaries[harness], status: 'passed' }
+  return { scenario: name, run_id: runId, page_chars: pageChars, checks, observations, trace, boundaries: receiverBoundaries[harness], status: 'passed' }
   } finally { if (context.finalize) await context.finalize(scope) }
 }

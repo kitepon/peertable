@@ -43,7 +43,7 @@ export async function runLeaseOnly(options) {
     log('native_parent_verified', { parent_session: context.session, parent_process: context.caseMeta.parent_process, endpoint_id: context.caseMeta.endpoint_id })
     for (const [name, action] of Object.entries(context.actions)) context.actions[name] = async (input, scope) => { log(`${name}:started`); const result = await action(input, scope); log(`${name}:observed`, { expectation: result.expectation }); return result }
     const measured = await runScenario('lease', context)
-    const evidence = buildCase({ meta: context.caseMeta, scenario: 'lease', checks: measured.checks, observations: measured.observations, extra: { trace: measured.trace, run_id: measured.run_id, boundary_contract: measured.boundaries } })
+    const evidence = buildCase({ meta: context.caseMeta, scenario: 'lease', checks: measured.checks, observations: measured.observations, extra: { trace: measured.trace, page_chars: measured.page_chars, run_id: measured.run_id, boundary_contract: measured.boundaries } })
     const evidenceFile = `rag/parent-delivery/live/${evidence.case_id}.json`, file = join(out, 'public', evidenceFile); mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, JSON.stringify(evidence, null, 2))
     const record = buildRecord(evidence, evidenceFile), audit = selfAudit(record, evidence); acceptCase(record, audit)
     summary.cases.push({ ...record, gate_errors: audit.gate_errors }); writeFileSync(join(out, 'records.json'), JSON.stringify({ records: [record] }, null, 2))
