@@ -375,13 +375,21 @@ test('ClaudeのPost/Stop同時開始は同じsessionで1slot、期限controlは�
   assert.equal(spool.read().runtime, 'rearm_pending'); assert.equal(spool.read().records.length, 0)
 })
 
-test('Cursor afterMCPExecutionとpostToolUseは同じclaimを共有しbusy本文を1回だけ出す', async t => {
+test('CursorはAitermと同じ成功・失敗後hookで本文を渡し、MCP束縛hookでは消費しない', async t => {
   assert.ok(hookEntries('cursor').afterMCPExecution)
+  assert.ok(hookEntries('cursor').postToolUseFailure)
   const spool = fixture(t); spool.saveEvent(event(1)); const output = []
   const options = { checkTarget: async () => {} }
   const native = { hook_event_name: 'afterMCPExecution', conversation_id: '同じ会話', tool_use_id: 'official-use-id', mcp_server_name: 'peertable_parent', tool_name: 'parent_read', tool_input: '{"endpoint_id":"returned-endpoint"}', result_json: '{"content":[]}' }
-  const results = await Promise.all([cursorEvent(spool, native, async value => output.push(value), options), cursorEvent(spool, { ...native, hook_event_name: 'postToolUse', tool_name: 'MCP:parent_read', tool_input: { endpoint_id: 'returned-endpoint' } }, async value => output.push(value), options)])
+  assert.equal(await cursorEvent(spool, native, async value => output.push(value), options), false)
+  assert.equal(output.length, 0)
+  assert.equal(spool.read().records[0].state, 'ready')
+  const results = await Promise.all(['postToolUse', 'postToolUseFailure'].map(hook_event_name => cursorEvent(spool, { ...native, hook_event_name, tool_name: 'MCP:parent_read', tool_input: { endpoint_id: 'returned-endpoint' } }, async value => output.push(value), options)))
   assert.equal(results.filter(Boolean).length, 1); assert.equal(output.length, 1)
   assert.match(output[0].additional_context, /日本語\n"引用"😀/u)
   assert.equal(spool.read().records[0].receipt.result, 'delivered')
+  spool.saveEvent(event(2, '作業toolが失敗してもこの本文を受け取る'))
+  assert.equal(await cursorEvent(spool, { hook_event_name: 'postToolUseFailure', tool_name: 'Shell', tool_input: { command: '失敗した作業' } }, async value => output.push(value), options), true)
+  assert.match(output[1].additional_context, /作業toolが失敗してもこの本文を受け取る/u)
+  assert.equal(spool.read().records[1].receipt.result, 'delivered')
 })

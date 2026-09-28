@@ -63,6 +63,8 @@ Web UIのメンバーカードは**オーナー意匠**である（裁定 2026-0
 
 Peertableは原文spoolと受信cursor、Claudeの公式asyncRewake、Codexの公式queueと同期hook、Cursorの公式hookとnative背景Shell、Grokのnative背景完了と公開出力回収を所有する。ユーザー領域の`~/.peertable/parent-receivers/`は接続・実会話相関・共有slotを、projectの`.team/parent-delivery/`は配送本文と進行を持つ。room台帳は宛先別receiptと親のhealthの正本である。
 
+Cursorの本文差し込みはAitermの受信handlerと同じ`postToolUse`／`postToolUseFailure`の`additional_context`を使う。`afterMCPExecution`は実会話との束縛に使い、本文を消費しない。idle中は公式の背景Shellで受け取り、hookとの共通claimで重複を防ぐ。room購読・宛先・連続受信の状態はPeertableが所有する。
+
 耳疎通の`verified`と現在の受信継続は別に確認する。runtimeは`armed`、`rearm_pending`、`stopped`、`failed`を区別し、Cursor/Grokはreceiptの完成済みnative tool入力を登録して次の受信を維持する。故障は宛先別receipt、health、診断へ原因code付きで出す。旧parent_watchは移行診断の対象である。
 
 受付不明は`unknown`として原文と受付証拠を保持し、自動再送しない。Codexのqueue受付ID・時刻は後続receiptでも保持する。長文は同じ配送ID・digestへ束縛した継続tokenで最後まで読み、最後の出力完了までackしない。

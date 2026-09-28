@@ -1,0 +1,79 @@
+{
+  "schema": "peertable.grok-probe-repair-diagnosis.v1",
+  "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+  "runtime_digest": "19cceff45965f64a0733b9bc8f207fca58a2295b8d0c54ad1e0deb72f573c5b1",
+  "formal_acceptance_credit": 0,
+  "root_raw_audit": true,
+  "observed_surface": "Linux Grok通常CLI",
+  "first_armed": {
+    "at": "2026-09-28T21:58:21.201Z",
+    "mono_ms": 55567,
+    "kind": "FIRST_ARMED",
+    "probe_deadline": 1790632821201,
+    "native_task": {
+      "id": "01a0ea06-acb0-7f12-81c6-34be49fea74c",
+      "pid": 1088711
+    }
+  },
+  "first_verified": {
+    "at": "2026-09-28T21:58:54.303Z",
+    "mono_ms": 88670,
+    "kind": "FIRST_VERIFIED",
+    "runtime": "rearm_pending",
+    "armed_to_verified_ms": 33102,
+    "after_failed_ms": null
+  },
+  "configured_deadline_ms": 1790632821201,
+  "actual_deadline_from_armed_ms": 120000,
+  "probe": {
+    "delivery_id": "bff28485-9519-46e5-bf80-dddea1519b2f",
+    "digest": "4935272fe9a6dead93566f11d2c3a7a09a8a161d047552d73fcf4a1e43daa835",
+    "body": "配送確認の符号は c4f1ea51-659a-473a-908d-70ef7d4bd2d5。",
+    "complete": true,
+    "first_native_read": {
+      "observed_at": "2026-09-28T21:58:56.410Z",
+      "official_ts": 1790632736,
+      "line": 56
+    },
+    "first_model_literal": {
+      "observed_at": "2026-09-28T21:59:12.352Z",
+      "official_ts": 1790632752,
+      "line": 70
+    }
+  },
+  "last_room_health": {
+    "at": "2026-09-28T22:01:17.730Z",
+    "mono_ms": 232097,
+    "kind": "room_members_change",
+    "parent_receiver": {
+      "state": "up",
+      "endpoints": [
+        {
+          "recipient": "probe-diag-a290277c",
+          "endpoint_id": "d5741286-070c-4621-925b-8758c55069c2",
+          "state": "armed",
+          "beat_at": "2026-09-28T22:01:17.506Z",
+          "detail": "{\"endpoint_id\":\"d5741286-070c-4621-925b-8758c55069c2\",\"state\":\"verified\",\"error_code\":null}"
+        }
+      ]
+    }
+  },
+  "failed_observed": false,
+  "observation_window_ms": 180000,
+  "cleanup": {
+    "status": "passed",
+    "elapsed_ms": 500,
+    "method": "root fixture factory.close(stop→waitOwnedFixtureExit 30s→restore→assertHooksUnchanged)"
+  },
+  "limitations": [
+    "診断controllerの観測で正式受入を代用しない。製品sourceの次修理後は再測定が必要。",
+    "親の内部思考時間は観測していない。公式timestampは1秒精度。",
+    "Windows Cursorでは保存hook出力とmodel transcriptにprobe原文が無いため、verified状態だけでnative本文到達を断定しない。"
+  ],
+  "fingerprints": {
+    "summary.json": "1b05d4f090d0838a1b5bebbd7d8bbed12b4e286f2e5fe80a4b690648298718db",
+    "events.jsonl": "420b9236870591399f8830dd4438a51630a09d294d562d0ffc3c16300fafcb90",
+    "raw/updates.jsonl": "dc32aed8bee36445876eaefa9edc250d7c2a8e0e3c9b5233f646c3390719ee86",
+    "raw/product-hook-events.jsonl": "e14796d43f746d4040893ca0163df6818cdd9065a8fb829204b2dc79500aae00"
+  }
+}

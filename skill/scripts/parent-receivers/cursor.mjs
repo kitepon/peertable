@@ -1,8 +1,9 @@
 import { renderDelivery, PAGE_CHARS } from '../parent-delivery.mjs'
 export { waitReceipt, bindNativeWait, backgroundReceive } from './background.mjs'
 export async function cursorEvent(spool, event, write, options = {}) {
-  if (!['afterMCPExecution', 'postToolUse'].includes(event.hook_event_name)) return false
-  // afterMCPExecutionのtool_input/result_jsonは実測上JSON文字列。native登録はpostToolUseが所有する。
+  // Aitermと同じくafterMCPExecutionは会話束縛だけ。本文は成功・失敗後のtool hookへ渡す。
+  if (!['postToolUse', 'postToolUseFailure'].includes(event.hook_event_name)) return false
+  // 失敗したShellを背景taskの登録成功として扱わない。
   if (event.hook_event_name === 'postToolUse') await (await import('./background.mjs')).bindNativeWait(spool, event, 'cursor')
   return cursorHook(spool, write, options)
 }

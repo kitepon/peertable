@@ -60,7 +60,7 @@
     "cim_share": 0.9912954484407862
   },
   "confirmed_cause": "ticketを毎回読む際のsameProcessが他PIDごとにCIMを同期起動し、重なったticketの本人確認だけで排他期限を超えている。",
-  "repair_status": "標準OS APIで同じPID-startを確認する案を所有dummyで検証中。排他algorithm・期限・永続identityを維持する。",
+  "repair_status": "標準OS APIで同じPID-startを確認する実装を採用。根拠はwindows-process-identity-diagnosis.json。排他algorithm・期限・永続identityを維持し、統合後の同じ6process再現は未測定。",
   "limitations": [
     "旧84の失敗rawにはticket/CIM記録がないため、同一原因とは断定しない。",
     "6process同時投入は制御した再現条件で、実運用の発生頻度は未測定。",

@@ -18,3 +18,8 @@
 
 - [正常なLinux Grokのprobe遅延](parent-delivery/linux-grok-probe-latency-diagnosis.json) — 正規本文回収53.198秒と健康復旧の原記録、共通期限の調整根拠。
 - [Codex同会話再登録の修理診断](parent-delivery/codex-probe-rejoin-repair-diagnosis.json) — 新probe原文・後続DM・health復旧と旧failed保持の独立照合。正式受入へ算入しない。
+- [Cursor入力の実診断](parent-delivery/cursor-native-input-diagnosis.json) — モデルAPIの完成済み入力とhookが正規化した入力の差。
+- [AitermとCursor受信の対照](parent-delivery/cursor-aiterm-parity.md) — 束縛hookと本文差し込みhook、背景受信、Peertableが所有するroom状態の区別。
+- [Windows排他の実再現](parent-delivery/windows-lock-contention-diagnosis.json) — 6process同時更新でCIM本人確認が10秒期限を占めた原記録。
+- [Windows本人確認APIの実測](parent-delivery/windows-process-identity-diagnosis.json) — native handleの存命・開始時刻とCIM互換性、実PID再利用、計測の限界。
+- [120秒期限のLinux Grok診断](parent-delivery/linux-grok-probe-repair-diagnosis.json) — 正規本文回収33.102秒とhealth復旧。次のsourceの正式受入には算入しない。

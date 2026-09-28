@@ -253,7 +253,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         const command = platform.hookCommand(process.execPath, [observer, observations, controls, ...additionalArgs])
         if (!['claude', 'codex'].includes(harness) && !adapter.projectHookFile) fail('ACCEPTANCE_PROJECT_HOOK_PATH_UNCONFIRMED', `${harness}: 公式のproject hook配置が実測されていません`)
         const file = harness === 'claude' ? join(project, '.claude/settings.local.json') : harness === 'codex' ? join(project, '.codex/hooks.json') : appendToProductFile && harness === 'grok' ? join(project, '.grok/hooks/peertable-parent.json') : adapter.projectHookFile(project)
-        const nativeEvents = events ?? (harness === 'cursor' ? ['preToolUse', 'postToolUse', 'afterMCPExecution'] : ['PreToolUse', 'PostToolUse', 'Stop'])
+        const nativeEvents = events ?? (harness === 'cursor' ? ['preToolUse', 'postToolUse', 'postToolUseFailure', 'afterMCPExecution'] : ['PreToolUse', 'PostToolUse', 'Stop'])
         fixture.modify(file, before => {
           const value = before ? JSON.parse(before.toString('utf8').replace(/^\uFEFF/u, '')) : { ...(harness === 'cursor' ? { version: 1 } : {}), hooks: {} }
           for (const event of nativeEvents) {
@@ -276,7 +276,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         // stdinは公式hook eventそのもの。製品のstdout/stderrを無加工で同じ親へ返す。
         writeFileSync(entry, `import {spawn} from 'node:child_process';import {appendFileSync} from 'node:fs';let raw='';for await(const c of process.stdin)raw+=c;const e=JSON.parse(raw.replace(/^\\uFEFF/u,''));const log=x=>appendFileSync(process.argv[2],JSON.stringify({at:new Date().toISOString(),pid:process.pid,parent:process.ppid,event:e,...x})+'\\n');log({phase:'started'});const child=spawn(process.execPath,[process.argv[3],process.argv[4]],{stdio:['pipe','pipe','pipe']});let stdout='',stderr='';child.stdout.on('data',c=>{stdout+=c;process.stdout.write(c)});child.stderr.on('data',c=>{stderr+=c;process.stderr.write(c)});child.stdin.end(raw);child.on('exit',(code,signal)=>{log({phase:'completed',child_pid:child.pid,code,signal,stdout,stderr});process.exitCode=code??1});\n`, { mode: 0o600 })
         const commands = Array.from({ length: count }, (_, index) => platform.hookCommand(process.execPath, [entry, rows, join(pkg, 'skill/scripts/parent-hook.mjs'), compatibilityHarness ?? harness, String(index)]))
-        const events = harness === 'cursor' ? ['postToolUse', 'afterMCPExecution'] : ['PostToolUse', 'Stop']
+        const events = harness === 'cursor' ? ['postToolUse', 'postToolUseFailure', 'afterMCPExecution'] : ['PostToolUse', 'Stop']
         fixture.modify(file, before => {
           const value = before ? JSON.parse(before.toString('utf8').replace(/^\uFEFF/u, '')) : { ...(harness === 'cursor' ? { version: 1 } : {}), hooks: {} }
           for (const event of events) {

@@ -209,7 +209,8 @@ export function nativeLeaseRegistration(target, { sameProcess, processDescendsFr
   const native = waiter.native_task
   if (!native || !sameProcess(native.process_identity) || !processDescendsFrom(waiter.owner, native.process_identity)) return null
   const seen = target.observe(), expectedName = target.meta.harness === 'cursor' ? 'Shell' : 'run_terminal_command'
-  const use = seen.toolUses.find(use => use.name === expectedName && use.session === target.meta.parent_session && isDeepStrictEqual(completedNativeInput(target.meta.harness, use), native.input?.input))
+  const use = seen.toolUses.find(use => use.name === expectedName && use.session === target.meta.parent_session && isDeepStrictEqual(completedNativeInput(target.meta.harness, use), native.input?.input)
+    && (target.meta.harness !== 'cursor' || (native.hook_input && isDeepStrictEqual(use.hook_input, native.hook_input))))
   const task = use && seen.tasks?.find(task => task.tool_use_id === use.id && String(task.task_id ?? task.id) === native.id && task.pid === native.pid)
   if (!use?.turn_id || !task || native.input?.name !== expectedName) return null
   return { state: current, waiter, registration: { tool_use_id: use.id, turn_id: use.turn_id, task_id: native.id, input: completedNativeInput(target.meta.harness, use), input_proof: completedNativeInputProof(target.meta.harness, use), owner: native.process_identity, native_task: task } }
@@ -293,7 +294,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
       writeFileSync(script, `import {writeFileSync,existsSync} from 'node:fs';writeFileSync(process.argv[2],JSON.stringify({pid:process.pid}));while(!existsSync(process.argv[3]))await new Promise(r=>setTimeout(r,100));writeFileSync(process.argv[4],JSON.stringify({pid:process.pid}));console.log(process.argv[5]);\n`)
       const command = s.shellCommand(process.execPath, [script, identity, release, completed, nonce]), before = target.observe().rows
       state(s).work = { fixture, identity, release, completed, nonce, before }
-      const input = s.harness === 'cursor' ? { command, cwd: fixture.project } : { command, description: '配送中も継続する専用受入作業', background: true, timeout: 0 }
+      const input = s.harness === 'cursor' ? { command, working_directory: fixture.project, block_until_ms: 0, description: '配送中も継続する専用受入作業' } : { command, description: '配送中も継続する専用受入作業', background: true, timeout: 0 }
       await fixture.submit(`作業継続の実機受入です。${s.harness === 'cursor' ? 'Shell' : 'run_terminal_command'}へ次の完成済み入力を渡してください。専用processを停止せず、room符号の報告後も作業を維持してください。runnerが解除した後に公式taskの全量出力を読んで、完了符号${nonce}を報告してください。input: ${JSON.stringify(input)}`)
       const observed = await s.until('専用作業processと公式taskの相関', () => {
         if (!existsSync(identity)) return null
@@ -400,7 +401,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
       const beforeEvents = fixture.adapter.hookEvents().length
       await fixture.stop(); await fixture.launch()
       const marker = `NEW_SESSION_${randomUUID()}`, command = s.shellCommand(process.execPath, ['-e', `console.log(${JSON.stringify(marker)})`])
-      const input = s.harness === 'cursor' ? { command, cwd: fixture.project } : { command, description: '専用新会話の実相関確認', background: false, timeout: 0 }
+      const input = s.harness === 'cursor' ? { command, working_directory: fixture.project, description: '専用新会話の実相関確認' } : { command, description: '専用新会話の実相関確認', background: false, timeout: 0 }
       await fixture.submit(`新会話の実相関試験です。${s.harness === 'cursor' ? 'Shell' : 'run_terminal_command'}へ次の入力を渡し、出力をそのまま報告してください。Peertable joinはまだ呼ばないでください。input: ${JSON.stringify(input)}`)
       const event = await s.until('新CLIの実hook CID', () => fixture.adapter.hookEvents().slice(beforeEvents).find(row => nativeSession(row.event) && nativeSession(row.event) !== old.meta.parent_session && JSON.stringify(row.event).includes(marker)), 120000, 100)
       const newSession = nativeSession(event.event), file = await s.until('新会話の公式transcript', () => fixture.adapter.transcript(newSession), 30000, 100)

@@ -42,7 +42,7 @@ try {
       if (['SessionEnd', 'sessionEnd'].includes(eventName)) { await stopEndpoint(spool); continue }
       if (harness === 'codex' && ['PostToolUse', 'Stop'].includes(eventName)) {
         if (await codexHook(spool, event, writeJson)) { emitted = true; break }
-      } else if (['cursor', 'grok'].includes(harness) && ['postToolUse', 'PostToolUse', 'afterMCPExecution'].includes(eventName)) {
+      } else if (['cursor', 'grok'].includes(harness) && ['postToolUse', 'postToolUseFailure', 'PostToolUse', 'afterMCPExecution'].includes(eventName)) {
         try { if (harness === 'grok') await bindNativeWait(spool, event, harness) }
         catch (error) { spool.update({ runtime: 'failed', error_code: error.code, error_detail: error.message }); throw error }
         if (harness === 'cursor' && await cursorEvent(spool, event, writeJson)) { emitted = true; break }

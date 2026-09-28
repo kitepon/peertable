@@ -392,7 +392,7 @@ Codexの公式hook本文はXMLのtextとして記録される。[一次仕様の
 
 macOSの短命process終了時の成功・空出力の誤分類と、Linux Grokの公式更新先名の本人認識を修理した。さらにCodexの初回probeに期限が設定されない欠陥、期限判定がroom心拍を待って遅れる欠陥を実OS障害で確認し、初回armとwatcher自身のtimerを修理した。[CLI修理記録](../rag/parent-delivery/cli-lifecycle-repairs.md)に実測、未観測の境界、指紋、focused確認を保存する。これらの準備診断を正式配送の合格へ算入しない。
 
-controllerはCursorの公式postToolUseが確定した入力全体を照合する。Windows Grokの公式罫線内の空promptは原画面fixtureで判定する。Claudeのhook無効化は同じ実会話を公式CLIの自己run設定でresumeし、共有設定を保持して無効化・復元の実因果を測定する。controllerのfocused合格だけで正式受入を埋めない。
+controllerはCursorのモデルAPIへ渡した完成済み入力全体と、公式postToolUseが正規化したhook入力を別々に照合する。Windows Grokの公式罫線内の空promptは原画面fixtureで判定する。Claudeのhook無効化は同じ実会話を公式CLIの自己run設定でresumeし、共有設定を保持して無効化・復元の実因果を測定する。controllerのfocused合格だけで正式受入を埋めない。
 
 現行manifestの正式受入は再測定中で、長時間leaseの合格もまだ無い。Linux Cursorは本人ログイン待ち、Desktop/IDEはJevの画面取得の解決または操作ツール変更の回答待ちである。新候補の3 OS製品CI、全必須面の実機受入、main着地、npm公開・registry導入・本番反映を順に完了する。
 
@@ -411,3 +411,9 @@ Codexの`binding_deadline`前半は、[公式callerの比較](../rag/parent-deli
 [Cursorの入力診断](../rag/parent-delivery/cursor-native-input-diagnosis.json)で、完成済みreceiptがhook向けの`cwd`をモデルAPIへ渡し、モデルが`working_directory`と背景待機引数へ補正する欠陥を確認した。モデル向け入力を製品で完成させ、実hook入力を別保存する。controllerでもモデル入力とhook入力を個別照合してから新sourceを実機測定する。Desktopへ同じschemaが通ることはまだ確認していない。
 
 [Windowsの排他再現](../rag/parent-delivery/windows-lock-contention-diagnosis.json)では6実processの同時更新で実10秒期限の失敗が1件発生し、失敗workerの待ち時間の99.1%がCIM本人確認だった。本人確認を標準OS APIへ適合する案を検証する。期限と共通Bakery排他は維持する。設定のうち`cli-config.json`は比較元bytesが無く、変更keyと復元を確認できなかった。正式合格に数えず、この限界を保持する。
+
+[120秒期限のLinux Grok診断](../rag/parent-delivery/linux-grok-probe-repair-diagnosis.json)では初回armから33.102秒で確認し、実期限内に失敗を発生させず回収後のモデル発言に原文符号が出た。room健康状態もup/armed/verifiedへ戻った。診断であり、次の製品修理後の正式受入へ流用しない。Windows Cursorのverifiedだけでは、保存されたnative本文到達を証明できなかったため未確認を保持する。
+
+[AitermのCursor受信実装との対照](../rag/parent-delivery/cursor-aiterm-parity.md)に従い、本文を`postToolUse`／`postToolUseFailure`だけへ出し、`afterMCPExecution`は束縛だけに揃えた。Aitermのhandlerは失敗後hookにも対応するが、参照時点のsetupは成功後hookだけを登録している。Peertableは本計画の失敗後hook契約も登録する。Aiterm本体は変更しない。
+
+[Windows本人確認APIの実測](../rag/parent-delivery/windows-process-identity-diagnosis.json)では、既存CIM形式とnative APIが463件すべて一致し、終了processと実PID再利用も区別できた。同じhandleで開始時刻と存命を読む実装を採用し、親process・実行file・commandの取得は従来のCIMに残す。排他の仕組み・期限・永続identityは変えない。修理後配布物の6process競合と実Cursor受信は次の確認とする。

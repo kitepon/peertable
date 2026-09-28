@@ -23,7 +23,7 @@ const pathFor = target => {
 export function hookEntries(target) {
   const command = hookCommand(process.execPath, [hookEntry, target])
   const native = target === 'claude' ? { type: 'command', command: process.execPath, args: [hookEntry, target] } : { type: 'command', command }
-  if (target === 'cursor') return Object.fromEntries(['preToolUse', 'postToolUse', 'afterMCPExecution', 'sessionEnd'].map(name => [name, [{ command }]]))
+  if (target === 'cursor') return Object.fromEntries(['preToolUse', 'postToolUse', 'postToolUseFailure', 'afterMCPExecution', 'sessionEnd'].map(name => [name, [{ command }]]))
   if (target === 'claude') return {
     PreToolUse: [{ matcher: '^mcp__peertable_parent__parent_(join|read|leave)$', hooks: [{ ...native, timeout: 20 }] }],
     PostToolUse: [{ matcher: '^mcp__peertable_parent__parent_join$', hooks: [{ ...native, asyncRewake: true, timeout: 86400 }] }],

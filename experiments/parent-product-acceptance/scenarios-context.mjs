@@ -131,12 +131,12 @@ export function assertCodexBusy({ workTurn, delivery, record, turns }) {
   return native
 }
 
-// Cursor Shellの完成済み入力はpostToolUseが渡す全体を使う。model入力は別の原証拠として保持する。
+// 完成済み入力はモデルAPIへ渡した全体。hookが正規化した入力とは分けて照合する。
 export function completedNativeInput(harness, use) {
-  return harness === 'cursor' ? use.hook_input : use.input
+  return use.input
 }
 export function completedNativeInputProof(harness, use) {
-  return { completed_input: completedNativeInput(harness, use), model_input: use.input, hook_input: use.hook_input, official_stage: harness === 'cursor' ? 'postToolUse' : 'native_tool', tool_use_id: use.id, session: use.session, turn_id: use.turn_id }
+  return { completed_input: completedNativeInput(harness, use), model_input: use.input, hook_input: use.hook_input, official_stage: 'native_tool', hook_stage: harness === 'cursor' ? 'postToolUse' : null, tool_use_id: use.id, session: use.session, turn_id: use.turn_id }
 }
 
 // Shellという名前だけでは許可しない。製品が確定した入力と実task/PIDの相関を要求する。
@@ -149,6 +149,7 @@ export function nativeReceiveToolAllowed(use, registrations, session) {
     const pid = use.native_task_pid ?? output?.pid
     return item.owner_verified === true && item.parent_session === session && (use.session ?? use.parent_session) === session
       && use.name === task.input?.name && isDeepStrictEqual(completedNativeInput(task.input?.name === 'Shell' ? 'cursor' : 'grok', use), task.input?.input)
+      && (task.input?.name !== 'Shell' || (task.hook_input && isDeepStrictEqual(use.hook_input, task.hook_input)))
       && String(taskId ?? '') === task.id && pid === task.pid
       && item.waiter_owner.pid > 0 && item.waiter_owner.started && task.process_identity?.pid === pid && task.process_identity.started
   })

@@ -154,9 +154,11 @@ test('Codex idleは過去のtask_completeを別turnへ流用しない', t => {
 })
 
 test('受信維持Shellは完成済み入力・実task ID・PID・所有相関が全て一致した場合だけ許可する', () => {
-  const registration = { parent_session: 's', owner_verified: true, waiter_owner: { pid: 10, started: 'waiter-start' }, native_task: { id: 'task', pid: 20, process_identity: { pid: 20, started: 'task-start' }, input: { name: 'Shell', input: { command: 'exact-entry args', cwd: '/fixture' } } } }
-  const use = { name: 'Shell', session: 's', input: { command: 'exact-entry args' }, hook_input: { command: 'exact-entry args', cwd: '/fixture' }, output: { shell_id: 'task', pid: 20 } }
+  const registration = { parent_session: 's', owner_verified: true, waiter_owner: { pid: 10, started: 'waiter-start' }, native_task: { id: 'task', pid: 20, process_identity: { pid: 20, started: 'task-start' }, input: { name: 'Shell', input: { command: 'exact-entry args', working_directory: '/fixture', block_until_ms: 0, description: '親受信' } }, hook_input: { command: 'exact-entry args', cwd: '/fixture' } } }
+  const use = { name: 'Shell', session: 's', input: structuredClone(registration.native_task.input.input), hook_input: { command: 'exact-entry args', cwd: '/fixture' }, output: { shell_id: 'task', pid: 20 } }
   assert.equal(nativeReceiveToolAllowed(use, [registration], 's'), true)
+  assert.equal(nativeReceiveToolAllowed({ ...use, input: { command: 'exact-entry args', cwd: '/fixture' } }, [registration], 's'), false)
+  assert.equal(nativeReceiveToolAllowed({ ...use, input: { ...use.input, block_until_ms: 1000 } }, [registration], 's'), false)
   assert.equal(nativeReceiveToolAllowed({ ...use, hook_input: { command: 'unrelated-work', cwd: '/fixture' } }, [registration], 's'), false)
   assert.equal(nativeReceiveToolAllowed({ ...use, hook_input: { command: 'exact-entry args', cwd: '/別project' } }, [registration], 's'), false)
   assert.equal(nativeReceiveToolAllowed({ ...use, hook_input: undefined }, [registration], 's'), false)

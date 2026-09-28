@@ -6,6 +6,7 @@ import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { replaceWindowsFile } from './parent-windows-files.mjs'
+import { sameWindowsProcess } from './parent-windows-process.mjs'
 
 export const parentHome = () => join(homedir(), '.peertable', 'parent-receivers')
 export const failure = (code, detail = code) => Object.assign(new Error(detail), { code })
@@ -92,7 +93,7 @@ export function processIdentity(pid, { includeExecutable = true } = {}) {
     throw failure('PARENT_PROCESS_API_FAILED', `PID ${pid}: ${error.message}`)
   }
 }
-export const sameProcess = owner => owner && processIdentity(owner.pid, { includeExecutable: false })?.started === owner.started
+export const sameProcess = owner => owner && (process.platform === 'win32' ? sameWindowsProcess(owner) : processIdentity(owner.pid, { includeExecutable: false })?.started === owner.started)
 export function processDescendsFrom(owner, ancestor) {
   if (!sameProcess(owner) || !sameProcess(ancestor)) return false
   for (let pid = owner.pid, depth = 0; pid > 0 && depth < 32; depth++) {

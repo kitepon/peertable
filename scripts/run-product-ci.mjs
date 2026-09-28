@@ -30,7 +30,7 @@ for (const directory of ['room', 'skill/scripts', 'scripts']) {
 run(process.execPath, ['--test', 'skill/scripts/runtime-contract.test.mjs'])
 run(process.execPath, ['experiments/aiterm-unified-delivery-repro.mjs'])
 run(process.execPath, ['--test', 'scripts/ci-contract.test.mjs', 'scripts/docs-contract.test.mjs'])
-run(process.execPath, ['--test', 'skill/scripts/parent-delivery.test.mjs', 'skill/scripts/parent-background-input.test.mjs', 'skill/scripts/parent-runtime-probe.test.mjs', 'skill/scripts/parent-source-runtime.test.mjs', 'skill/scripts/parent-process.test.mjs', 'skill/scripts/parent-platform-atomic.test.mjs', 'skill/scripts/parent-platform-unlinked-executable.test.mjs', 'room/parent-client.test.mjs', 'scripts/parent-delivery-acceptance.test.mjs'])
+run(process.execPath, ['--test', 'skill/scripts/parent-delivery.test.mjs', 'skill/scripts/parent-background-input.test.mjs', 'skill/scripts/parent-windows-process.test.mjs', 'skill/scripts/parent-runtime-probe.test.mjs', 'skill/scripts/parent-source-runtime.test.mjs', 'skill/scripts/parent-process.test.mjs', 'skill/scripts/parent-platform-atomic.test.mjs', 'skill/scripts/parent-platform-unlinked-executable.test.mjs', 'room/parent-client.test.mjs', 'scripts/parent-delivery-acceptance.test.mjs'])
 run(process.execPath, ['experiments/delivery-receipt-repro.mjs'])
 run(process.execPath, ['experiments/http-utf8-body-repro.mjs'])
 run(process.execPath, ['experiments/windows-seat-mux-repro.mjs'])
