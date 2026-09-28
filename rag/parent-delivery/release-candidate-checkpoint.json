@@ -7,9 +7,15 @@
   "source_frozen": false,
   "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/017bf2c/release-candidate-checkpoint.json",
   "product_ci": {
-    "status": "pending_new_product_source",
-    "previous_source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
-    "previous_url": "https://github.com/kitepon/peertable/actions/runs/36473398201"
+    "status": "success",
+    "source_commit": "356f9c408bfb8a46327651130b513b21b1b2842a",
+    "head_commit": "590f5a8b65c0a00b7b0877495da2c6a65428101c",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36478777216",
+    "native_os": {
+      "darwin": "passed",
+      "linux": "passed",
+      "win32": "passed"
+    }
   },
   "focused_verification": {
     "darwin_process_exit": {
