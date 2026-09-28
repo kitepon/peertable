@@ -407,3 +407,7 @@ controllerはCursorの公式postToolUseが確定した入力全体を照合す�
 Codexの`binding_deadline`前半は、[公式callerの比較](../rag/parent-delivery/codex-caller-deadline-comparison.json)に従い、receiver準備の実RPC期限を測る。AitermとPeertableのCodexは公式MCPの会話IDを直接取得するため、事前hook記録の30秒待ちは存在しない。非Codexの束縛期限と、全harnessのprobe期限・正規再登録・復旧後DMを維持する。受入gateは24scenarioの手順・順序・run・会話・artifactを正本の手順と照合し、専用会話は該当stepの宣言と観測がそろった場合だけ相関する。各scenarioの実機成立は引き続き未判定である。
 
 旧leaseの「wrapper終了」はcontrollerの後片付け完了ではなかった。[停止記録の監査](../rag/parent-delivery/withdrawn-lease-stop-audit.json)で、旧入口には中断handlerがなく、summaryが実行中のまま残ることを確認した。旧Mac/Linux Claudeの既知processはrootの読取確認でも存命0だが、旧runを正常終了やlease合格にしない。新lease開始前に中断時の後片付けと失敗記録を修理する。
+
+[Cursorの入力診断](../rag/parent-delivery/cursor-native-input-diagnosis.json)で、完成済みreceiptがhook向けの`cwd`をモデルAPIへ渡し、モデルが`working_directory`と背景待機引数へ補正する欠陥を確認した。モデル向け入力を製品で完成させ、実hook入力を別保存する。controllerでもモデル入力とhook入力を個別照合してから新sourceを実機測定する。Desktopへ同じschemaが通ることはまだ確認していない。
+
+[Windowsの排他再現](../rag/parent-delivery/windows-lock-contention-diagnosis.json)では6実processの同時更新で実10秒期限の失敗が1件発生し、失敗workerの待ち時間の99.1%がCIM本人確認だった。本人確認を標準OS APIへ適合する案を検証する。期限と共通Bakery排他は維持する。設定のうち`cli-config.json`は比較元bytesが無く、変更keyと復元を確認できなかった。正式合格に数えず、この限界を保持する。

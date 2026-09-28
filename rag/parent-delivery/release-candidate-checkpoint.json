@@ -3,7 +3,7 @@
   "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
   "runtime_digest": "19cceff45965f64a0733b9bc8f207fca58a2295b8d0c54ad1e0deb72f573c5b1",
   "package_version": "0.8.63",
-  "candidate_state": "diagnostic_candidate_windows_cursor_lock_pending",
+  "candidate_state": "diagnostic_candidate_native_input_and_windows_identity_repair_pending",
   "source_frozen": false,
   "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/c97b431/release-candidate-checkpoint.json",
   "product_ci": {
@@ -167,6 +167,14 @@
     "codex_rejoin": {
       "state": "diagnostic_recovered_new_adapter_live_pending",
       "evidence": "rag/parent-delivery/codex-probe-rejoin-repair-diagnosis.json"
+    },
+    "cursor_native_input": {
+      "state": "focused_passed_controller_and_native_verification_pending",
+      "evidence": "rag/parent-delivery/cursor-native-input-diagnosis.json"
+    },
+    "windows_lock_contention": {
+      "state": "real_timeout_reproduced_native_identity_adapter_diagnosis_pending",
+      "evidence": "rag/parent-delivery/windows-lock-contention-diagnosis.json"
     }
   }
 }

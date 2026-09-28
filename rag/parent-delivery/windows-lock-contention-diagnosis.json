@@ -1,0 +1,77 @@
+{
+  "schema": "peertable.windows-lock-contention-diagnosis.v1",
+  "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+  "runtime_digest": "19cceff45965f64a0733b9bc8f207fca58a2295b8d0c54ad1e0deb72f573c5b1",
+  "formal_acceptance_credit": 0,
+  "root_raw_audit": true,
+  "native_os": "win32",
+  "condition": "未改変の配布物ParentSpool.transactへ所有dummyの6実processが同時刻に入る。CIM呼出しは受動記録し結果・時計・10秒期限を変えない。",
+  "runs": [
+    {
+      "n": 2,
+      "max_total_ms": 2689,
+      "failures": 0,
+      "cim_calls": 9
+    },
+    {
+      "n": 3,
+      "max_total_ms": 3224,
+      "failures": 0,
+      "cim_calls": 18
+    },
+    {
+      "n": 4,
+      "max_total_ms": 737,
+      "failures": 0,
+      "cim_calls": 4
+    },
+    {
+      "n": 4,
+      "max_total_ms": 692,
+      "failures": 0,
+      "cim_calls": 4
+    },
+    {
+      "n": 4,
+      "max_total_ms": 724,
+      "failures": 0,
+      "cim_calls": 4
+    },
+    {
+      "n": 5,
+      "max_total_ms": 747,
+      "failures": 0,
+      "cim_calls": 5
+    },
+    {
+      "n": 6,
+      "max_total_ms": 11230,
+      "failures": 1,
+      "cim_calls": 110
+    }
+  ],
+  "failure": {
+    "pid": 65964,
+    "started": "2026-09-28T22:24:43.9314500Z",
+    "code": "PARENT_SPOOL_LOCK_TIMEOUT",
+    "total_ms": 10883.9955,
+    "cim_calls": 21,
+    "cim_ms": 10789.2552,
+    "cim_share": 0.9912954484407862
+  },
+  "confirmed_cause": "ticketを毎回読む際のsameProcessが他PIDごとにCIMを同期起動し、重なったticketの本人確認だけで排他期限を超えている。",
+  "repair_status": "標準OS APIで同じPID-startを確認する案を所有dummyで検証中。排他algorithm・期限・永続identityを維持する。",
+  "limitations": [
+    "旧84の失敗rawにはticket/CIM記録がないため、同一原因とは断定しない。",
+    "6process同時投入は制御した再現条件で、実運用の発生頻度は未測定。",
+    "pwsh/CIMの時間は対象端末の実測値。",
+    "Windows cli-config.jsonの前後hashは不一致で、比較元bytesが保存されていないため変更keyと元への復元は確認できなかった。CLI自身の更新は時刻一致からの推測。mcp/hooks/config.tomlの前後hash一致とは区別する。"
+  ],
+  "private_raw": "/private/tmp/claude-501/qa-cursor-grok/diag-980cbeb/raw/repro",
+  "fingerprints": {
+    "data/summary.json": "5e54aaba96623619e567467687a5a2a54934a574a87a31a04a6515ca3fbe0960",
+    "data/run-07-n6/tickets.jsonl": "ac4a959bb9bd5609f0a5fd75e3dbd95541ae99ad0c22e157fc776fdbeaf0f287",
+    "data/run-07-n6/workers.jsonl": "086c8348c062a1182e00a16a82623fc49c2c0db3c4ea39893a119e0e6e8b6d43",
+    "analysis.json": "00636d9bbe758d8ae58a775904dc5bdbc761e5d7da84cde99616164a16eb62e9"
+  }
+}

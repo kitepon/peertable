@@ -18,8 +18,8 @@ export function waitReceipt(spool) {
     const command = process.platform === 'win32' ? hookCommand(receipt.executable, receipt.args) : shellCommand(receipt.executable, receipt.args)
     receipt.native_tool = state.harness === 'grok'
       ? { name: 'run_terminal_command', input: { command, description: 'Peertable親宛受信', background: true, timeout: 0 } }
-      // 通常Cursor CLIの実測input。Shellは長い待機を公式の背景taskへ移す。
-      : { name: 'Shell', input: { command, cwd: spool.project } }
+      // モデル向けShell入力。hookが返すcwdはモデルAPIの引数ではない。
+      : { name: 'Shell', input: { command, working_directory: spool.project, block_until_ms: 0, description: 'Peertable親宛受信' } }
     state.wait_receipt = receipt
     return receipt
   })
@@ -31,6 +31,11 @@ export async function bindNativeWait(spool, event, harness) {
   const tool = harness === 'grok' ? event.toolName : event.tool_name
   const input = harness === 'grok' ? event.toolInput : event.tool_input
   if (tool !== expected.name || input?.command !== expected.input.command) return false
+  if (harness === 'cursor') {
+    // CLI実測のcwdと公式hook仕様のworking_directoryを明示的に照合する。
+    const directories = ['cwd', 'working_directory'].filter(key => Object.hasOwn(input, key))
+    if (!directories.length || directories.some(key => input[key] !== expected.input.working_directory)) throw failure('PARENT_NATIVE_WAIT_INPUT_MISMATCH')
+  }
   let output = harness === 'grok' ? event.toolResult : event.tool_output
   if (typeof output === 'string') { try { output = JSON.parse(output) } catch { throw failure('PARENT_NATIVE_WAIT_RESULT_INVALID') } }
   const task = harness === 'grok' ? output?.task_id : output?.shell_id
@@ -44,7 +49,7 @@ export async function bindNativeWait(spool, event, harness) {
     // POSIXは同じNode PID。PowerShell 7は公式task PIDの子としてNodeが動く。
     const taskOwner = processIdentity(pid)
     if (!taskOwner || !processDescendsFrom(waiter.owner, taskOwner)) throw failure('PARENT_NATIVE_WAIT_PROCESS_MISMATCH')
-    waiter.native_task = { id: String(task), pid, process_identity: taskOwner, input: expected, at: new Date().toISOString() }
+    waiter.native_task = { id: String(task), pid, process_identity: taskOwner, input: expected, hook_input: input, at: new Date().toISOString() }
     armParentState(saved)
   })
   await spool.publishHealth()
