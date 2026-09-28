@@ -45,3 +45,9 @@ Cursor/Grokの6 CLIは旧snapshotで5件失敗、Windows Grokの無改造試験�
 親のCodex idle長文試験でroomのUTF-8断片decodeによる原文破損が再現された。`readBody`をNodeのstream decoderへ修理し、[HTTP UTF-8再現](../../experiments/http-utf8-body-repro.mjs)で40,097 UTF-16文字の日本語・emojiの途中を5箇所で分割する。POST応答、GET messages、保存logの完全一致をfocused検証する。修理前のnative idle長文試験は失敗証拠として親が保管し、成功へ変更しない。
 
 公開前gateは`npm run verify:parent-delivery`で[実機manifest](product-acceptance.json)を検査する。3 OS・7実行面・25scenarioの525件を要求し、欠落/skip/fixture・証拠file欠落・source digest/version不一致を拒否する。現manifestは空で、公開gateは未達。gateは会話/原文/receipt等の共通証拠を機械照合し、scenario固有の実観測の十分性は親の受入監査でも確認する。実装チェックポイントと全製品受入完了を分ける。
+
+## 配布候補の確認
+
+最新の固定候補のsource、version、digest、製品CI、packと導入診断、公開gateの実行結果は[配布候補のチェックポイント](release-candidate-checkpoint.json)に保存する。3 OSの製品CIと正式tarballからの導入診断は成立したが、実機受入manifestの不足は残る。tarballを専用local prefixへnpmで導入した確認を、registry版のglobal installや本番反映として報告しない。
+
+Cursorの専用Desktop projectは正式tarballから構成した。OS権限の確認は成立したが、Jevの画面取得がwindow非公開・複数windowの相関・OS inventoryのtimeoutで停止し、初回メッセージは未送信である。専用ウィンドウとroom serverは停止した。モデルの利用上限やPeertableの配送不成立と同じ原因にしない。GUI試験の操作ツール変更はオーナーへの確認中であり、CLIの正式受入runnerは独立に準備している。
