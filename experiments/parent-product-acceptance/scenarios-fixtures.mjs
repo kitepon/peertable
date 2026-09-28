@@ -29,6 +29,29 @@ export function appendGrokProductObserver(value, event, observer) {
   return value
 }
 
+// 専用診断artifactへOS原応答を残し、process APIの失敗自体は伝播する。
+export function observeFixtureProcessIdentity(platform, pid, directory) {
+  try { return platform.processIdentity(pid) }
+  catch (error) {
+    const sample = (executable, argv) => { try { return { executable, argv, code: 0, stdout: execFileSync(executable, argv, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) } } catch (probe) { return { executable, argv, code: probe.status ?? null, stdout: probe.stdout?.toString() ?? '', stderr: probe.stderr?.toString() ?? '', error_code: probe.code } } }
+    const artifact = join(directory, `process-identity-failed-${pid}-${Date.now()}.json`)
+    const responses = process.platform === 'darwin' ? [sample('/bin/ps', ['-ww', '-p', String(pid), '-o', 'ppid=', '-o', 'lstart=', '-o', 'command=']), sample('/usr/sbin/lsof', ['-a', '-p', String(pid), '-d', 'txt', '-Fn'])] : []
+    writeJson(artifact, { at: new Date().toISOString(), pid, error: { code: error.code, message: error.message, stack: error.stack }, responses })
+    error.detail = { ...error.detail, pid, artifact }; throw error
+  }
+}
+
+// 背景taskの実登録入力と、完了後の公式reader入力は別々に固定する。
+export function fixtureJoinInstruction({ harness, project, name }) {
+  const common = `Peertable parent_joinをproject=${project} name=${name}で1回呼んでください。同じ会話のroom配送の確認符号を原文のまま報告し、受信を継続してください。`
+  if (!['cursor', 'grok'].includes(harness)) return common
+  const registration = '製品receipt wait_process.native_tool.inputの完成済み入力を、指定されたnative背景toolへそのまま渡してください。taskの完了前に出力readerやparent_readで先取りしないでください。'
+  const read = harness === 'grok'
+    ? '公式task_completedで示された同じtask_idだけをget_command_or_subagent_outputのtask_ids配列に入れて全量を読みます。入力はtask_idsの1キーだけです。timeout_msキーは付けず、0も不可です。truncated:falseとcompletedを確認した公式全文readerの結果にdelivery_idがある場合だけ、そのIDをparent_readへ渡してください。'
+    : '同じShell taskの背景完了後、公式Shellが示す同taskの出力fileを公式Readで全文読みます。offset/limitを付けず、他taskのfileを読みません。その全文出力のdelivery_idをparent_readへ渡してください。'
+  return common + registration + read + 'continuation_tokenがある間は同じ配送のparent_readを完了まで続けます。その結果の次wait_processも同じ完成入力で登録してください。'
+}
+
 export function hookConfigurationSnapshot(hooks) {
   const beforeBytes = existsSync(hooks) ? readFileSync(hooks) : null
   const beforeHooks = beforeBytes ? JSON.parse(beforeBytes.toString('utf8').replace(/^\uFEFF/u, '')) : null
@@ -83,10 +106,11 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
       if (adapter?.bind) adapter = adapter.bind(fixture)
       fixture.adapter = adapter
       if (!adapter?.resolveCli || !adapter.startup || !adapter.transcript || !adapter.read) fail('ACCEPTANCE_OFFICIAL_SURFACE_BOUNDARY_UNCONFIRMED', `${harness}: 公式task/transcriptの実測adapterが必要です`)
+      fixture.identityArtifact = join(directory, 'native-process-identity.json')
       fixture.trackOwnProcesses = async () => {
         if (!fixture.pty) return
         const pane = await fixture.aiterm.observe(fixture.pty)
-        if (pane.pane_process?.pid && !fixture.paneOwner) fixture.paneOwner = platform.processIdentity(pane.pane_process.pid)
+        if (pane.pane_process?.pid && !fixture.paneOwner) fixture.paneOwner = observeFixtureProcessIdentity(platform, pane.pane_process.pid, directory)
         for (const endpoint of projectEndpoints(project)) {
           const state = endpoint.read()
           if (state.caller?.owner && platform.sameProcess(state.caller.owner)) { fixture.owner = state.caller.owner; if (!fixture.nativeOwners.some(owner => owner.pid === state.caller.owner.pid && owner.started === state.caller.owner.started)) fixture.nativeOwners.push(state.caller.owner) }
@@ -102,9 +126,10 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         const descendants = new Set([fixture.paneOwner.pid]); let added = true
         while (added) { added = false; for (const row of rows) if (descendants.has(row.parent) && !descendants.has(row.pid)) { descendants.add(row.pid); added = true } }
         for (const pid of descendants) {
-          const owner = platform.processIdentity(pid)
+          const owner = observeFixtureProcessIdentity(platform, pid, directory)
           if (owner && platform.processHarness(owner) === harness && !fixture.nativeOwners.some(item => item.pid === owner.pid && item.started === owner.started)) { fixture.nativeOwners.push(owner); fixture.owner ??= owner }
         }
+        writeJson(fixture.identityArtifact, { at: new Date().toISOString(), project, harness, pty: fixture.pty, pane: fixture.paneOwner, native: fixture.nativeOwners, receiver: fixture.receiverOwners })
       }
       fixture.rpc = async (method, params) => {
         if (harness !== 'codex') fail('ACCEPTANCE_FIXTURE_RPC_HARNESS', harness)
@@ -242,6 +267,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         writeFileSync(launcher, `import {readFileSync} from 'node:fs';import {spawn} from 'node:child_process';const p=JSON.parse(readFileSync(process.argv[2],'utf8'));const child=spawn(p.invocation.executable,p.invocation.argv,{cwd:p.project,stdio:'inherit',env:{...process.env,PEERTABLE_TOKEN_SOURCE_FILE:p.tokenFile}});child.on('exit',(code)=>process.exit(code??1));\n`, { mode: 0o600 })
         if (!fixture.aiterm) fixture.aiterm = await openAiterm()
         if (!fixture.pty) fixture.pty = await fixture.aiterm.open(`pt-fixture-${randomUUID().slice(0, 8)}`, process.platform === 'win32' ? 'pwsh' : undefined)
+        writeJson(fixture.identityArtifact, { at: new Date().toISOString(), project, harness, pty: fixture.pty, pane: fixture.paneOwner, native: fixture.nativeOwners, receiver: fixture.receiverOwners })
         await fixture.trackOwnProcesses()
         await fixture.aiterm.send(fixture.pty, platform.shellCommand(process.execPath, [launcher, input]))
         await until('通常HOMEの公式CLI起動', async () => { await fixture.trackOwnProcesses(); const action = adapter.startup(await fixture.aiterm.screen(fixture.pty)); if (action?.blocked) fail('ACCEPTANCE_FIXTURE_HARNESS_BLOCKED', action.blocked); if (action?.keys) { for (const key of action.keys) { await fixture.aiterm.key(fixture.pty, key); await sleep(500) } return false } return action?.ready }, 120000, 1500)
@@ -261,7 +287,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         fixture.target = { meta, spool, api: apiFor(room), observe: boundObserve, submit: fixture.submit, file, nativeStopFile: fixture.observer?.observations, screen: () => fixture.aiterm.screen(fixture.pty), fixture }
         return fixture.target
       }
-      fixture.join = async (previousEndpoint = null) => { await fixture.submit(`Peertable parent_joinをproject=${project} name=${name}で1回呼んでください。同じ会話のroom配送の確認符号を原文のまま報告し、受信を継続してください。Cursor/Grokの背景登録とparent_readは製品receiptの完成済み入力を公式toolへ渡してください。`); return fixture.refreshTarget(previousEndpoint) }
+      fixture.join = async (previousEndpoint = null) => { await fixture.submit(fixtureJoinInstruction({ harness, project, name })); return fixture.refreshTarget(previousEndpoint) }
       fixture.restore = () => { for (const [file, original] of fixture.backups) { if (original === null) rmSync(file, { force: true }); else { writeFileSync(file, original, { mode: 0o600 }); if (!readFileSync(file).equals(original)) fail('ACCEPTANCE_FIXTURE_RESTORE_FAILED', file) } }; fixture.backups.clear(); configuration.assertHooksUnchanged() }
       fixture.stop = async () => {
         await fixture.trackOwnProcesses()
@@ -283,7 +309,8 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         try { await fixture.stop() } catch (error) { errors.push(error) }
         // 起動dialog失敗・joinなしでも、own paneを公式APIで閉じ、既知のnative親を終了させる。
         if (fixture.pty) {
-          try { await fixture.trackOwnProcesses(); await fixture.aiterm.close(fixture.pty); fixture.pty = null } catch (error) { errors.push(error) }
+          try { await fixture.trackOwnProcesses() } catch (error) { errors.push(error) }
+          try { await fixture.aiterm.close(fixture.pty); fixture.pty = null } catch (error) { errors.push(error) }
         }
         try {
           await waitOwnedFixtureExit({ readEndpoints: () => projectEndpoints(project), sameProcess: platform.sameProcess, knownOwners: [...fixture.nativeOwners, ...fixture.receiverOwners, fixture.paneOwner].filter(Boolean), indexExists: id => existsSync(join(homedir(), '.peertable/parent-receivers/endpoints', `${id}.json`)), timeout: 30000 })

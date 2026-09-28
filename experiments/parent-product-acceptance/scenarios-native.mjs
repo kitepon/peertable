@@ -203,7 +203,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
   const state = s => saved.get(s.runId) ?? (() => { const value = {}; saved.set(s.runId, value); return value })()
   const observerRows = fixture => rows(fixture.observer?.observations)
   const hookObservation = (s, expectation, detail) => s.result(s, expectation, 'official_hook', detail)
-  const join = async (s, alias = 'self') => { const target = s.context.endpoint(alias), fixture = fixtureFor(target); await fixture.join(); return fixture.target }
+  const rejoinEndpoint = async (s, alias = 'self') => { const target = s.context.endpoint(alias), fixture = fixtureFor(target); await fixture.join(); return fixture.target }
   const recordPending = s => s.pending.filter(item => item.scope.runId === s.runId && item.scope.scenario === s.scenario)
   const confirmOne = s => { const last = s.checks.at(-1); if (!last || last.count !== 1 || last.status !== 'passed') fail('ACCEPTANCE_NATIVE_DELIVERY_MISSING', s.scenario); return last }
   const actions = {}
@@ -412,7 +412,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     const old = recovery.owner
     await pauseOwnedReceiver(old, { target: recovery.target, fixture: recovery.fixture, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused, resume: true })
     process.kill(old.pid, 'SIGKILL'); await s.until('停止した受信process消失', () => !s.sameProcess(old), 10000, 50)
-    const target = await join(s)
+    const target = await rejoinEndpoint(s)
     if (target.spool.id !== recovery.target.spool.id || s.recordFor(post).event.body !== post.body) fail('ACCEPTANCE_READY_RESTART_BINDING', 'readyとendpointを継承しませんでした')
     return s.result(s, 'ready_inherited', 'os_process', { suspension: recovery.monitor?.suspended ?? recovery.operation, killed_owner: old, new_watcher: target.spool.read().watcher, new_waiter: target.spool.read().waiter, delivery_id: before.delivery_id, body_sha256: sha256(post.body), official_transcript: target.file })
   }
@@ -469,7 +469,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
       const after = await s.until('公式native task終了出力', async () => { const value = await controller.read(task.id, { session: target.meta.parent_session }); return value.finished === true ? value : null }, outcome === 'timeout' ? controller.timeoutWindowMs : 30000)
       if (after.id !== task.id || after.session !== target.meta.parent_session || after.outcome !== outcome || after.delivered === true) fail('ACCEPTANCE_BACKGROUND_END_ROUNDED', 'cancel/timeout/exitを本文配送へ丸めました')
       state(s).background ??= []; state(s).background.push({ task, before, response, after })
-      if (outcome !== 'exit') await join(s)
+      if (outcome !== 'exit') await rejoinEndpoint(s)
       return s.result(s, `native_task_${outcome}_observed`, 'native_task', { native_task: task, request_response: response, before, after, task_artifact: after.artifact })
     }
   }
@@ -479,7 +479,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     return s.result(s, 'task_end_not_delivered', 'native_task', { native_ends: observations })
   }
   actions.receiver_rearm = async (_, s) => {
-    const before = self(s).spool.read(), target = await join(s), after = target.spool.read()
+    const before = self(s).spool.read(), target = await rejoinEndpoint(s), after = target.spool.read()
     if (target.spool.id !== self(s).spool.id || after.cursor < before.cursor || after.state !== 'verified' || after.runtime !== 'armed') fail('ACCEPTANCE_REARM_IDENTITY_OR_CURSOR', '同endpoint/cursorで再武装していません')
     if (['cursor', 'grok'].includes(s.harness) && (!after.waiter?.native_task || !s.sameProcess(after.waiter.owner))) fail('ACCEPTANCE_REARM_NATIVE_TASK_MISSING', '完成済みnative taskの再登録がありません')
     return s.result(s, s.scenario === 'lease' ? 'same_endpoint_cursor_rearmed' : 'native_receiving_rearmed', 'harness_transcript', { endpoint_id: target.spool.id, before_cursor: before.cursor, after_cursor: after.cursor, native_waiter: after.waiter })
@@ -617,7 +617,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
   actions.deadline_restore = async (_, s) => {
     const pending = state(s).deadline
     if (pending) for (const release of pending.releases) writeFileSync(release, '{}')
-    const target = await join(s)
+    const target = await rejoinEndpoint(s)
     return s.result(s, 'new_join_verified', 'harness_transcript', { parent_session: target.meta.parent_session, endpoint_id: target.spool.id, state: target.spool.read().state })
   }
 
@@ -637,7 +637,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     const after = target.spool.read()
     if (!s.sameProcess(target.meta.parent_process) || after.cursor !== before.cursor || !isDeepStrictEqual(after.records, before.records)) fail('ACCEPTANCE_LIFECYCLE_HISTORY_LOST', '更新が親processまたは配送履歴を変更しました')
     await fixtureFor(target).adapter.reconnectMcp(fixtureFor(target))
-    await join(s)
+    await rejoinEndpoint(s)
     return s.result(s, mode === 'same' ? 'same_version_single_registration' : 'new_version_history_binding_preserved', 'installed_package', { before_version: s.meta.package_version, after_version: installed.version, tarball_sha256: sha256(readFileSync(tarball)), package_output: output, endpoint_id: target.spool.id, cursor: after.cursor })
   }
   actions.same_version_update = (_, s) => lifecycleOperation(s, 'same')

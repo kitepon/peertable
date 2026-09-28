@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { processIdentity, sameProcess } from '../../skill/scripts/parent-platform.mjs'
-import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit, nativeHookObserverSource, appendGrokProductObserver } from './scenarios-fixtures.mjs'
+import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit, nativeHookObserverSource, appendGrokProductObserver, observeFixtureProcessIdentity, fixtureJoinInstruction } from './scenarios-fixtures.mjs'
 
 test('fixture終了は実child消失の後も製品自己停止と索引撤去を待つ', async t => {
   const child = spawn(process.execPath, ['-e', 'setTimeout(()=>process.exit(0),150)'], { stdio: 'ignore' })
@@ -101,4 +101,21 @@ test('束縛observerは同eventのparent_joinだけを実processでholdする', 
   while (entries.length < 3) { try { entries = readFileSync(observed, 'utf8').trim().split('\n').map(JSON.parse) } catch (error) { if (error.code !== 'ENOENT') throw error }; assert.ok(Date.now() < deadline); if (entries.length < 3) await new Promise(resolve => setTimeout(resolve, 20)) }
   assert.deepEqual(entries.map(row => row.held), [false, false, true]); assert.equal(call.child.exitCode, null); assert.equal(entries[2].control_release, release); assert.equal(sameProcess(entries[2].owner), true)
   writeFileSync(release, '{}'); assert.equal(await call.ended, 0); assert.equal(sameProcess(entries[2].owner), false)
+})
+
+
+test('process API失敗は実OS原応答を私物artifactへ保存し、元errorとstackを伝播する', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'peertable-process-diagnostic-')); t.after(() => rmSync(directory, { recursive: true, force: true }))
+  const error = Object.assign(new Error('実schema境界の再現'), { code: 'PARENT_PROCESS_API_SCHEMA_INVALID' })
+  assert.throws(() => observeFixtureProcessIdentity({ processIdentity: () => { throw error } }, process.pid, directory), caught => caught === error)
+  const raw = JSON.parse(readFileSync(error.detail.artifact, 'utf8')); assert.equal(raw.pid, process.pid); assert.equal(raw.error.code, error.code); assert.equal(raw.error.stack, error.stack)
+  if (process.platform === 'darwin') { assert.equal(raw.responses[0].code, 0); assert.match(raw.responses[0].stdout, /node/u); assert.equal(raw.responses[1].code, 0); assert.match(raw.responses[1].stdout, /n\//u) }
+  assert.deepEqual(observeFixtureProcessIdentity({ processIdentity }, process.pid, directory), processIdentity(process.pid))
+})
+
+test('Grok初期joinは実task完了後のtask_idsだけの全文readerを指示する', () => {
+  const grok = fixtureJoinInstruction({ harness: 'grok', project: '/私物 project', name: '親' })
+  assert.match(grok, /公式task_completed.*同じtask_id/u); assert.match(grok, /入力はtask_idsの1キーだけ/u); assert.match(grok, /timeout_msキーは付けず、0も不可/u); assert.match(grok, /公式全文readerの結果にdelivery_idがある場合だけ/u)
+  const cursor = fixtureJoinInstruction({ harness: 'cursor', project: '/私物', name: '親' }); assert.match(cursor, /公式Readで全文/u); assert.match(cursor, /offset\/limitを付けず/u); assert.doesNotMatch(cursor, /get_command_or_subagent_output/u)
+  assert.doesNotMatch(fixtureJoinInstruction({ harness: 'claude', project: '/私物', name: '親' }), /task_ids|Shell/u)
 })

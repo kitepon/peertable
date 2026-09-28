@@ -198,3 +198,21 @@ test('束縛失敗はClaude実tool名と同ID user.tool_resultの原包装から
     assert.equal(bindingToolError({ ...options, harness, seen: { toolUses: [{ ...use, session: 'other' }] } }), null)
   }
 })
+
+// slot登録部分のfixture値で入口の名前衝突を再現する。24hや実CLI配送の代用ではない。
+test('lease armのmodule path結合はendpoint再joinを呼ばず4harnessで文字列を返す', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'peertable-lease-path-')); t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const owner = processIdentity(process.pid)
+  for (const harness of ['claude', 'codex', 'cursor', 'grok']) {
+    let rejoined = 0; const fixture = { harness, adapter: {}, join: async () => { rejoined++ } }
+    const nativeName = harness === 'cursor' ? 'Shell' : 'run_terminal_command', input = { command: '専用登録入力' }
+    const state = { state: 'verified', runtime: 'armed', endpoint_id: 'own', watcher: owner, caller: { owner }, waiter: { owner, native_task: { id: 'task', pid: owner.pid, process_identity: owner, input: { name: nativeName, input } } } }
+    const target = { fixture, meta: { harness, parent_session: 'own' }, spool: { id: 'own', read: () => state }, observe: () => ({ toolUses: [{ name: nativeName, session: 'own', input, id: 'tool', turn_id: 'turn' }], tasks: [{ tool_use_id: 'tool', id: 'task', pid: owner.pid }] }) }
+    const native = createNativeActions({ factory: { close: async () => {} }, primary: fixture })
+    const scope = { harness, runId: harness, pkg: process.cwd(), checks: [], context: { endpoint: () => target }, artifactFor: () => join(dir, harness + '.json'), processIdentity, sameProcess, processDescendsFrom, until: async (_, probe) => { const value = await probe(); assert.ok(value); return value }, result: (_, expectation, kind, detail) => ({ expectation, kind, ...detail }) }
+    const result = await native.actions.lease_expiry_arm({}, scope)
+    assert.equal(result.expectation, 'own_finite_lease'); assert.equal(rejoined, 0)
+    assert.equal(result.product_connection_source ?? result.lease_source, join(process.cwd(), 'skill/scripts/parent-receivers', harness === 'codex' ? 'codex.mjs' : harness === 'claude' ? 'claude.mjs' : 'background.mjs'))
+    await native.finalize(scope)
+  }
+})
