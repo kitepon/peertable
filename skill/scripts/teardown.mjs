@@ -1,5 +1,6 @@
+import { isParentMember } from '../../room/parent-kind.mjs'
 // 解散はroomと履歴を残す。公開APIで席を止めてから、所有する足場を撤去する。
-import { existsSync, mkdirSync, writeFileSync, rmSync, copyFileSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync, rmSync, copyFileSync, cpSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { AitermClient } from './aiterm-client.mjs'
@@ -9,6 +10,10 @@ import { projectPath, readSetup, readJson, runScript, removeExclude, fail } from
 import { packageRoot } from './install-skill.mjs'
 import { resolveLatticeInvocation } from './seat-usage.mjs'
 import { seatSessionId } from './seat-session.mjs'
+import { projectEndpoints, stopEndpoint } from './parent-runtime.mjs'
+import { endpointsFor } from './parent-caller.mjs'
+import { parentHome } from './parent-platform.mjs'
+import { connectParent } from './parent-connect.mjs'
 
 function landingReports(project, state) {
   if (state.mode !== 'lattice') return []
@@ -59,8 +64,9 @@ export async function teardownProject(options, dependencies = {}) {
     await aiterm.sessions()
     if (!options.purge) await step('roomログの控え', () => archiveLog(api, project, state.room))
     let stopped = true
+    for (const endpoint of projectEndpoints(project)) if (!await step(`親receiver ${endpoint.id} 停止`, () => stopEndpoint(endpoint))) stopped = false
     for (const member of members) {
-      if (member.delivery?.kind === 'parent_watch' || !seatSessionId(member)) continue
+      if (isParentMember(member) || !seatSessionId(member)) continue
       if (!await step(`席 ${member.name} の退席`, () => leaveSeat(project, member.name, { aiterm }))) stopped = false
     }
     for (const kind of ['wakeup', 'seat-status', 'alarm']) {
@@ -77,6 +83,19 @@ export async function teardownProject(options, dependencies = {}) {
     await step('Lattice成果の着地確認', () => landingReports(project, state))
     // 停止できなかったruntimeの記録を残し、同じ入口から再実行できる状態を保つ。
     if (!stopped) fail('PEERTABLE_TEARDOWN_STOP_FAILED', '席またはruntimeの停止に失敗しました。.teamを残しています')
+    const parentEndpoints = projectEndpoints(project)
+    if (parentEndpoints.length) {
+      await step('親配送の未読・成否不明記録の控え', () => {
+        const archive = join(project, 'docs', 'archive', `parent-delivery_${new Date().toISOString().replace(/[:.]/gu, '-')}`)
+        for (const endpoint of parentEndpoints) endpoint.recover()
+        cpSync(join(team, 'parent-delivery'), archive, { recursive: true })
+        return archive
+      })
+      for (const harness of new Set(parentEndpoints.map(endpoint => endpoint.read().harness))) {
+        const shared = endpointsFor().some(endpoint => endpoint.project !== project && endpoint.read().harness === harness && endpoint.read().runtime !== 'stopped')
+        if (!shared) await step(`親接続 ${harness} の解除`, () => connectParent(harness, { remove: true }))
+      }
+    }
     if (errors.length) fail('PEERTABLE_TEARDOWN_INCOMPLETE', 'ログ保存または成果確認に失敗しました。再実行用の.teamを残しています')
     const roomDone = await step(options.purge ? 'room削除' : 'room解散', async () => {
       if (options.purge) {
@@ -102,6 +121,7 @@ export async function teardownProject(options, dependencies = {}) {
     for (const [flag, rule] of [['added_exclude', '.team/'], ['added_mcp_exclude', '/.mcp.json'], ['added_runtime_exclude', '/.lattice/runtime/']]) {
       if (state[flag]) removeExclude(project, rule)
     }
+    for (const endpoint of parentEndpoints) rmSync(join(parentHome(), 'endpoints', `${endpoint.id}.json`), { force: true })
     rmSync(team, { recursive: true })
     steps.push({ name: 'projectの足場撤去', status: 'done' })
     const result = { schema: 'peertable.teardown-result.v1', status: errors.length ? 'incomplete' : 'done', mode: options.purge ? 'purge' : 'archive', project, steps }

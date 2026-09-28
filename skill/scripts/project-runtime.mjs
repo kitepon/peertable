@@ -1,3 +1,4 @@
+import { isParentMember } from '../../room/parent-kind.mjs'
 // setup/resumeは、対象projectの生成物更新とruntimeの確認までを連続して行う。
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
@@ -8,14 +9,15 @@ import { scaffoldProject, ensureProjectRoomMcp, projectPath, readSetup, runScrip
 import { ensureProjectRuntime } from './ensure-project-runtime.mjs'
 import { ensureCursorRoomMcp } from './ensure-cursor-room-mcp.mjs'
 import { packageRoot } from './install-skill.mjs'
+import { connectCommand } from './parent-connect.mjs'
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
-const targets = members => members.filter(member => member.delivery?.kind !== 'parent_watch' && (member.harness ?? member.vendor) && seatSessionId(member))
+const targets = members => members.filter(member => !isParentMember(member) && (member.harness ?? member.vendor) && seatSessionId(member))
 
 export async function seatsToResume(aiterm, members, sessions, room) {
   const relaunch = []
   for (const member of members) {
-    if (member.delivery?.kind === 'parent_watch' || !(member.harness ?? member.vendor)) continue
+    if (isParentMember(member) || !(member.harness ?? member.vendor)) continue
     const session = findSeatSession(member, sessions, room)
     if (session) {
       const observation = await aiterm.observe(session.session_id)
@@ -64,8 +66,10 @@ export async function setupProject(options) {
     await aiterm.sessions()
     const scaffold = scaffoldProject({ ...options, project })
     if (scaffold.action === 'resume') return await resumeProject({ ...options, project }, { aiterm })
+    const connection = await connectCommand(options.harness ? ['--target', options.harness] : [])
+    if (connection.status === 'failed') fail('PARENT_CONNECT_FAILED', JSON.stringify(connection))
     const runtime = await ensureProjectRuntime(project, { aiterm })
-    return { schema: 'peertable.setup-result.v1', status: 'ready', project, room: readSetup(project).room, runtime }
+    return { schema: 'peertable.setup-result.v1', status: runtime.status, project, room: readSetup(project).room, runtime, connection, parent_join: { tool: 'parent_join', arguments: { project, name: options.parent ?? 'bell' } } }
   } finally { await aiterm.close() }
 }
 
@@ -80,6 +84,8 @@ export async function resumeProject(options, dependencies = {}) {
     const api = dependencies.api ?? new RoomApi(state, { credential })
     const members = await api.members()
     const relaunch = await seatsToResume(aiterm, members, sessions, state.room)
+    const connection = await (dependencies.connectCommand ?? connectCommand)(options.harness ? ['--target', options.harness] : [])
+    if (connection.status === 'failed') fail('PARENT_CONNECT_FAILED', JSON.stringify(connection))
     ensureProjectRoomMcp(project, state)
     if (existsSync(join(project, '.team', 'cursor-room-mcp.managed.json'))
         || members.some(member => (member.harness ?? member.vendor) === 'cursor'))
@@ -97,6 +103,6 @@ export async function resumeProject(options, dependencies = {}) {
     }
     const runtime = await (dependencies.ensureProjectRuntime ?? ensureProjectRuntime)(project, { aiterm, env: { ...process.env, PEERTABLE_CREDENTIAL_FILE: credential } })
     const verified = await verifyProjectRuntime(api, { probe: options.probe !== false })
-    return { schema: 'peertable.resume-result.v1', status: 'ready', project, room: state.room, relaunched: relaunch.map(member => member.name), runtime, verified }
+    return { schema: 'peertable.resume-result.v1', status: runtime.status, project, room: state.room, relaunched: relaunch.map(member => member.name), runtime, connection, verified }
   } finally { if (!dependencies.aiterm) await aiterm.close() }
 }

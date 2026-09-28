@@ -15,4 +15,5 @@ const run = (args) => {
 }
 run(['--test', join(root, 'skill/scripts/runtime-contract.test.mjs')])
 run([join(root, 'scripts/verify-release-commit.mjs')])
+run([join(root, 'scripts/parent-delivery-acceptance.mjs'), join(root, 'rag/parent-delivery/product-acceptance.json')])
 run([join(root, 'room/client.mjs'), 'diagnostics'])

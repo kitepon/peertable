@@ -1,3 +1,4 @@
+import { isParentMember } from '../../room/parent-kind.mjs'
 import { seatSessionId } from './seat-session.mjs'
 
 export const BROADCAST_RECIPIENT = 'all'
@@ -47,7 +48,7 @@ export function deliveryFailureCode(error) {
  */
 export function isWakeupBridgeTarget(member, options = {}) {
   if (!member || typeof member.name !== 'string' || member.name.length === 0) return false
-  if (member.delivery?.kind === 'parent_watch') return false
+  if (isParentMember(member)) return false
   // Claude 席も bridge の対象にする。channel 通知だけでは idle の席が起きない実測がある。
   const parentName = options.parentName
   if (typeof parentName === 'string' && parentName.length > 0 && member.name === parentName) return false

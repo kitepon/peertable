@@ -7,6 +7,7 @@ import { leaveSeat } from './leave-seat.mjs'
 import { diagnoseProject } from './doctor.mjs'
 import { teardownProject } from './teardown.mjs'
 import { changeSeat } from './change-seat.mjs'
+import { connectCommand } from './parent-connect.mjs'
 
 function projectOptions(args, { seat = false } = {}) {
   const options = { project: args[0], phases: [] }
@@ -33,7 +34,11 @@ function projectOptions(args, { seat = false } = {}) {
 
 const [command, ...args] = process.argv.slice(2)
 try {
-  if (command === 'install') {
+  if (command === 'connect') {
+    const result = await connectCommand(args)
+    console.log(JSON.stringify(result))
+    if (result.status === 'failed') process.exitCode = 1
+  } else if (command === 'install') {
     const result = skillCommand(args)
     console.log(JSON.stringify(result))
     if (args.includes('--check') && result.status !== 'ready') process.exitCode = 1
@@ -43,7 +48,9 @@ try {
     console.log(JSON.stringify(result))
     if (result.status !== 'ready') process.exitCode = 1
   } else if (command === 'setup' || command === 'resume') {
-    console.log(JSON.stringify(await (command === 'setup' ? setupProject : resumeProject)(projectOptions(args))))
+    const result = await (command === 'setup' ? setupProject : resumeProject)(projectOptions(args))
+    console.log(JSON.stringify(result))
+    if (result.status !== 'ready') process.exitCode = 1
   } else if (command === 'launch') {
     console.log(JSON.stringify(await launchSeat(projectOptions(args, { seat: true }))))
   } else if (command === 'change') {
@@ -56,6 +63,7 @@ try {
   } else if (!command || ['--help', '-h', 'help'].includes(command)) {
     console.log(`Peertable
   peertable install [--target claude|codex|grok|cursor] [--json]
+  peertable connect [--target claude|codex|grok|cursor] [--remove] [--json]
   peertable diagnostics [--target claude|codex|grok|cursor] [--json]
   peertable diagnostics <project> [--repair]
   peertable setup <project> --room <room> --url <URL> --tasks <file>

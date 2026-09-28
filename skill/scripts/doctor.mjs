@@ -1,3 +1,4 @@
+import { isParentMember } from '../../room/parent-kind.mjs'
 // 診断はPeertableの記録とAitermの公開観測を照合する。repairはbridgeだけを直す。
 import { existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -9,6 +10,7 @@ import { bridgeRecordLive } from './bridge-record-live.mjs'
 import { ensureBridge } from './ensure-project-runtime.mjs'
 import { projectPath, readSetup, readJson } from './project-scaffold.mjs'
 import { resolveLatticeInvocation } from './seat-usage.mjs'
+import { parentRuntimeStatus } from './parent-runtime.mjs'
 
 export async function diagnoseProject(options) {
   const project = projectPath(options.project)
@@ -23,9 +25,14 @@ export async function diagnoseProject(options) {
   try {
     await check('room到達', () => api.request('summary'))
     const listed = await check('member台帳', async () => ({ members: await api.members() }))
+    await check('親receiver', async () => {
+      const parent = await parentRuntimeStatus(project, { restart: options.repair === true })
+      if (parent.status !== 'ready') throw Object.assign(new Error(JSON.stringify(parent)), { code: 'PARENT_RUNTIME_NOT_READY' })
+      return { parent }
+    })
     await check('Aitermと預け仕事の公開観測', async () => ({ sessions: (await aiterm.sessions(['PEERTABLE_MEMBER', 'PEERTABLE_ROOM'])).length }))
     for (const member of listed?.members ?? []) {
-      if (member.delivery?.kind === 'parent_watch' || !seatSessionId(member)) continue
+      if (isParentMember(member) || !seatSessionId(member)) continue
       await check(`席 ${member.name}`, async () => {
         if (!member.roles?.length || !member.model || !member.pid || !member.started_identity || !member.argv_digest) throw new Error('台帳の素性・本人性が不完全です')
         const observed = await aiterm.observe(seatSessionId(member))

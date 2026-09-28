@@ -10,23 +10,30 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { resolveLatticeExecutable, resolvePostToken, parentWatchShouldNotify } from './seat-usage.mjs'
+import { resolveLatticeExecutable, resolvePostToken } from './seat-usage.mjs'
 import { addressedToParent as messageAddressedToParent, latticeStaffingChanged, tableStallUpdate } from './parent-watch-logic.mjs'
+import { ParentSpool, digest } from './parent-delivery.mjs'
+import { RoomApi } from './room-api.mjs'
+import { queueCodex } from './parent-receivers/codex.mjs'
+import { isParentMember } from '../../room/parent-kind.mjs'
+import { processIdentity, sameProcess, failure, atomicJson } from './parent-platform.mjs'
 
 const args = process.argv.slice(2)
 const project = args.shift()
 let parent = 'bell'
 if (args[0] && !args[0].startsWith('--')) parent = args.shift()
 const mode = args.shift() ?? '--follow'
-if (!project || !['--prime', '--poll', '--next', '--follow'].includes(mode) || args.length > 0) {
+const endpointId = mode === '--deliver' ? args.shift() : null
+if (!project || !['--prime', '--poll', '--next', '--follow', '--deliver'].includes(mode) || args.length > 0) {
   console.error('usage: parent-watch.mjs <project_dir> [parent_name] <--prime|--poll|--next|--follow>')
   process.exit(2)
 }
 
 const team = join(project, '.team')
 const setupPath = join(team, 'setup-state.json')
-const statePath = join(team, 'parent-watch.json')
-const lockPath = join(team, 'parent-watch.lock')
+const spool = endpointId ? new ParentSpool(project, endpointId) : null
+const statePath = spool ? join(spool.root, 'source.json') : join(team, 'parent-watch.json')
+const lockPath = spool ? join(spool.root, 'source.lock') : join(team, 'parent-watch.lock')
 const setup = JSON.parse(readFileSync(setupPath, 'utf8'))
 const room = setup.room
 const serverUrl = setup.server_url.replace(/\/$/u, '')
@@ -34,7 +41,6 @@ const latticeCli = setup.lattice_cli || process.env.LATTICE_CLI || 'lattice'
 const api = `${serverUrl}/api/${encodeURIComponent(room)}`
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const now = () => new Date().toISOString()
-const ROOM_UPDATE_FALLBACK = 'room全体の状況が更新された。roomログを読み、状況を把握して次の行動を判断する。'
 const staffingBody = ({ ready, active }) => `現在、着手可能工程は ${ready} 件、着手中工程は ${active} 件になりました。標準は ${ready + active}＋監査担当数です。円卓メンバー数を検討してください。`
 
 function readLatticeState(previous = null) {
@@ -73,6 +79,7 @@ function loadState() {
 }
 
 function saveState(state) {
+  if (spool) spool.saveCursor(state.last_seq, state)
   const temp = `${statePath}.${process.pid}.tmp`
   writeFileSync(temp, `${JSON.stringify(state)}\n`, { mode: 0o600 })
   renameSync(temp, statePath)
@@ -85,7 +92,7 @@ async function readJson(path) {
 }
 
 async function ensurePrimed() {
-  const saved = loadState()
+  const saved = spool?.read().source_state ?? loadState()
   if (saved) {
     let lattice = saved.lattice
     if (!lattice?.source) {
@@ -101,7 +108,8 @@ async function ensurePrimed() {
     saveState(next)
     return next
   }
-  const summary = await readJson('/summary')
+  const summary = spool ? { seq: spool.read().cursor } : await readJson('/summary')
+  if (spool && !Number.isSafeInteger(summary.seq)) throw new Error('PARENT_CURSOR_MISSING')
   const observed = readLatticeState()
   const state = {
     schema: 'peertable.parent-watch-state.v1',
@@ -132,6 +140,15 @@ function stopPid(pid) {
   }
 }
 function acquireLock() {
+  if (spool) {
+    const own = processIdentity(process.pid)
+    spool.transact(saved => {
+      if (saved.watcher && saved.watcher.pid !== own.pid && sameProcess(saved.watcher)) throw failure('PARENT_SOURCE_ALREADY_RUNNING')
+      saved.watcher = own
+      atomicJson(lockPath, own)
+    })
+    return
+  }
   try {
     writeFileSync(lockPath, `${process.pid}\n`, { flag: 'wx', mode: 0o600 })
   } catch (error) {
@@ -148,6 +165,17 @@ function acquireLock() {
   }
 }
 function releaseLock() {
+  if (spool) {
+    try {
+      spool.transact(saved => {
+        if (saved.watcher?.pid !== process.pid) return
+        saved.watcher = null
+        if (saved.runtime !== 'stopped') { saved.runtime = 'failed'; saved.error_code ??= 'PARENT_SOURCE_EXITED' }
+        if (existsSync(lockPath)) unlinkSync(lockPath)
+      })
+    } catch (error) { process.stderr.write(`${error.code ?? 'PARENT_SOURCE_RELEASE_FAILED'}: ${error.message}\n`) }
+    return
+  }
   try {
     if (Number(readFileSync(lockPath, 'utf8').trim()) === process.pid) unlinkSync(lockPath)
   } catch {}
@@ -172,10 +200,17 @@ function exitWhenParentStdinCloses() {
 }
 
 async function logQuiet(event) {
+  if (spool) spool.saveEvent({ ...event, event_id: digest(event) }, { quiet: true })
   process.stderr.write(`[quiet] ${JSON.stringify(event)}\n`)
 }
 
 async function writeEvent(event) {
+  if (spool) {
+    await spool.assertCurrentEndpoint()
+    const saved = spool.saveEvent({ ...event, room, event_id: event.event_id ?? (Number.isSafeInteger(event.seq) ? `room:${event.seq}` : digest(event)) })
+    if (spool.read().harness === 'codex' && saved?.state === 'ready') await queueCodex(spool)
+    return
+  }
   await new Promise((resolve, reject) => {
     process.stdout.write(`${JSON.stringify(event)}\n`, error => error ? reject(error) : resolve())
   })
@@ -187,7 +222,6 @@ async function acceptLatticeState(next) {
   if (next.error !== undefined) {
     if (previous?.error === next.error && previous.source === next.source) return false
     state = { ...state, lattice: { ...previous, ...next }, last_event_at: now() }
-    saveState(state)
     await writeEvent({
       schema: 'peertable.parent-watch-event.v1',
       type: 'parent_lattice_error',
@@ -195,12 +229,12 @@ async function acceptLatticeState(next) {
       code: next.error,
       body: 'Lattice工程状態を取得できませんでした。親番犬のroom追従は継続します。',
     })
+    saveState(state)
     return true
   }
   const changed = latticeStaffingChanged(previous, next)
   state = { ...state, lattice: next, last_event_at: now() }
-  saveState(state)
-  if (!changed) return false
+  if (!changed) { saveState(state); return false }
   await logQuiet({
     schema: 'peertable.parent-watch-event.v1',
     type: 'parent_lattice_update',
@@ -210,6 +244,7 @@ async function acceptLatticeState(next) {
     standard_worker_count: next.ready + next.active,
     body: staffingBody(next),
   })
+  saveState(state)
   return true
 }
 
@@ -236,8 +271,7 @@ async function acceptMessage(message) {
   const matched = addressedToParent(message)
   if (matched) {
     const roomUpdate = message.to === 'all'
-    const emit = parentWatchShouldNotify(message, roomUpdate) ? writeEvent : logQuiet
-    await emit({
+    await writeEvent({
       schema: 'peertable.parent-watch-event.v1',
       type: roomUpdate ? 'parent_room_update' : 'parent_dm',
       parent,
@@ -245,7 +279,7 @@ async function acceptMessage(message) {
       from: message.from,
       to: message.to ?? null,
       to_names: message.to_names ?? null,
-      body: roomUpdate ? (message.body || ROOM_UPDATE_FALLBACK) : message.body,
+      body: message.body,
       message,
     })
     // 親宛の名指しDMは、この中継（writeEvent成功＝親の通知ストリームへ入った）をもって配達成立とし、
@@ -253,7 +287,7 @@ async function acceptMessage(message) {
     // これが無いと送り手の席から親宛DMが永遠に pending に見え、報告の再記録ループで
     // 席のターンを燃やし続ける（実被弾: mio が報告のたびに「bell配達pending」を再送）。
     // to:"all" は席側配達（wakeup-bridge）が receipt を所有するので書かない。
-    if (!roomUpdate) await postParentReceipt(message.seq)
+    if (!spool) await postParentReceipt(message.seq)
   }
   state = { ...state, last_seq: message.seq, last_event_at: now() }
   saveState(state)
@@ -270,7 +304,7 @@ async function checkStall() {
   let members
   try { members = (await readJson('/members')).members ?? [] } catch { return false }
   const workers = members
-    .filter(m => m.name !== parent && m.delivery?.kind !== 'parent_watch')
+    .filter(m => m.name !== parent && !isParentMember(m))
     .map(m => ({ name: m.name, status: m.status ?? null }))
   // 全席idleでも、各claim保有席に有効な待機宣言があるなら正当な外部待ちであり停滞ではない
   // （2026-08-25 オーナー裁定の系: 巡回番犬が起こす対象ゼロの夜に、親へ停滞警報を鳴らし続けるのは
@@ -305,18 +339,44 @@ async function checkStall() {
   )
   if (JSON.stringify(stall) !== JSON.stringify(state.stall ?? null)) {
     state = { ...state, stall, last_event_at: event ? now() : state.last_event_at }
-    saveState(state)
   }
-  if (!event) return false
+  if (!event) { saveState(state); return false }
   await writeEvent({
     schema: 'peertable.parent-watch-event.v1',
     parent,
     ...event,
   })
+  saveState(state)
   return true
 }
 
+async function maintainReceiver() {
+  if (spool) {
+    if (spool.read().runtime === 'stopped') process.exit(0)
+    await spool.assertCurrentEndpoint()
+    if (!sameProcess(spool.read().caller.owner)) {
+      spool.transact(saved => {
+        saved.runtime = 'stopped'; saved.error_code = 'PARENT_SESSION_CLOSED'
+        for (const record of saved.records) if (record.state === 'ready' || record.state === 'waiting') {
+          record.state = 'failed'; record.error_code = saved.error_code
+          record.receipt = spool.receiptFor(saved, record, 'failed', record.error_code)
+        }
+      })
+      await spool.flushReceiptsAfterOutput()
+      await spool.publishHealth()
+      process.exit(0)
+    }
+    spool.recover()
+    try { await spool.flushReceipts(new RoomApi(setup, { credential: spool.read().credential })) }
+    catch (error) { process.stderr.write(`${error.code}: ${error.message}\n`) }
+    if (spool.read().harness === 'codex') while (await queueCodex(spool)) {}
+    const status = spool.read()
+    if (status.state !== 'verified' && Date.now() > (status.probe_deadline ?? Date.parse(status.created_at) + 30000)) spool.update({ state: 'failed', runtime: 'failed', error_code: 'PARENT_PROBE_TIMEOUT' })
+    await spool.publishHealth()
+  }
+}
 async function catchUp() {
+  await maintainReceiver()
   if (await acceptLatticeState(readLatticeState(state.lattice)) && mode === '--next') return true
   if (await checkStall() && mode === '--next') return true
   const body = await readJson(`/messages?since=${state.last_seq}`)
@@ -345,7 +405,7 @@ for (;;) {
   const deadline = mode === '--next' ? Date.now() + nextWindowMs : Number.POSITIVE_INFINITY
   try {
     if (await catchUp()) process.exit(0)
-    if (mode === '--follow' && !snapshotSent) {
+    if (['--follow', '--deliver'].includes(mode) && !snapshotSent) {
       snapshotSent = true
       const lattice = state.lattice
       await writeEvent({
@@ -368,19 +428,25 @@ for (;;) {
       if (!response.ok) throw new Error(`events ${response.status}`)
       consecutiveFailures = 0
       let buffer = ''
+      const decoder = new TextDecoder()
       for await (const chunk of response.body) {
-        buffer += Buffer.from(chunk).toString('utf8')
+        buffer += decoder.decode(chunk, { stream: true })
         const frames = buffer.split('\n\n')
         buffer = frames.pop()
         for (const frame of frames) {
           const lines = frame.split('\n')
           const eventName = lines.find(line => line.startsWith('event: '))?.slice(7).trim()
           const data = lines.filter(line => line.startsWith('data: ')).map(line => line.slice(6)).join('\n')
+          if (spool && eventName === 'member') { await spool.assertCurrentEndpoint(); continue }
           if (eventName === 'ping') {
             const head = Number(data)
+            await maintainReceiver()
             if (await acceptLatticeState(readLatticeState(state.lattice)) && mode === '--next') process.exit(0)
             if (await checkStall() && mode === '--next') process.exit(0)
-            if (Number.isSafeInteger(head) && head > state.last_seq && await catchUp()) process.exit(0)
+            if (Number.isSafeInteger(head) && head > state.last_seq) {
+              const body = await readJson(`/messages?since=${state.last_seq}`)
+              for (const message of body.messages ?? []) if (await acceptMessage(message) && mode === '--next') process.exit(0)
+            }
             continue
           }
           if (eventName !== undefined && eventName !== 'message') continue
@@ -393,6 +459,7 @@ for (;;) {
       if (timer !== null) clearTimeout(timer)
     }
   } catch (error) {
+    if (error.code === 'PARENT_ENDPOINT_SUPERSEDED') process.exit(0)
     if (mode === '--next' && error.name === 'AbortError' && Date.now() >= deadline) process.exit(0)
     consecutiveFailures += 1
     if (consecutiveFailures >= 10) {

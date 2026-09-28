@@ -89,3 +89,9 @@ CIはこのリポジトリ内の再利用workflowを製品正本とする。外�
 ## 9. 文書寿命
 
 現行の入口は[文書地図](00_overview.md)である。`docs/`直下には現行契約と状態照合中のcampaignだけを置く。完了・supersededした計画と累積decision logは`docs/archive/`へ移し、通常の読書順から外す。固定consumerが実在する時だけ、旧pathへ短い互換案内を残す。
+
+## 親の公式受信口
+
+親のdelivery.kindはparent_receiverとし、通常席bridgeから除外する。Peertableは原文spoolと3親MCP tool、Claude asyncRewake、Codex公式queueと同期hook、Cursor公式hookとnative背景受信、Grok native背景完了と本文回収を所有する。allは親にも全件配送し、他席間DMと自発言は対象外。旧parent_watchは移行診断の対象。受付不明はunknownを保持し、queue受付ID・時刻を消さず本文を自動再送しない。
+
+このcampaignの製品実機受入・公開は未完了。[親配送計画](plan_parent-native-delivery.md)の12組合せと全必須実行面を受入するまで公開判定を行わない。

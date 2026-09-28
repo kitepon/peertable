@@ -3,15 +3,17 @@
 //
 // 確認すること:
 //   1. setup.sh が .team/roles/parent.md を生成する（vendor を問わず読める role 文書）
-//   2. parent-join.sh は mode=lattice の setup-state.json では .team/parent-env.sh を生成し、
+//   2. 共通接続入口は mode=lattice の setup-state.json では actorファイルを生成し、
 //      LATTICE_TODO_ACTOR_HOST/SESSION/AGENT を親名で export する
 //      （owner裁定[46]④: 子processのexportは親shellへ伝播しないため、親が自分でsourceする
 //      持続ファイルが要る）
 //   3. mode=standalone では parent-env.sh を生成しない（Lattice を持ち込まない卓を汚さない）
-//   4. vendor=codex を渡すと通常席のdescriptorでなくparent_watch契約が登録される
+//   4. 実caller無しではHTTP親登録をせず、実MCP joinの完成済み引数を返す
 //   5. token 未設定の新 shell が parent.md の再着卓ブロックだけで正規 config を source し、
 //      秘密値を出力せず Unicode room の read / post へ到達する
 import assert from 'node:assert/strict';
+import { prepareParent } from '../skill/scripts/parent-prepare.mjs';
+import { scaffoldProject } from '../skill/scripts/project-scaffold.mjs';
 import { spawn } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import http from 'node:http';
@@ -68,7 +70,7 @@ async function fixtureServer() {
       request.on('end', () => {
         const message = { seq: messages.length + 1, ...JSON.parse(body) };
         messages.push(message);
-        response.end(JSON.stringify({ ok: true, message }));
+        response.end(JSON.stringify({ ...message, room_saved: true, delivery: {} }));
       });
       return;
     }
@@ -103,8 +105,8 @@ try {
   const tasksFile = path.join(work, 'tasks.txt');
   await writeFile(tasksFile, '- ダミー: 何もしない\n');
 
-  const setupResult = await run('bash', [SETUP, proj, 'fixture-room', 'http://127.0.0.1:1', '-', ROOT, tasksFile]);
-  check('setup.sh（単独）が成功する', setupResult.code === 0, setupResult.stderr.trim().slice(-300));
+  const setupResult = scaffoldProject({ project: proj, room: 'fixture-room', url: 'http://127.0.0.1:1', tasks: tasksFile });
+  check('共通scaffoldの役割生成が成功する', setupResult.action === 'created');
   const parentMd = await readFile(path.join(proj, '.team/roles/parent.md'), 'utf8').catch(() => null);
   check('.team/roles/parent.md が生成される', parentMd !== null);
   check('parent.md が親の行わないことを明記', parentMd?.includes('親が行わないこと') ?? false);
@@ -118,47 +120,26 @@ try {
     await mkdir(path.join(latticeProj, '.team'), { recursive: true });
     await writeFile(path.join(latticeProj, '.team/setup-state.json'), JSON.stringify({ room: 'r', server_url: url, mode: 'lattice' }));
     const childEnv = { PEERTABLE_POST_TOKEN: 'x' };
-    const joinResult = await run('bash', [PARENT_JOIN, latticeProj, 'nagi-test', '', '', 'codex'], { env: childEnv });
-    check('parent-join.sh（lattice）が成功する', joinResult.code === 0, joinResult.stderr.trim().slice(-300));
-    const envFile = await readFile(path.join(latticeProj, '.team/parent-env.sh'), 'utf8').catch(() => null);
-    check('mode=lattice で .team/parent-env.sh が生成される', envFile !== null);
-    check('parent-env.sh が LATTICE_TODO_ACTOR_* を親名でexportする',
-      (envFile?.includes('LATTICE_TODO_ACTOR_HOST=mac') && envFile?.includes('LATTICE_TODO_ACTOR_SESSION=nagi-test') && envFile?.includes('LATTICE_TODO_ACTOR_AGENT=nagi-test')) ?? false);
-    check('vendor=codex が member 登録へ反映される', registered.some((m) => m.vendor === 'codex'));
-    const codexMember = registered.find((m) => m.name === 'nagi-test');
-    check('Codex親は通常席descriptorでなくparent_watchを自己申告する',
-      codexMember?.observe === null
-      && codexMember?.delivery?.kind === 'parent_watch'
-      && codexMember?.delivery?.host === 'codex',
-      JSON.stringify(codexMember));
-    check('Codex親へbackground watcherの起動要求を返す',
-      joinResult.stdout.includes('PARENT_WATCH_START_REQUIRED')
-      && joinResult.stdout.includes('codex-parent-watch.sh')
-      && joinResult.stdout.includes('1秒ごと')
-      && joinResult.stdout.includes('端末sessionは常駐させない')
-      && !joinResult.stdout.includes('--follow')
-      && !joinResult.stdout.includes('wakeup-bridge'));
-
-    const grokJoin = await run('bash', [PARENT_JOIN, latticeProj, 'bell-grok', 'grok-4.6', '', 'grok'], { env: childEnv });
-    check('parent-join.sh（grok）が成功する', grokJoin.code === 0, grokJoin.stderr.trim().slice(-300));
-    const grokMember = registered.find((m) => m.name === 'bell-grok');
-    check('Grok親は通常席descriptorでなくparent_watchを自己申告する',
-      grokMember?.observe === null
-      && grokMember?.delivery?.kind === 'parent_watch'
-      && grokMember?.delivery?.host === 'grok',
-      JSON.stringify(grokMember));
-    check('Grok親へMonitor番犬の起動要求を返しwakeup-bridgeへ載せない',
-      grokJoin.stdout.includes('PARENT_WATCH_START_REQUIRED')
-      && grokJoin.stdout.includes('--follow')
-      && grokJoin.stdout.includes('Grok Monitor')
-      && grokJoin.stdout.includes('wakeup-bridgeに親を載せない'));
+    // global設定はこのfocused fixtureでは変更せず、正式登録は実MCP試験が担当する。
+    const prepare = (args) => prepareParent(args, { connect: async () => ({ status: 'registered' }) });
+    const joinResult = await prepare([latticeProj, 'nagi-test', '', '', 'codex']);
+    check('共通接続入口は実MCP joinの完成済み引数を返す', joinResult.error_code === 'PARENT_JOIN_REQUIRED'
+      && joinResult.arguments.project === latticeProj && joinResult.arguments.name === 'nagi-test');
+    const actor = JSON.parse(await readFile(path.join(latticeProj, '.team/parent-env.json'), 'utf8'));
+    check('mode=latticeのactorを親名で保存する', actor.LATTICE_TODO_ACTOR_SESSION === 'nagi-test'
+      && actor.LATTICE_TODO_ACTOR_AGENT === 'nagi-test');
+    check('shellのsource入力はOS adapterが返す', joinResult.actor_environment.command.startsWith('. '));
+    check('実caller無しではHTTP親登録をしない', registered.length === 0);
+    const grokJoin = await prepare([latticeProj, 'bell-grok', 'grok-4.6', '', 'grok']);
+    check('Grokも同じ実MCP join契約へ渡す', grokJoin.state === 'binding_pending'
+      && grokJoin.arguments.name === 'bell-grok' && grokJoin.arguments.model === 'grok-4.6');
 
     // 3. mode=standalone では parent-env.sh を作らない
     const standaloneProj = path.join(work, 'standalone-proj');
     await mkdir(path.join(standaloneProj, '.team'), { recursive: true });
     await writeFile(path.join(standaloneProj, '.team/setup-state.json'), JSON.stringify({ room: 'r', server_url: url, mode: 'standalone' }));
-    const joinResult2 = await run('bash', [PARENT_JOIN, standaloneProj, 'bell'], { env: childEnv });
-    check('parent-join.sh（standalone）が成功する', joinResult2.code === 0, joinResult2.stderr.trim().slice(-300));
+    const joinResult2 = await prepare([standaloneProj, 'bell']);
+    check('単独卓もMCP join準備へ渡す', joinResult2.error_code === 'PARENT_JOIN_REQUIRED');
     const envFile2 = await readFile(path.join(standaloneProj, '.team/parent-env.sh'), 'utf8').catch(() => null);
     check('mode=standalone では .team/parent-env.sh を作らない', envFile2 === null);
 

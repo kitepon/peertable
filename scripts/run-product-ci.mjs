@@ -16,24 +16,28 @@ function run(command, argv, options = {}) {
   if (result.status !== 0) process.exit(result.status ?? 1)
 }
 
-function shellScripts(directory) {
+function scriptsWithExtension(directory, extension) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name)
-    if (entry.isDirectory()) return shellScripts(file)
-    return file.endsWith('.sh') ? [file] : []
+    if (entry.isDirectory()) return scriptsWithExtension(file, extension)
+    return file.endsWith(extension) ? [file] : []
   })
 }
 
-run(process.execPath, ['--check', 'room/server.mjs'])
-run(process.execPath, ['--check', 'room/client.mjs'])
+for (const directory of ['room', 'skill/scripts', 'scripts']) {
+  for (const file of scriptsWithExtension(path.join(root, directory), '.mjs')) run(process.execPath, ['--check', file])
+}
 run(process.execPath, ['--test', 'skill/scripts/runtime-contract.test.mjs'])
 run(process.execPath, ['experiments/aiterm-unified-delivery-repro.mjs'])
 run(process.execPath, ['--test', 'scripts/ci-contract.test.mjs', 'scripts/docs-contract.test.mjs'])
+run(process.execPath, ['--test', 'skill/scripts/parent-delivery.test.mjs', 'skill/scripts/parent-source-runtime.test.mjs', 'room/parent-client.test.mjs', 'scripts/parent-delivery-acceptance.test.mjs'])
+run(process.execPath, ['experiments/delivery-receipt-repro.mjs'])
+run(process.execPath, ['experiments/http-utf8-body-repro.mjs'])
 run(process.execPath, ['experiments/windows-seat-mux-repro.mjs'])
 run(process.execPath, ['experiments/seat-placement-repro.mjs'])
 
 if (process.platform !== 'win32') {
-  for (const file of shellScripts(path.join(root, 'skill/scripts'))) run('bash', ['-n', file])
+  for (const file of scriptsWithExtension(path.join(root, 'skill/scripts'), '.sh')) run('bash', ['-n', file])
 }
 
 run(process.execPath, ['room/client.mjs', 'diagnostics'], {

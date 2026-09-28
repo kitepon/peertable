@@ -27,6 +27,7 @@
   "scripts": {
     "postinstall": "node skill/scripts/install-skill.mjs --postinstall",
     "verify:release-commit": "node scripts/verify-release-commit.mjs",
+    "verify:parent-delivery": "node scripts/parent-delivery-acceptance.mjs rag/parent-delivery/product-acceptance.json",
     "test:docs": "node --test scripts/docs-contract.test.mjs",
     "prepublishOnly": "node scripts/prepublish.mjs"
   },
@@ -39,6 +40,8 @@
     ".github/og.png",
     "room/server.mjs",
     "room/client.mjs",
+    "room/parent-client.mjs",
+    "room/parent-kind.mjs",
     "room/message-bounds.mjs",
     "room/Dockerfile",
     "skill/",

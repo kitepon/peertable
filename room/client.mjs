@@ -28,6 +28,11 @@ const USAGE = `usage:
 // 診断のコードは一切走らない（起動ディレイを増やさない）
 const sub = process.argv[2]
 if (sub !== undefined) {
+  if (sub === 'parent') {
+    await (await import('./parent-client.mjs')).runParentClient()
+    await new Promise(resolve => process.stdin.once('end', resolve))
+    process.exit(0)
+  }
   if (sub === '-h' || sub === '--help') {
     process.stdout.write(USAGE)
     process.exit(0)
@@ -111,7 +116,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     { name: 'read_unread', description: 'room全体宛と自分宛の未読メッセージを読む。読んだ位置は記憶される', inputSchema: { type: 'object', properties: {} } },
     { name: 'read_log', description: 'roomログの直近count件を読む（既定20・最大20・UTF-8 12KB上限。全宛先を含む）', inputSchema: { type: 'object', properties: { count: { type: 'number' } } } },
     { name: 'members', description: 'room に居るメンバーの一覧（名前・役割・設定・使命・実効稼働状態）と bridge 健全性。状態が unknown の席と bridge 障害はここで分かる', inputSchema: { type: 'object', properties: {} } },
-    { name: 'delivery_status', description: '発言 seq の宛先別配達状態を照会する。delivered / pending / seat_unavailable / bridge_unavailable / failed。room_saved は配達成功ではない', inputSchema: { type: 'object', properties: { seq: { type: 'number' } }, required: ['seq'] } },
+    { name: 'delivery_status', description: '発言 seq の宛先別配達状態を照会する。delivered / pending / seat_unavailable / bridge_unavailable / failed / unknown。room_saved は配達成功ではない', inputSchema: { type: 'object', properties: { seq: { type: 'number' } }, required: ['seq'] } },
   ],
 }))
 

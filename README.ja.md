@@ -99,7 +99,7 @@ setupの再実行も既存projectではresumeへ進み、room・議題・生存�
 
 teardownの既定は解散。席と所有する足場を撤去し、roomと過去ログ、Lattice storeを残す。`--purge`はroomと新設storeも削除する。既存設定・無関係な作業差分は保つ。停止またはroom操作に失敗した場合は再実行用の記録を残してエラーを返す。
 
-親は呼出し元のセッションに着卓し、親宛DMの監視イベントを実際に受信して確認する。親の耳疎通、kickoffの引受確認、席設定変更の手順は[同梱スキル](skill/SKILL.md)にまとめている。
+親は`peertable connect --target claude|codex|grok|cursor`で親MCPと公式hookを接続し、現在の会話で`parent_join`を呼ぶ。親宛DM・複数人宛・all全件を原文のまま受信する。Cursor/Grokは返却された完成済みnative背景tool入力を登録する。接続設定だけで着卓完了とせず、耳疎通と現在の受信継続を確認する。12組合せの製品実機受入は[進行中の計画](https://github.com/kitepon/peertable/blob/main/docs/plan_parent-native-delivery.md)で管理している。親の耳疎通、kickoffの引受確認、席設定変更の手順は[同梱スキル](skill/SKILL.md)にまとめている。
 
 **roomがメンバーの唯一の台帳。** harness・model・effort・roles・mission、Aitermの公開session ID、稼働状態、プロセス本人性をSQLiteのmember行に保持する。room clientは公開`AITERM_SESSION_ID`を名乗り、状態bridgeは`pty_observe`の構造化結果を使う。PeertableはAitermの内部ファイル、socket、namespace、画面文言を解析しない。
 

@@ -1,14 +1,11 @@
-export function parentMember(name, model, effort, harness, mission) {
-const body = { name, roles: ['統括'], observe: null, delivery: { kind: 'parent_watch', host: harness || '' } }
-if (harness) { body.harness = harness; body.vendor = harness }
-if (model) body.model = model
-if (effort) body.effort = effort
-if (mission) body.mission = mission
-return body
-}
-const [name, model, effort, harness, mission] = process.argv.slice(2)
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  process.stdout.write(`${JSON.stringify(parentMember(name, model, effort, harness, mission))}\n`)
-}
+// WindowsのUTF-8表示も共通の束縛済みmember記録を使う。
+import { parentMemberRecord } from '../../parent-runtime.mjs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+export function parentMember(name, model, effort, harness, mission, endpoint_id) {
+  return parentMemberRecord(name, harness, endpoint_id, Object.fromEntries(Object.entries({model, effort, mission}).filter(([, value]) => value)))
+}
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  try { process.stdout.write(`${JSON.stringify(parentMember(...process.argv.slice(2)))}\n`) }
+  catch (error) { console.error(`${error.code}: ${error.message}`); process.exitCode = 1 }
+}

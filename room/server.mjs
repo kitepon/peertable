@@ -6,6 +6,7 @@ import { mkdirSync, readFileSync, appendFileSync, existsSync, rmSync, readdirSyn
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
+import { isParentMember } from './parent-kind.mjs'
 
 const SERVER_USAGE = 'usage: peertable-room\n設定は環境変数: PEERTABLE_PORT（既定8790）/ PEERTABLE_DATA（既定./peertable-data）/ PEERTABLE_POST_TOKEN（設定時のみ書込に要求）\n'
 const serverArg = process.argv[2]
@@ -64,6 +65,11 @@ db.exec(`
     room TEXT NOT NULL, seq INTEGER NOT NULL, recipient TEXT NOT NULL,
     result TEXT NOT NULL, reason TEXT, at TEXT NOT NULL,
     PRIMARY KEY (room, seq, recipient)
+  );
+  CREATE TABLE IF NOT EXISTS parent_receivers (
+    room TEXT NOT NULL, recipient TEXT NOT NULL, endpoint_id TEXT NOT NULL,
+    pid INTEGER, state TEXT NOT NULL, detail TEXT, beat_at TEXT NOT NULL,
+    PRIMARY KEY (room,recipient)
   )
 `)
 
@@ -73,6 +79,10 @@ db.exec(`
   if (!columns.includes('harness')) db.exec('ALTER TABLE members ADD COLUMN harness TEXT')
   if (!columns.includes('read_seq')) db.exec('ALTER TABLE members ADD COLUMN read_seq INTEGER')
   if (columns.includes('vendor')) db.exec('UPDATE members SET harness = vendor WHERE harness IS NULL')
+  const receiptColumns = db.prepare('PRAGMA table_info(deliveries)').all().map(column => column.name)
+  for (const column of ['queued_submission_id', 'accepted_at']) if (!receiptColumns.includes(column)) db.exec(`ALTER TABLE deliveries ADD COLUMN ${column} TEXT`)
+  if (!receiptColumns.includes('receipt_revision')) db.exec('ALTER TABLE deliveries ADD COLUMN receipt_revision INTEGER NOT NULL DEFAULT 0')
+  if (!receiptColumns.includes('receipt_endpoint_id')) db.exec('ALTER TABLE deliveries ADD COLUMN receipt_endpoint_id TEXT')
 }
 
 const MEMBER_COLUMNS = [
@@ -193,19 +203,30 @@ const authFailures = new Map()
 // （member 以外の一般書込の 403 を bridge 障害として表示しない）。
 function classifyDeniedWrite(rest, body) {
   if (rest === 'bridges') { try { return JSON.parse(body).kind ?? null } catch { return null } }
-  if (rest === 'deliveries') return 'wakeup'
+  if (rest === 'deliveries') { try { return JSON.parse(body).route === 'parent_receiver' ? 'parent_receiver' : 'wakeup' } catch { return null } }
   if (rest === 'members') {
     try { return JSON.parse(body).usage_source === 'pane_status' ? 'seat_status' : null } catch { return null }
   }
   return null
 }
 
-const BRIDGE_KINDS = ['seat_status', 'wakeup']
+const BRIDGE_KINDS = ['seat_status', 'wakeup', 'parent_receiver']
 // 表示語彙はオーナー報告の障害名（status_bridge_down / wakeup_bridge_down / bridge_auth_failed）
-const BRIDGE_LABEL = { seat_status: 'status', wakeup: 'wakeup' }
+const BRIDGE_LABEL = { seat_status: 'status', wakeup: 'wakeup', parent_receiver: 'parent_receiver' }
 function bridgeHealth(roomName, now = Date.now()) {
   const out = {}
   for (const kind of BRIDGE_KINDS) {
+    if (kind === 'parent_receiver') {
+      const parents = listMembers(roomName).filter(member => member.delivery?.kind === 'parent_receiver')
+      const endpoints = parents.map(member => {
+        const row = db.prepare('SELECT * FROM parent_receivers WHERE room=? AND recipient=? AND endpoint_id=?').get(roomName, member.name, member.delivery.endpoint_id)
+        const state = !row ? 'parent_receiver_unreported' : now - Date.parse(row.beat_at) >= STATUS_STALE_MS ? 'parent_receiver_down' : row.state
+        return { recipient: member.name, endpoint_id: member.delivery.endpoint_id, state, beat_at: row?.beat_at ?? null, detail: row?.detail ?? null }
+      })
+      const authAt = authFailures.get(`${roomName}/${kind}`)
+      out[kind] = { state: authAt !== undefined && now - authAt < AUTH_FAIL_FRESH_MS ? 'bridge_auth_failed' : endpoints.length && endpoints.every(endpoint => endpoint.state === 'armed') ? 'up' : endpoints.find(endpoint => endpoint.state !== 'armed')?.state ?? 'parent_receiver_unreported', endpoints }
+      continue
+    }
     const row = db.prepare('SELECT * FROM bridges WHERE room = ? AND kind = ?').get(roomName, kind)
     const beat = row ? Date.parse(row.beat_at) : null
     const authAt = authFailures.get(`${roomName}/${kind}`)
@@ -215,7 +236,7 @@ function bridgeHealth(roomName, now = Date.now()) {
     }
     if (!row) { out[kind] = { state: `${BRIDGE_LABEL[kind]}_bridge_unreported`, beat_at: null }; continue }
     out[kind] = now - beat < STATUS_STALE_MS
-      ? { state: 'up', beat_at: row.beat_at, pid: row.pid }
+      ? { state: kind === 'parent_receiver' && row.state !== 'armed' ? row.state : 'up', beat_at: row.beat_at, pid: row.pid, ...(kind === 'parent_receiver' ? { detail: row.detail } : {}) }
       : { state: `${BRIDGE_LABEL[kind]}_bridge_down`, beat_at: row.beat_at }
   }
   return out
@@ -278,7 +299,6 @@ function memberActivity(member, effective, activityLog) {
 // ---- 配送状態の導出（決定102）-----------------------------------------------------
 // receipt（wakeup-bridge の実投入記録）が正。無い宛先は member 台帳と bridge 台帳から
 // pending / seat_unavailable / bridge_unavailable を導出する。room_saved だけでは配達と言わない。
-const isParentMember = member => member?.delivery?.kind === 'parent_watch'
 // wakeup-bridge の配送対象判定（skill/scripts/wakeup-delivery.mjs の isWakeupBridgeTarget と同じ規則）
 function isTuiDeliveryTarget(member) {
   if (!member || isParentMember(member)) return false
@@ -297,12 +317,14 @@ function deliveryPlanFor(roomName, msg, bridges) {
     const receipt = db.prepare('SELECT * FROM deliveries WHERE room = ? AND seq = ? AND recipient = ?')
       .get(roomName, msg.seq, name)
     if (receipt) {
-      out[name] = { state: receipt.result, ...(receipt.reason ? { reason: receipt.reason } : {}), at: receipt.at }
+      out[name] = { state: receipt.result, ...(receipt.reason ? { reason: receipt.reason } : {}), at: receipt.at,
+        ...(receipt.queued_submission_id ? { queued_submission_id: receipt.queued_submission_id } : {}), ...(receipt.accepted_at ? { accepted_at: receipt.accepted_at } : {}),
+        ...(receipt.receipt_revision ? { receipt_revision: receipt.receipt_revision } : {}) }
       continue
     }
     const member = members.get(name)
     if (!member) { out[name] = { state: 'seat_unavailable', reason: 'member_not_found' }; continue }
-    if (isParentMember(member)) { out[name] = { state: 'pending', reason: 'parent_watch経由' }; continue }
+    if (isParentMember(member)) { out[name] = { state: 'pending', reason: `${member.delivery.kind}経由` }; continue }
     if (!isTuiDeliveryTarget(member)) { out[name] = { state: 'seat_unavailable', reason: 'no_delivery_route' }; continue }
     if (bridges.wakeup.state !== 'up') { out[name] = { state: 'bridge_unavailable', reason: bridges.wakeup.state }; continue }
     out[name] = { state: 'pending' }
@@ -313,7 +335,7 @@ function deliveryPlanFor(roomName, msg, bridges) {
 const WAITING_WORDS = ['待機する', '待機します', '待機。']
 
 function parentName(room) {
-  return listMembers(room.name).find(m => m.delivery?.kind === 'parent_watch')?.name
+  return listMembers(room.name).find(isParentMember)?.name
 }
 
 // `all` は room 全体、名前は DM、配列は明示した複数人宛。いずれも同じ通常発言である。
@@ -338,7 +360,7 @@ function normalizeAudience(to, toNames) {
 
 // SSE の member イベントで押し込む欄。閲覧者が気づく欄だけに絞る（POST /members 参照）。
 // roles は配列なので JSON 比較で差分を見る
-const MEMBER_EVENT_FIELDS = ['status', 'busy_since', 'harness', 'model', 'effort', 'roles', 'mission']
+const MEMBER_EVENT_FIELDS = ['status', 'busy_since', 'harness', 'model', 'effort', 'roles', 'mission', 'delivery']
 const memberFieldChanged = (before, after) =>
   MEMBER_EVENT_FIELDS.some(f => JSON.stringify(before?.[f] ?? null) !== JSON.stringify(after?.[f] ?? null))
 
@@ -367,7 +389,8 @@ function post(room, from, to, body, toNames = null, extra = null) {
 const CORS = { 'Access-Control-Allow-Origin': '*' }
 
 const json = (res, code, obj, headers) => { res.writeHead(code, { 'Content-Type': 'application/json', ...headers }); res.end(JSON.stringify(obj)) }
-const readBody = req => new Promise(r => { let b = ''; req.on('data', c => (b += c)); req.on('end', () => r(b)) })
+// UTF-8の途中でHTTP chunkが切れても、stream decoderが次の断片まで保持する。
+const readBody = req => new Promise(r => { let b = ''; req.setEncoding('utf8'); req.on('data', c => (b += c)); req.on('end', () => r(b)) })
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x')
@@ -491,7 +514,14 @@ http.createServer(async (req, res) => {
     }
     // bridge 心拍（決定103）。seat-status / wakeup が 30 秒ごとに送る。正常心拍は 403 観測を消す
     if (req.method === 'POST' && rest === 'bridges') {
-      const { kind, pid, state, detail } = JSON.parse(body)
+      const { kind, pid, state, detail, recipient, endpoint_id } = JSON.parse(body)
+      if (kind === 'parent_receiver') {
+        const parent = listMembers(room.name).find(member => member.name === recipient)
+        if (parent?.delivery?.kind !== 'parent_receiver' || parent.delivery.endpoint_id !== endpoint_id) return json(res, 409, { code: 'PARENT_ENDPOINT_SUPERSEDED', error: 'parent_endpoint_superseded' })
+        db.prepare(`INSERT OR REPLACE INTO parent_receivers (room,recipient,endpoint_id,pid,state,detail,beat_at) VALUES (?,?,?,?,?,?,?)`).run(room.name, recipient, endpoint_id, pid ?? null, state ?? 'failed', detail ?? null, new Date().toISOString())
+        authFailures.delete(`${room.name}/parent_receiver`)
+        return json(res, 200, { ok: true })
+      }
       if (typeof kind !== 'string' || kind.length === 0) return json(res, 400, { error: 'kind_required' })
       db.prepare(`INSERT OR REPLACE INTO bridges (room, kind, pid, state, detail, beat_at)
         VALUES (?, ?, ?, ?, ?, ?)`).run(room.name, kind, pid ?? null, state ?? 'running', detail ?? null, new Date().toISOString())
@@ -502,19 +532,40 @@ http.createServer(async (req, res) => {
     // 消さないと空のarchive roomへstatus_bridge_down警告が恒久表示される。
     if (req.method === 'DELETE' && rest === 'bridges') {
       db.prepare('DELETE FROM bridges WHERE room = ?').run(room.name)
+      db.prepare('DELETE FROM parent_receivers WHERE room = ?').run(room.name)
       for (const kind of BRIDGE_KINDS) authFailures.delete(`${room.name}/${kind}`)
       return json(res, 200, { ok: true })
     }
     // 配送 receipt（決定102）。書き手は wakeup-bridge だけ。同じ (seq, recipient) は最新で上書き
     // （seat_unavailable → 再試行成功 delivered の遷移を残すため）
     if (req.method === 'POST' && rest === 'deliveries') {
-      const { seq: recSeq, recipient, result, reason } = JSON.parse(body)
+      const { seq: recSeq, recipient, result, reason, queued_submission_id, accepted_at, route, endpoint_id, receipt_revision } = JSON.parse(body)
       if (!Number.isSafeInteger(recSeq) || recSeq <= 0) return json(res, 400, { error: 'seq_required' })
       if (typeof recipient !== 'string' || recipient.length === 0) return json(res, 400, { error: 'recipient_required' })
-      if (!['delivered', 'pending', 'seat_unavailable', 'bridge_unavailable', 'failed'].includes(result))
+      if (queued_submission_id !== undefined && queued_submission_id !== null && (typeof queued_submission_id !== 'string' || !queued_submission_id)) return json(res, 400, { code: 'PARENT_QUEUE_ACCEPTANCE_INVALID' })
+      if (accepted_at !== undefined && accepted_at !== null && (typeof accepted_at !== 'string' || !Number.isFinite(Date.parse(accepted_at)))) return json(res, 400, { code: 'PARENT_QUEUE_ACCEPTANCE_INVALID' })
+      const parent = getMember(room.name, recipient)
+      const nativeReceipt = route === 'parent_receiver' || parent?.delivery?.kind === 'parent_receiver'
+      if (nativeReceipt) {
+        if (parent?.delivery?.kind !== 'parent_receiver' || parent.delivery.endpoint_id !== endpoint_id) return json(res, 409, { code: 'PARENT_ENDPOINT_SUPERSEDED', error: 'parent_endpoint_superseded' })
+        if (!Number.isSafeInteger(receipt_revision) || receipt_revision <= 0) return json(res, 400, { code: 'PARENT_RECEIPT_REVISION_INVALID' })
+      }
+      if (!['delivered', 'pending', 'seat_unavailable', 'bridge_unavailable', 'failed', 'unknown'].includes(result))
         return json(res, 400, { error: 'result_invalid' })
-      db.prepare(`INSERT OR REPLACE INTO deliveries (room, seq, recipient, result, reason, at)
-        VALUES (?, ?, ?, ?, ?, ?)`).run(room.name, recSeq, recipient, result, reason ?? null, new Date().toISOString())
+      const previous = db.prepare('SELECT * FROM deliveries WHERE room=? AND seq=? AND recipient=?').get(room.name, recSeq, recipient)
+      if ((queued_submission_id && previous?.queued_submission_id && queued_submission_id !== previous.queued_submission_id)
+          || (accepted_at && previous?.accepted_at && accepted_at !== previous.accepted_at)) return json(res, 409, { schema: 'peertable.error.v1', code: 'PARENT_QUEUE_ACCEPTANCE_CONFLICT', error: 'queue_acceptance_conflict' })
+      if (nativeReceipt && previous?.receipt_endpoint_id && previous.receipt_endpoint_id !== endpoint_id) return json(res, 409, { code: 'PARENT_RECEIPT_GENERATION_CONFLICT' })
+      // 状態の優劣で固定せず、所有spoolの更新順を使う。unknownの公式証拠による解消も新revisionで受ける。
+      if (nativeReceipt && previous && receipt_revision < previous.receipt_revision) return json(res, 200, { ok: true, stale: true, receipt_revision: previous.receipt_revision })
+      if (nativeReceipt && previous && receipt_revision === previous.receipt_revision && (previous.result !== result || previous.reason !== (reason ?? null))) return json(res, 409, { code: 'PARENT_RECEIPT_REVISION_CONFLICT' })
+      db.prepare(`INSERT INTO deliveries (room, seq, recipient, result, reason, at, queued_submission_id, accepted_at, receipt_revision, receipt_endpoint_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(room,seq,recipient) DO UPDATE SET
+        result=excluded.result,reason=excluded.reason,at=excluded.at,
+        queued_submission_id=COALESCE(deliveries.queued_submission_id,excluded.queued_submission_id),
+        accepted_at=COALESCE(deliveries.accepted_at,excluded.accepted_at),
+        receipt_revision=excluded.receipt_revision,receipt_endpoint_id=excluded.receipt_endpoint_id`)
+        .run(room.name, recSeq, recipient, result, reason ?? null, new Date().toISOString(), queued_submission_id ?? null, accepted_at ?? null, nativeReceipt ? receipt_revision : 0, nativeReceipt ? endpoint_id : null)
       return json(res, 200, { ok: true })
     }
     if (req.method === 'POST' && rest === 'members') {
@@ -550,6 +601,7 @@ http.createServer(async (req, res) => {
       rooms.delete(room.name); rmSync(room.dir, { recursive: true, force: true })
       db.prepare('DELETE FROM members WHERE room = ?').run(room.name)
       db.prepare('DELETE FROM bridges WHERE room = ?').run(room.name)
+      db.prepare('DELETE FROM parent_receivers WHERE room = ?').run(room.name)
       db.prepare('DELETE FROM deliveries WHERE room = ?').run(room.name)
       return json(res, 200, { ok: true })
     }
@@ -800,12 +852,12 @@ function render(m){
 // bridge 障害の帯。unreported（bridge を立てない部屋・archive 部屋）は常時警告で汚さないため出さない
 const bridgesEl=document.getElementById('bridges')
 function renderBridges(bridges){
-  const label={seat_status:'稼働状態bridge',wakeup:'配達bridge'}
+  const label={seat_status:'稼働状態bridge',wakeup:'配達bridge',parent_receiver:'親受信'}
   const warn=[]
-  for(const k of ['seat_status','wakeup']){
+  for(const k of ['seat_status','wakeup','parent_receiver']){
     const s=bridges&&bridges[k]&&bridges[k].state
     if(!s||s==='up'||s.endsWith('_unreported'))continue
-    warn.push(label[k]+'：'+(s==='bridge_auth_failed'?'認証失敗(403・bridge_auth_failed)':'心拍途絶(停止)'))
+    warn.push(label[k]+'：'+(s==='bridge_auth_failed'?'認証失敗(403・bridge_auth_failed)':k==='parent_receiver'?s:'心拍途絶(停止)'))
   }
   bridgesEl.textContent=warn.length?'⚠ '+warn.join(' / '):''
 }
