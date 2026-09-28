@@ -1,4 +1,87 @@
 {
   "schema": "peertable.parent-product-acceptance.v1",
-  "records": []
+  "records": [
+    {
+      "id": "darwin/claude/cli/audience",
+      "status": "passed",
+      "kind": "product_live",
+      "native": true,
+      "harness_version": "2.1.284 (Claude Code)",
+      "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "runtime_digest": "aab616d50a6a0ec7752f492e1f28cfa73f6afb501b31a3d3eae1041584bfc2f2",
+      "package_version": "0.8.63",
+      "parent_session": "d9481638-df40-460f-8d51-fa3feb29a8f5",
+      "evidence_file": "rag/parent-delivery/live/darwin/claude/cli/audience.json",
+      "body_equal": true,
+      "owner_input_required": false,
+      "receipt_evidence": "3:bell:r1,4:bell:r1,5:bell:r1",
+      "observations": [
+        "parent_join",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery"
+      ],
+      "audiences": {
+        "dm": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "multiple": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "all": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        }
+      }
+    },
+    {
+      "id": "darwin/codex/cli/audience",
+      "status": "passed",
+      "kind": "product_live",
+      "native": true,
+      "harness_version": "codex-cli 0.155.1",
+      "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "runtime_digest": "aab616d50a6a0ec7752f492e1f28cfa73f6afb501b31a3d3eae1041584bfc2f2",
+      "package_version": "0.8.63",
+      "parent_session": "01a0e989-24a0-7463-8cfd-11fcab8cf770",
+      "evidence_file": "rag/parent-delivery/live/darwin/codex/cli/audience.json",
+      "body_equal": true,
+      "owner_input_required": false,
+      "receipt_evidence": "3:bell:r2,4:bell:r1,5:bell:r1",
+      "observations": [
+        "parent_join",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery"
+      ],
+      "audiences": {
+        "dm": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "multiple": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "all": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        }
+      }
+    }
+  ]
 }

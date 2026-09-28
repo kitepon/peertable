@@ -33,9 +33,9 @@
     "manifest": "rag/parent-delivery/product-acceptance.json",
     "status": "failed",
     "expected": 525,
-    "records": 0,
+    "records": 2,
     "errors": {
-      "PARENT_ACCEPTANCE_MISSING": 525
+      "PARENT_ACCEPTANCE_MISSING": 523
     },
     "checkpoint_counts_as_live_acceptance": false
   },

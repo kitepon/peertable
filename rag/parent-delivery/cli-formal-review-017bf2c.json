@@ -1,0 +1,191 @@
+{
+  "schema": "peertable.parent-independent-review.v1",
+  "reports": [
+    {
+      "case_id": "darwin/claude/cli/audience",
+      "status": "passed",
+      "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "evidence_path": "/private/tmp/claude-501/-Users-kite--codex-worktrees-parent-acceptance-runner-peertable/6578ec5b-7de6-4c99-87a4-7a9b9114360b/scratchpad/acc/mac/audience-claude/public/rag/parent-delivery/live/darwin/claude/cli/audience.json",
+      "runner_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "package_tarball_sha256": "9094a3a53b4d66b6322c9ca1e4f23e93810a760d79872b862fe73e26b85dd774",
+      "raw_transcript_sha256": "1d97efe793aeacf628a7ef4c660b909d8039134d3ed584e63c6bbd7b4ed8d372",
+      "raw_spool_sha256": "481b6710846140ae30f59e6c12b58dcc409813b32f4caa4e2727d35a3330e2e5",
+      "checks": [
+        {
+          "label": "dm",
+          "seq": 3,
+          "delivery_id": "2f854a38-f45a-4a0f-b488-90ff6abc6665",
+          "turn_id": "87119b43-826d-4e3d-8307-89be6efc2216",
+          "reply_turn_id": "87119b43-826d-4e3d-8307-89be6efc2216",
+          "body_sha256": "3c54e47647eea0d5ac32c421f1b1921326ddf8fe3cc12f0b204169aa4888e663",
+          "body_equal": true,
+          "receipt_revision": 1
+        },
+        {
+          "label": "multiple",
+          "seq": 4,
+          "delivery_id": "decc001f-b62f-4b09-bc46-2469d27336b6",
+          "turn_id": "a69598ae-770d-45be-905a-fa09abca2b05",
+          "reply_turn_id": "a69598ae-770d-45be-905a-fa09abca2b05",
+          "body_sha256": "a89ddf33a4727b0f7a2c74887a36a2d3faf3ad11b9ee4b39c71f05186cdb3642",
+          "body_equal": true,
+          "receipt_revision": 1
+        },
+        {
+          "label": "all",
+          "seq": 5,
+          "delivery_id": "2e82da28-d24a-4ea3-a631-cf806e5f75fc",
+          "turn_id": "53613061-cb2f-4019-b2fe-075dce99b432",
+          "reply_turn_id": "53613061-cb2f-4019-b2fe-075dce99b432",
+          "body_sha256": "2eab1802ca8c7eed65473682210b499cda97e2c604627b9d69c984ec7fe2785c",
+          "body_equal": true,
+          "receipt_revision": 1
+        }
+      ],
+      "cleanup": [
+        {
+          "label": "harness_exit",
+          "status": "done",
+          "pid": 62478,
+          "exited": true
+        },
+        {
+          "label": "endpoint_stop",
+          "status": "done",
+          "product_index_left_after_stop": false,
+          "runtime_before": "stopped",
+          "runtime_after": "stopped",
+          "product_stopped_within_30s": true,
+          "product_stop_latency_ms": 2,
+          "stopped_by_runner": false,
+          "owned_alive_after": []
+        },
+        {
+          "label": "pty_close",
+          "status": "done",
+          "session": "ptacc-claude-43776a08",
+          "outcome": "already_closed",
+          "pane_pid": 62478,
+          "pane_alive_after": false
+        },
+        {
+          "label": "room_server",
+          "status": "done",
+          "pid": 62426,
+          "exit": "SIGTERM",
+          "alive_after": false
+        },
+        {
+          "label": "connect_remove",
+          "status": "done",
+          "removed": [
+            "claude:removed"
+          ],
+          "semantic_equal": true,
+          "settings_diff_keys": [],
+          "mcp_diff_keys": [],
+          "user_keys_added": [],
+          "backup": null
+        }
+      ],
+      "negative_delivery_scope": "当該audience原証拠には他人宛DM/self投稿は含まれていない"
+    },
+    {
+      "case_id": "darwin/codex/cli/audience",
+      "status": "passed",
+      "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "evidence_path": "/private/tmp/claude-501/-Users-kite--codex-worktrees-parent-acceptance-runner-peertable/6578ec5b-7de6-4c99-87a4-7a9b9114360b/scratchpad/acc/mac/audience-codex/public/rag/parent-delivery/live/darwin/codex/cli/audience.json",
+      "runner_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "package_tarball_sha256": "9094a3a53b4d66b6322c9ca1e4f23e93810a760d79872b862fe73e26b85dd774",
+      "raw_transcript_sha256": "180e13666945cffdba16725c23a74720dd61e6a9fcc28815fe3c1f25e53d8856",
+      "raw_spool_sha256": "d298a3deca56740a13707ae7bcc758924f7a4fddaee857f7f5e81831c967e502",
+      "checks": [
+        {
+          "label": "dm",
+          "seq": 3,
+          "delivery_id": "e3df1dd7-c145-442e-83a4-440fbef4aaaf",
+          "turn_id": "01a0e989-44fe-7131-80ca-8607061db73f",
+          "reply_turn_id": "01a0e989-44fe-7131-80ca-8607061db73f",
+          "body_sha256": "49c46447eac89564a78b66b3a657f78918930f5f39ba5747f6542b2f0c231c42",
+          "body_equal": true,
+          "receipt_revision": 2
+        },
+        {
+          "label": "multiple",
+          "seq": 4,
+          "delivery_id": "5acdfa56-7a2a-4d52-84c2-7ee5966f1fa4",
+          "turn_id": "01a0e989-bb2a-7580-bb6e-0c985c492b3f",
+          "reply_turn_id": "01a0e989-bb2a-7580-bb6e-0c985c492b3f",
+          "body_sha256": "0543f36241800ba6ceba06125fb2f95b4f874c309c69d58bcf0bd56a1a9bae64",
+          "body_equal": true,
+          "receipt_revision": 1
+        },
+        {
+          "label": "all",
+          "seq": 5,
+          "delivery_id": "0be9d2d6-be47-4946-a59e-551bd54c0ccf",
+          "turn_id": "01a0e989-e247-7713-b3a7-097cca48d1cf",
+          "reply_turn_id": "01a0e989-e247-7713-b3a7-097cca48d1cf",
+          "body_sha256": "13e2ff50357eb842540525a44f86031b7ef72fe90da563deffc142fd0a801718",
+          "body_equal": true,
+          "receipt_revision": 1
+        }
+      ],
+      "cleanup": [
+        {
+          "label": "harness_exit",
+          "status": "done",
+          "pid": 66124,
+          "exited": true
+        },
+        {
+          "label": "endpoint_stop",
+          "status": "done",
+          "product_index_left_after_stop": false,
+          "runtime_before": "stopped",
+          "runtime_after": "stopped",
+          "product_stopped_within_30s": true,
+          "product_stop_latency_ms": 7314,
+          "stopped_by_runner": false,
+          "owned_alive_after": []
+        },
+        {
+          "label": "codex_folder_trust_remove",
+          "status": "done",
+          "removed_trust_entries": 1,
+          "remaining_trust_entries": 0
+        },
+        {
+          "label": "pty_close",
+          "status": "done",
+          "session": "ptacc-codex-45a0c8fc",
+          "outcome": "already_closed",
+          "pane_pid": 66124,
+          "pane_alive_after": false
+        },
+        {
+          "label": "room_server",
+          "status": "done",
+          "pid": 66072,
+          "exit": "SIGTERM",
+          "alive_after": false
+        },
+        {
+          "label": "connect_remove",
+          "status": "done",
+          "removed": [
+            "codex:removed"
+          ],
+          "semantic_equal": true,
+          "effective_diff_keys": [],
+          "hooks_diff_keys": [],
+          "config_text_equal": true,
+          "backup": null
+        }
+      ],
+      "negative_delivery_scope": "当該audience原証拠には他人宛DM/self投稿は含まれていない"
+    }
+  ],
+  "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+  "scope": "macOS Claude/Codex通常CLIのaudience。原証拠から本文・会話・receipt・controller・pack・自己停止を独立照合した。全525項目の合格ではない。"
+}

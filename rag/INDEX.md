@@ -6,3 +6,4 @@
 - [修理後の通常CLI候補の観測](parent-delivery/repaired-cli-candidate-observation.json) — macOS Claude/Codexの原文・返答・receiptと、親終了後の自動停止・索引撤去・設定復元。
 - [Cursor/Grokの正式CLI証拠の親監査](parent-delivery/cursor-grok-formal-review.json) — 旧候補の6 audience、18本文と公式turn・後続返答の独立照合、画面取得の不足。
 - [CLIの終了・設定解除・本人相関の修理](parent-delivery/cli-lifecycle-repairs.md) — Linuxの削除済みbinary、Windows Codex Job、公式設定解除とJSON構造、旧証跡の保存と再測定条件。
+- [修理後候補のCLI正式証拠の独立監査](parent-delivery/cli-formal-review-017bf2c.json) — macOS Claude/Codexのaudience原文・実会話・receipt・controller・pack・終了回収の照合。
