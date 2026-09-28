@@ -2,15 +2,17 @@
 // 結果は公式のstructuredContentだけを読み、人間向けtextは解釈しない。
 import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
+import { checkCancellation, closeOwnedChild } from './scenarios-cancellation.mjs'
 
 const typed = (code, message) => Object.assign(new Error(message), { code })
 
-export async function openAiterm({ executable = process.env.PEERTABLE_ACCEPTANCE_AITERM ?? 'aiterm-mcp', args = [] } = {}) {
+export async function openAiterm({ executable = process.env.PEERTABLE_ACCEPTANCE_AITERM ?? 'aiterm-mcp', args = [], signal } = {}) {
+  checkCancellation(signal)
   const child = spawn(executable, args, { stdio: ['pipe', 'pipe', 'pipe'], shell: process.platform === 'win32' })
   const pending = new Map()
   let seq = 0, stderr = ''
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000) })
-  const fail = error => { for (const item of pending.values()) item.reject(error); pending.clear() }
+  const fail = error => { for (const item of pending.values()) { clearTimeout(item.timer); item.reject(error) }; pending.clear() }
   child.on('error', fail)
   child.on('exit', code => fail(typed('ACCEPTANCE_AITERM_EXITED', `aiterm-mcpが終了しました code=${code} ${stderr}`)))
   createInterface({ input: child.stdout }).on('line', line => {
@@ -19,14 +21,22 @@ export async function openAiterm({ executable = process.env.PEERTABLE_ACCEPTANCE
     const item = pending.get(row.id)
     if (!item) return
     pending.delete(row.id)
+    clearTimeout(item.timer)
     row.error ? item.reject(typed('ACCEPTANCE_AITERM_RPC', JSON.stringify(row.error))) : item.resolve(row.result)
   })
   const request = (method, params) => new Promise((resolve, reject) => {
     const id = ++seq
-    pending.set(id, { resolve, reject })
+    const timer = setTimeout(() => { pending.delete(id); reject(typed('ACCEPTANCE_AITERM_RPC_TIMEOUT', `${method}の公式応答が60秒以内にありません`)) }, 60000)
+    pending.set(id, { resolve, reject, timer })
     child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n')
   })
-  await request('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'peertable_parent_acceptance', version: '1' } })
+  // session作成前の初期化だけは中断でstdioを閉じられる。session操作の応答は所有名を保持して完了を待つ。
+  let initializationCleanup
+  const abortInitialize = () => { child.stdin.end(); initializationCleanup = closeOwnedChild(child); initializationCleanup.catch(fail) }
+  signal?.addEventListener('abort', abortInitialize, { once: true })
+  try { await request('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'peertable_parent_acceptance', version: '1' } }); checkCancellation(signal) }
+  catch (error) { fail(error); await (initializationCleanup ?? closeOwnedChild(child)); checkCancellation(signal); throw error }
+  finally { signal?.removeEventListener('abort', abortInitialize) }
   child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n')
   const call = async (name, args) => {
     const result = await request('tools/call', { name, arguments: args })
@@ -59,6 +69,6 @@ export async function openAiterm({ executable = process.env.PEERTABLE_ACCEPTANCE
       if (closed.session_id !== session_id || !['closed', 'already_closed'].includes(closed.outcome)) throw typed('ACCEPTANCE_AITERM_CLOSE', `pty_closeの結果が不正です: ${JSON.stringify(closed)}`)
       return closed
     },
-    async end() { child.stdin.end(); await new Promise(resolve => { const timer = setTimeout(() => { child.kill(); resolve() }, 3000); child.once('exit', () => { clearTimeout(timer); resolve() }) }) },
+    async end() { child.stdin.end(); await closeOwnedChild(child) },
   }
 }

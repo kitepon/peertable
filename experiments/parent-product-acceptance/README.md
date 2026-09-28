@@ -58,6 +58,8 @@ focused test: `node --test experiments/parent-product-acceptance/evidence.test.m
 
 lease単独runは`scenarios-lease-run.mjs`へ導入物・tarball SHA・製品source/digest/version・`--runner-commit`を渡す。短時間runとroom/processを分離し、実際の製品期限まで待つ。通常HOMEと公式認証を維持し、global設定や認証を長時間fixtureへ複製しない。実行moduleに未commit差分があればprovenance照合で止まる。
 
+専用leaseの中断は全OS共通で `node experiments/parent-product-acceptance/scenarios-lease-stop.mjs --out <そのrunの出力dir> --runner-commit <起動時のcontroller commit>` を1回呼ぶ。停止入口は専用run UUID・controllerの保存PID/start・要求tokenを照合し、要求fileを介してAbortControllerへ伝える。`finished_at`、typed中断failure、fixture/room回収成功、成功成績0、controller本人の実終了まで確認して返す。POSIXのSIGTERM/SIGINTも同じ中断へ適合する。WindowsでNode child.kill(SIGTERM)によるcontroller強制終了はこの入口の代用にしない。中断要求は製品の実lease時間を短縮せず、そのrunを失敗で終える。待機のtimerは中断時に撤去し、回収用の待機はabortしない。過去runの制御記録がある出力dirは再利用せず、原記録を保持する。stop入口と中断moduleもrunner provenanceのGit blob照合対象になる。
+
 Codexのprobe期限試験は`scenarios-queue-fault.mjs`で、正規MCPのreceiver検証後に自己watcherが生成した初回app-serverだけをOS停止する。製品のspool・時計・RPC応答は変更しない。原RPC、同CIDのMCP completed item、PID/start、実deadlineとspool/room healthを保存する。期限failureの観測上限は全OS共通1500msで、実lagを保存し、期限前・時刻欠落・health不一致・上限超過は失敗にする。Windowsの実OS停止APIは未確認であり、試験手順の実装を実機合格と扱わない。
 
 Codexの通常lease試験は起動前に自己processへ読取りobserverを設定し、短命app-serverの実spawnから公式queue/add request/responseとcloseまでを同じPID/startで記録する。OS停止は行わない。20msのprocess samplingで見逃した接続を成功に数えず、配送ID・受付ID・実接続終了・同identity消失が一致する原証拠を要求する。複数配送は別の実接続へ照合する。

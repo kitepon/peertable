@@ -10,10 +10,10 @@ import { openAiterm } from './aiterm.mjs'
 import { startupAction, readTranscript, transcriptPath } from './harness.mjs'
 import { parseDelivered, sha256 } from './evidence.mjs'
 import { nativeInvocation, resolveOfficialCli } from './scenarios-surfaces.mjs'
+import { waitUntil, waitDelay, checkCancellation } from './scenarios-cancellation.mjs'
 
 const fail = (code, message) => { throw Object.assign(new Error(message), { code }) }
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
-const until = async (label, probe, ms = 180000, interval = 250) => { const end = Date.now() + ms; for (;;) { const value = await probe(); if (value) return value; if (Date.now() >= end) fail('ACCEPTANCE_FIXTURE_TIMEOUT', label); await sleep(interval) } }
+const cleanupUntil = (label, probe, ms = 180000, every = 250) => waitUntil(label, probe, ms, every, { timeoutCode: 'ACCEPTANCE_FIXTURE_TIMEOUT' })
 const contained = (root, file) => { const path = relative(realpathSync(root), file); return path !== '' && !path.startsWith('..') && !isAbsolute(path) }
 const writeJson = (file, value) => { mkdirSync(dirname(file), { recursive: true, mode: 0o700 }); writeFileSync(file, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 }) }
 
@@ -96,7 +96,7 @@ export function ordinaryConfiguration(harness) {
 
 // 親終了直後の中間状態で失敗にしない。製品による自己停止と索引撤去を実際に待つ。
 export async function waitOwnedFixtureExit({ readEndpoints, sameProcess, knownOwners = [], indexExists, timeout = 30000 }) {
-  const final = await until('own親/process/索引の製品自己撤去', () => {
+  const final = await cleanupUntil('own親/process/索引の製品自己撤去', () => {
     const endpoints = readEndpoints(), states = endpoints.map(endpoint => ({ id: endpoint.id, state: endpoint.read() }))
     const alive = [...knownOwners, ...states.flatMap(item => [item.state.caller?.owner, item.state.watcher, item.state.waiter?.owner].filter(Boolean))].filter(owner => sameProcess(owner))
     return !alive.length && states.every(item => item.state.runtime === 'stopped' && !indexExists(item.id)) ? { endpoints: states.map(item => ({ id: item.id, runtime: item.state.runtime })), known_processes_gone: true, indexes_gone: true } : null
@@ -111,7 +111,8 @@ export function assertOnlyProjectTrustChanged(before, after, project, { remove =
   if (!isDeepStrictEqual(expected, after)) fail('ACCEPTANCE_PROJECT_TRUST_OTHER_SETTINGS_CHANGED', '専用project trust以外の実効設定が変わりました')
 }
 
-export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUrl, sourceMeta, apiFor, model, surfaceAdapters = {} }) {
+export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUrl, sourceMeta, apiFor, model, surfaceAdapters = {}, signal }) {
+  checkCancellation(signal)
   if (!apiFor) {
     const token = /^PEERTABLE_POST_TOKEN=(.+)$/mu.exec(readFileSync(tokenFile, 'utf8'))?.[1]
     if (!token) fail('ACCEPTANCE_FIXTURE_ROOM_TOKEN_MISSING', '試験roomのtoken参照を確認できません')
@@ -125,12 +126,15 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
   return {
     api: room => apiFor(room),
     async open({ harness = sourceMeta.harness, room = sourceMeta.room, name = `fixture-${randomUUID().slice(0, 8)}`, initialJoin = true, sessionSettings = null, prepare } = {}) {
+      checkCancellation(signal)
+      const until = (label, probe, ms = 180000, every = 250) => waitUntil(label, probe, ms, every, { signal, timeoutCode: 'ACCEPTANCE_FIXTURE_TIMEOUT' })
+      const sleep = ms => waitDelay(ms, signal)
       const directory = join(root, `${harness}-${randomUUID()}`); mkdirSync(directory, { recursive: true, mode: 0o700 })
       const project = join(directory, 'project'); mkdirSync(join(project, '.team'), { recursive: true, mode: 0o700 }); writeJson(join(project, '.team/setup-state.json'), { room, server_url: serverUrl, mode: 'adhoc' })
       const configuration = ordinaryConfiguration(harness)
       if (['claude', 'codex'].includes(harness) && !ownsParentConnection(harness)) fail('ACCEPTANCE_FIXTURE_PARENT_NOT_CONNECTED', '通常設定のPeertable所有登録が必要です。fixtureはglobal登録を変更しません')
       let adapter = surfaceAdapters[harness] ?? (['claude', 'codex'].includes(harness) ? { resolveCli: () => resolveOfficialCli(harness, platform), startup: view => startupAction(harness, view), transcript: session => transcriptPath(harness, session), read: file => readTranscript(harness, file) } : null)
-      const fixture = { directory, project, configuration, pkg, harness, name, room, pty: null, aiterm: null, target: null, session: null, owner: null, paneOwner: null, nativeOwners: [], receiverOwners: [], ready: false, backups: new Map(), closed: false, observations: [], sessionSettings, adapter }
+      const fixture = { signal, directory, project, configuration, pkg, harness, name, room, pty: null, aiterm: null, target: null, session: null, owner: null, paneOwner: null, nativeOwners: [], receiverOwners: [], ready: false, backups: new Map(), closed: false, observations: [], sessionSettings, adapter }
       if (adapter?.bind) adapter = adapter.bind(fixture)
       fixture.adapter = adapter
       if (!adapter?.resolveCli || !adapter.startup || !adapter.transcript || !adapter.read) fail('ACCEPTANCE_OFFICIAL_SURFACE_BOUNDARY_UNCONFIRMED', `${harness}: 公式task/transcriptの実測adapterが必要です`)
@@ -296,8 +300,10 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         writeJson(input, { executable: cli.executable, argv, invocation, project, tokenFile, processEnvironment })
         // HOME・認証は通常のまま。専用runのtoken参照とOS observerだけを公式env_varsへ渡す。
         writeFileSync(launcher, `import {readFileSync} from 'node:fs';import {spawn} from 'node:child_process';const p=JSON.parse(readFileSync(process.argv[2],'utf8'));const child=spawn(p.invocation.executable,p.invocation.argv,{cwd:p.project,stdio:'inherit',env:{...process.env,...p.processEnvironment,PEERTABLE_TOKEN_SOURCE_FILE:p.tokenFile}});child.on('exit',(code)=>process.exit(code??1));\n`, { mode: 0o600 })
-        if (!fixture.aiterm) fixture.aiterm = await openAiterm()
-        if (!fixture.pty) fixture.pty = await fixture.aiterm.open(`pt-fixture-${randomUUID().slice(0, 8)}`, process.platform === 'win32' ? 'pwsh' : undefined)
+        checkCancellation(signal)
+        if (!fixture.aiterm) fixture.aiterm = await openAiterm({ signal })
+        if (!fixture.pty) { fixture.pty = `pt-fixture-${randomUUID().slice(0, 8)}`; await fixture.aiterm.open(fixture.pty, process.platform === 'win32' ? 'pwsh' : undefined) }
+        checkCancellation(signal)
         writeJson(fixture.identityArtifact, { at: new Date().toISOString(), project, harness, pty: fixture.pty, pane: fixture.paneOwner, native: fixture.nativeOwners, receiver: fixture.receiverOwners })
         await fixture.trackOwnProcesses()
         await fixture.aiterm.send(fixture.pty, platform.shellCommand(process.execPath, [launcher, input]))
@@ -306,7 +312,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         if (adapter.afterStartup) await adapter.afterStartup()
         return fixture
       }
-      fixture.submit = async text => { await fixture.aiterm.send(fixture.pty, text, false); await sleep(1500); await fixture.aiterm.key(fixture.pty, 'Enter') }
+      fixture.submit = async (text, { cleanup = false } = {}) => { if (!cleanup) checkCancellation(signal); await fixture.aiterm.send(fixture.pty, text, false); await waitDelay(1500, cleanup ? undefined : signal); await fixture.aiterm.key(fixture.pty, 'Enter'); if (!cleanup) checkCancellation(signal) }
       fixture.refreshTarget = async (previousEndpoint = null, { waitForVerified = true } = {}) => {
         const spool = await until('fixture parent_join', async () => { await fixture.trackOwnProcesses(); return projectEndpoints(project).find(item => item.id !== previousEndpoint && item.read().name === name && item.read().runtime !== 'stopped') })
         // probe障害の対象も製品が作ったcallerとspoolを読む。verifiedをfixtureで作り足さない。
@@ -331,8 +337,8 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
           fixture.ready = false; fixture.owner = null; fixture.paneOwner = null
           return
         }
-        await fixture.submit(exit)
-        await until('fixture親終了', () => !platform.sameProcess(fixture.owner), 30000)
+        await fixture.submit(exit, { cleanup: true })
+        await cleanupUntil('fixture親終了', () => !platform.sameProcess(fixture.owner), 30000)
       }
       fixture.stopOwnPane = async () => {
         await fixture.trackOwnProcesses()
@@ -360,10 +366,12 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         fixture.closed = true; fixtures.delete(fixture)
       }
       fixtures.add(fixture)
-      await fixture.ensureProjectTrust()
-      if (adapter.prepare) await adapter.prepare()
-      if (prepare) await prepare(fixture)
-      await fixture.launch(); if (initialJoin) await fixture.join(); return fixture
+      try {
+        await fixture.ensureProjectTrust(); checkCancellation(signal)
+        if (adapter.prepare) await adapter.prepare(); checkCancellation(signal)
+        if (prepare) await prepare(fixture); checkCancellation(signal)
+        await fixture.launch(); checkCancellation(signal); if (initialJoin) await fixture.join(); checkCancellation(signal); return fixture
+      } catch (error) { try { await fixture.close() } catch (cleanup) { throw Object.assign(new AggregateError([error, cleanup], 'fixture準備と自己回収に失敗しました'), { code: 'ACCEPTANCE_FIXTURE_CLEANUP_FAILED' }) }; throw error }
     },
     async close() { const errors = []; for (const fixture of [...fixtures].reverse()) { try { await fixture.close() } catch (error) { errors.push({ code: error.code, message: error.message, directory: fixture.directory }) } } if (errors.length) fail('ACCEPTANCE_FIXTURE_CLEANUP_FAILED', JSON.stringify(errors)) },
   }

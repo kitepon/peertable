@@ -1,6 +1,7 @@
 // 実機受入24scenarioの手順。公式親の会話と実境界の観測が揃うまで合格を作らない。
 import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
+import { checkCancellation } from './scenarios-cancellation.mjs'
 import { scenarios as inventory } from '../../scripts/parent-delivery-acceptance-contract.mjs'
 
 export const scenarioNames = Object.keys(inventory).filter(name => name !== 'audience')
@@ -73,19 +74,22 @@ export function validateNativeCheck(check, { scenario, runId, session }) {
 // contextは導入物・実親・専用roomの操作を所有する。action未提供時は実行前にtyped errorで止める。
 export async function runScenario(name, context) {
   const { harness, session, pageChars, runId = randomUUID() } = context
+  const checks = [], observations = [], trace = [], nonces = new Set()
+  const scope = { scenario: name, runId, session, harness, pageChars, checks, observations, signal: context.signal, boundaries: receiverBoundaries[harness] }
+  try {
+  checkCancellation(context.signal)
   if (!receiverBoundaries[harness]) fail('ACCEPTANCE_HARNESS_UNSUPPORTED', harness)
   const plan = scenarioPlan(name, { pageChars, harness })
   const missing = [...new Set(plan.map(item => item.action))].filter(action => typeof context.actions?.[action] !== 'function')
   if (missing.length) fail('ACCEPTANCE_SCENARIO_ADAPTER_MISSING', `${harness}/${name}: ${missing.join(', ')}`)
-  const checks = [], observations = [], trace = [], nonces = new Set()
-  const scope = { scenario: name, runId, session, harness, pageChars, checks, observations, boundaries: receiverBoundaries[harness] }
-  try {
   for (const [index, item] of plan.entries()) {
+    checkCancellation(context.signal)
     scope.step_index = index
     const nonce = `PEERTABLE_${name.toUpperCase()}_${index}_${randomUUID()}`
     const body = item.input.body ?? `日本語の観測\n「引用」😀 <tag a="1"> & 字面&gt;\n配送確認の符号は ${nonce} です。`
     const input = { ...item.input, ...(item.action === 'deliver' ? { nonce, body: `${body}${item.input.long ? ('\n長文 日本語 < > & 字面&amp; 😀'.repeat(Math.ceil(pageChars / 20) * 3)) : ''}\n${nonce}` } : {}), index }
     const result = await context.actions[item.action](input, scope)
+    checkCancellation(context.signal)
     if (item.action === 'deliver' && !item.input.defer && !item.input.allowRetained) {
       const targetSession = result.parent_session ?? session
       validateNativeCheck(result.check, { scenario: name, runId, session: targetSession })

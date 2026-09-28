@@ -10,6 +10,7 @@ import { createNativeFixtureFactory, waitOwnedFixtureExit } from './scenarios-fi
 import { sha256 } from './evidence.mjs'
 import { createBackgroundSurfaceAdapters, nativeInvocation } from './scenarios-surfaces.mjs'
 import { installQueueProbeFault, queueProbeReceiverProof, watchQueueProbeState, queueProbeTimeoutProof, codexProbeJoinBoundary, installQueueConnectionObserver, observedQueueConnections, QUEUE_PROBE_OBSERVATION_LIMIT_MS } from './scenarios-queue-fault.mjs'
+import { checkCancellation } from './scenarios-cancellation.mjs'
 import { installReceiverPreparationFault, codexReceiverFailureBoundary, receiverPreparationFailure } from './scenarios-receiver-fault.mjs'
 
 const fail = (code, message, detail) => { throw Object.assign(new Error(message), { code, detail }) }
@@ -884,6 +885,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
 
 // rootの既存runnerへ接続する入口。scenarioごとに新CIDと専用artifactを作り、証拠を使い回さない。
 export async function createNativeScenarioContext(name, options) {
+  checkCancellation(options.signal)
   const surfaceAdapters = { ...(['cursor', 'grok'].includes(options.sourceMeta.harness) ? await createBackgroundSurfaceAdapters(options) : {}), ...options.surfaceAdapters }
   const factory = await createNativeFixtureFactory({ ...options, surfaceAdapters })
   let primary
@@ -896,14 +898,17 @@ export async function createNativeScenarioContext(name, options) {
       if (['claim_race', 'slot_race'].includes(name)) await fixture.addProductCompetitors({ count: 2 })
       if (name === 'compatibility_hooks') await fixture.addProductCompetitors({ count: 1, compatibilityHarness: options.sourceMeta.harness === 'claude' ? 'codex' : 'claude' })
     } })
+    checkCancellation(options.signal)
     const native = createNativeActions({ factory, primary, lifecycle: options.lifecycle })
     const context = await createScenarioContext({ ...options, ...primary.target, projectDir: primary.project, privateDir: primary.directory, nativeActions: native.actions })
     context.registerEndpoint('self', primary.target)
     const ordinaryFinalize = context.finalize
     // native finalizeには同じ実境界の所有helpersを渡す。判定をcallbackから受け取らない。
     const platform = await import(pathToFileURL(join(options.pkg, 'skill/scripts/parent-platform.mjs')).href)
-    context.finalize = async scope => { const errors = []; try { await ordinaryFinalize(scope) } catch (error) { errors.push(error) }; try { await native.finalize({ ...scope, context, ...platform }) } catch (error) { errors.push(error) }; if (errors.length) throw new AggregateError(errors, 'scenario所有process/設定の後片付けに失敗しました') }
+    let finalization
+    context.finalize = scope => finalization ??= (async () => { const errors = []; try { await ordinaryFinalize(scope) } catch (error) { errors.push(error) }; try { await native.finalize({ ...scope, context, ...platform }) } catch (error) { errors.push(error) }; if (errors.length) throw Object.assign(new AggregateError(errors, 'scenario所有process/設定の後片付けに失敗しました'), { code: 'ACCEPTANCE_NATIVE_CLEANUP_FAILED' }); return { fixtures_closed: true } })()
+    context.close = () => context.finalize({ runId: 'pre-scenario-cleanup', checks: [], scenario: name })
     context.caseMeta = primary.target.meta
     return context
-  } catch (error) { try { await factory.close() } catch (cleanup) { throw new AggregateError([error, cleanup], 'fixture準備と後片付けに失敗しました') }; throw error }
+  } catch (error) { try { await factory.close(); error.cleanup = { status: 'passed', fixtures_closed: true } } catch (cleanup) { throw Object.assign(new AggregateError([error, cleanup], 'fixture準備と後片付けに失敗しました'), { code: 'ACCEPTANCE_NATIVE_CLEANUP_FAILED', cleanup: { status: 'failed', fixtures_closed: false } }) }; throw error }
 }

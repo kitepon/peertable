@@ -8,13 +8,10 @@ import { judgeAudience, sha256 } from './evidence.mjs'
 import { isDeepStrictEqual } from 'node:util'
 import { scenarioPlan, scenarioNames } from './scenarios.mjs'
 import { readJsonl } from './harness.mjs'
+import { waitUntil, waitDelay, checkCancellation } from './scenarios-cancellation.mjs'
 
 const fail = (code, detail) => { throw Object.assign(new Error(detail), { code }) }
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
-const until = async (label, probe, ms = 300000, every = 1000) => {
-  const deadline = Date.now() + ms
-  for (;;) { const value = await probe(); if (value) return value; if (Date.now() >= deadline) fail('ACCEPTANCE_TIMEOUT', label); await sleep(every) }
-}
+const cleanupUntil = waitUntil
 
 // 試験roomの手前だけに置くproxy。SSE切断とreceipt HTTP失敗を製品を改造せず実境界へ注入する。
 // runnerの投稿APIはbackendへ向け、親のsetup-state.server_urlだけをproxyのURLへ向ける。
@@ -174,13 +171,16 @@ export function cursorIdleCompletion(events, last, session) {
 }
 
 export async function createScenarioContext(options) {
+  checkCancellation(options.signal)
+  const until = (label, probe, ms, every) => waitUntil(label, probe, ms, every, { signal: options.signal })
+  const sleep = ms => waitDelay(ms, options.signal)
   const { meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, proxy, bin, nativeActions = {}, screen, nativeStopFile } = options
   const importInstalled = name => import(pathToFileURL(join(pkg, 'skill/scripts', name)).href)
   const { PAGE_CHARS } = await importInstalled('parent-delivery.mjs')
   const { sameProcess, processIdentity, processDescendsFrom, shellCommand } = await importInstalled('parent-platform.mjs')
   const recipient = spool.read().name, pending = [], faultState = new Map(), actions = {}, nativeRegistrations = []
   const targets = new Map([['self', { meta, spool, api, observe, submit, file, screen }]])
-  const context = { harness: meta.harness, session: meta.parent_session, pageChars: PAGE_CHARS, actions,
+  const context = { signal: options.signal, harness: meta.harness, session: meta.parent_session, pageChars: PAGE_CHARS, actions,
     registerEndpoint(name, target) {
       if (!name || !target?.spool || !target.meta?.parent_session || !target.file || typeof target.api !== 'function' || typeof target.observe !== 'function' || typeof target.submit !== 'function') fail('ACCEPTANCE_ENDPOINT_REGISTRATION_INVALID', name)
       if (target.meta.harness !== meta.harness || target.meta.source_commit !== meta.source_commit || target.meta.runtime_digest !== meta.runtime_digest || target.meta.package_version !== meta.package_version) fail('ACCEPTANCE_ENDPOINT_SOURCE_MISMATCH', name)
@@ -577,8 +577,8 @@ export async function createScenarioContext(options) {
       // releaseはこの試験が作ったprocessだけが読む。startに失敗しても後発のchildを待機させない。
       writeFileSync(work.release, JSON.stringify({ released_at: new Date().toISOString(), cleanup: true }))
       if (work.owner && sameProcess(work.owner)) {
-        try { await until('試験作業processの後片付け', () => !sameProcess(work.owner), 10000, 100) }
-        catch (error) { if (error.code !== 'ACCEPTANCE_TIMEOUT') throw error; if (sameProcess(work.owner)) process.kill(work.owner.pid, 'SIGKILL'); await until('強制終了後の試験process消失', () => !sameProcess(work.owner), 10000, 100) }
+        try { await cleanupUntil('試験作業processの後片付け', () => !sameProcess(work.owner), 10000, 100) }
+        catch (error) { if (error.code !== 'ACCEPTANCE_TIMEOUT') throw error; if (sameProcess(work.owner)) process.kill(work.owner.pid, 'SIGKILL'); await cleanupUntil('強制終了後の試験process消失', () => !sameProcess(work.owner), 10000, 100) }
       }
     }
   }
