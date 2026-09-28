@@ -1,7 +1,7 @@
 // 親runtimeの起動・移行・診断・停止。親harnessそのものは停止しない。
-import { existsSync, readFileSync, openSync, closeSync, rmSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, readdirSync, realpathSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { spawn, execFileSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { randomUUID } from 'node:crypto'
@@ -9,6 +9,7 @@ import { ParentSpool } from './parent-delivery.mjs'
 import { atomicJson, readJson, processIdentity, sameProcess, failure, posixQuote, psQuote } from './parent-platform.mjs'
 import { registerEndpoint, endpointsFor, forgetEndpoint } from './parent-caller.mjs'
 import { ownsParentConnection } from './parent-connect.mjs'
+import { launchDetached } from './parent-process.mjs'
 import { RoomApi } from './room-api.mjs'
 import { runtimeDigest } from './runtime-digest.mjs'
 
@@ -102,21 +103,18 @@ export async function startEndpoint(spool) {
     await stopOwnedProcess(state.waiter.owner)
   }
   spool.update({ watcher: null, runtime_digest: currentDigest })
-  const fd = openSync(join(spool.root, 'watch.log'), 'a', 0o600)
-  try {
-    spool.transact(saved => {
-      if (saved.watcher && sameProcess(saved.watcher)) return
-      const child = spawn(process.execPath, [watcherEntry, spool.project, state.name, '--deliver', spool.id], {
-        cwd: spool.project, detached: process.platform !== 'win32', stdio: ['ignore', fd, fd],
-        env: { ...process.env, PEERTABLE_CREDENTIAL_FILE: state.credential, PEERTABLE_WATCH_NO_STDIN: '1' },
-      })
-      child.on('error', error => { spool.update({ runtime: 'failed', error_code: 'PARENT_WATCH_START_FAILED', error_detail: error.message }) })
-      child.unref()
-      const identity = processIdentity(child.pid)
-      if (!identity) throw failure('PARENT_WATCH_START_FAILED')
-      saved.watcher = identity
+  spool.transact(saved => {
+    if (saved.watcher && sameProcess(saved.watcher)) return
+    const pid = launchDetached({
+      executable: process.execPath, args: [watcherEntry, spool.project, state.name, '--deliver', spool.id], cwd: spool.project,
+      env: { ...process.env, PEERTABLE_CREDENTIAL_FILE: state.credential, PEERTABLE_WATCH_NO_STDIN: '1' },
+      logFile: join(spool.root, 'watch.log'),
+      onError: error => { spool.update({ runtime: 'failed', error_code: 'PARENT_WATCH_START_FAILED', error_detail: error.message }) },
     })
-  } finally { closeSync(fd) }
+    const identity = processIdentity(pid)
+    if (!identity) throw failure('PARENT_WATCH_START_FAILED')
+    saved.watcher = identity
+  })
   const probe = spool.read().probe_id ?? randomUUID()
   spool.update({ probe_id: probe })
   spool.saveEvent({ schema: 'peertable.parent-watch-event.v1', type: 'parent_probe', event_id: `probe:${probe}`, room: state.room, from: 'peertable', to: state.name, body: `配送確認の符号は ${probe}。` })
