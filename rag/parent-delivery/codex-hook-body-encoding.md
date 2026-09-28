@@ -1,5 +1,7 @@
 # Codexの公式hook本文の符号化
 
+出典は下記のOpenAI公式source。2026-09-29取得。符号化と復号の契約はsourceで確認済みで、実機照合の適用範囲はPeertableの受入判断である。
+
 ## 確認対象
 
 Codex CLI 0.155.1の[公式実装 `protocol/src/items.rs`](https://raw.githubusercontent.com/openai/codex/rust-v0.155.1/codex-rs/protocol/src/items.rs)を確認した。`HookPromptXml`はhook本文をXMLのtextへ置き、`build_hook_prompt_message`と`serialize_hook_prompt`は`quick_xml`で符号化する。`parse_hook_prompt_fragment`は逆変換を行い、公式のround-trip testも往復を確認する。AitermのCodex受信hookもPeertableと同じ公式hook出力を使う。

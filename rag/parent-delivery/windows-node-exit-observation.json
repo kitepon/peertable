@@ -1,0 +1,47 @@
+{
+  "schema": "peertable.parent-runtime-observation.v1",
+  "observed_at": "2026-09-29",
+  "source_commit": "eab935cfa0f3b47388bed8f65fd6951e9e57681c",
+  "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+  "os": "win32",
+  "host": "FOX",
+  "product_live_acceptance": false,
+  "failed_ci": {
+    "url": "https://github.com/kitepon/peertable/actions/runs/36459298039/job/109053580490",
+    "case": "親終了後のwatcherは所有索引を撤去し、project削除後も別の親の相関を壊さない",
+    "exit_code": 3221226505,
+    "stderr": "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\\win\\async.c, line 94"
+  },
+  "before": {
+    "node_version": "v24.19.0",
+    "isolated_product_focused_test": { "passed": 1, "failed": 0 },
+    "minimal_fetch_process_exit_reproductions": { "attempts": 5, "assertion_failures": 0 }
+  },
+  "external_source": {
+    "release_notes": "https://nodejs.org/en/blog/release/v24.20.0",
+    "fix": "https://github.com/nodejs/node/pull/61999",
+    "issue": "https://github.com/nodejs/node/issues/56645",
+    "confidence": "同じassertionの上流修理を一次資料で確認。実機の最小再現では未再現のため、CI障害との因果は更新後のCI結果でも照合する"
+  },
+  "installation": {
+    "method": "Node公式MSI",
+    "url": "https://nodejs.org/dist/v24.20.0/node-v24.20.0-x64.msi",
+    "sha256": "28b69132c35ccc033bf8f2a67cd10c9d75ef5822593363309da448f2afff2d8a",
+    "hash_manifest": "https://nodejs.org/dist/v24.20.0/SHASUMS256.txt",
+    "authenticode_status": "Valid",
+    "signer": "OpenJS Foundation",
+    "exit_code": 0,
+    "reboot_requested": false,
+    "restart_manager": "Disable",
+    "winget_source_updated": true,
+    "winget_available_version": "24.19.0",
+    "post_install_probe": "確認コマンドのパスescapeが不正で失敗。installerは再実行せずJoin-Pathで版とfocused testを再確認"
+  },
+  "after": {
+    "node_version": "v24.20.0",
+    "isolated_product_focused_test": { "passed": 1, "failed": 0, "skipped": 0 },
+    "ci_failed_job_rerun": "requested"
+  },
+  "product_source_changed_for_node_assertion": false,
+  "interpretation": "配送の照合失敗ではない。Nodeの上流修理を公式installerで適用し、Windowsの失敗jobだけ再検証する。旧版のassertionを成功として扱わない"
+}
