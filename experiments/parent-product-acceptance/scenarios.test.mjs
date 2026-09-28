@@ -1,0 +1,94 @@
+// focused testはrunnerの判定と障害proxyを確認する。fixtureの結果をproduct_live証拠へ出さない。
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { createServer } from 'node:http'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { scenarios as inventory } from '../../scripts/parent-delivery-acceptance.mjs'
+import { scenarioNames, scenarioPlan, runScenario, validateBoundary, validateNativeCheck } from './scenarios.mjs'
+import { createScenarioProxy, nativeReadPages, assembleNativePages } from './scenarios-context.mjs'
+
+const check = () => ({ run_id: 'run', scenario: 'package', status: 'passed', body_equal: true, count: 1, nonce: 'unique', harness: 'claude', original: { room: 'room', from: 'probe', to: 'bell', seq: 1, body: '日本語 & 字面&gt;' }, received: { room: 'room', from: 'probe', to: 'bell', seq: 1, body: '日本語 & 字面&gt;' }, delivery: { session: 'session', turn_id: 'turn', order: 2 }, reply: { session: 'session', turn_id: 'turn2', order: 3, text: 'unique' }, receipt: { result: 'delivered', receipt_revision: 1 } })
+const checkScope = { runId: 'run', scenario: 'package', session: 'session' }
+
+test('正本のaudience以外24scenarioに専用手順がある', () => {
+  assert.equal(scenarioNames.length, 24)
+  assert.deepEqual(scenarioNames, Object.keys(inventory).filter(name => name !== 'audience'))
+  for (const name of scenarioNames) {
+    const plan = scenarioPlan(name, { pageChars: 100 })
+    assert.ok(plan.length > 1)
+    assert.ok(plan.every(item => item.action && item.expectation))
+  }
+})
+test('未知scenarioと導入物のpage上限不足をtyped failureにする', () => {
+  assert.throws(() => scenarioPlan('fake'), { code: 'ACCEPTANCE_SCENARIO_UNKNOWN' })
+  assert.throws(() => scenarioPlan('original'), { code: 'ACCEPTANCE_PAGE_LIMIT_MISSING' })
+})
+test('adapter未接続時は操作前に停止し、成績を作らない', async () => {
+  let calls = 0
+  await assert.rejects(runScenario('busy', { harness: 'codex', session: 'session', pageChars: 100, actions: { deliver: () => { calls++ } } }), { code: 'ACCEPTANCE_SCENARIO_ADAPTER_MISSING' })
+  assert.equal(calls, 0)
+})
+test('原文と実会話・後続応答・receiptのすべてが必要', () => {
+  assert.equal(validateNativeCheck(check(), checkScope).status, 'passed')
+  for (const mutation of [item => { item.received.body = '変更' }, item => { item.delivery.session = '別会話' }, item => { item.reply = null }, item => { item.receipt = null }, item => { item.count = 2 }, item => { item.run_id = '別試験' }]) {
+    const item = check(); mutation(item); assert.throws(() => validateNativeCheck(item, checkScope))
+  }
+})
+test('Codex queue受付とXML一度復号以外の本文加工を拒否する', () => {
+  const item = check(); item.harness = 'codex'
+  assert.throws(() => validateNativeCheck(item, checkScope), { code: 'ACCEPTANCE_CODEX_QUEUE_RECEIPT_MISSING' })
+  Object.assign(item.receipt, { queued_submission_id: 'queue', accepted_at: new Date().toISOString() })
+  item.delivery.boundary = { encoding: 'whitespace_normalized' }
+  assert.throws(() => validateNativeCheck(item, checkScope), { code: 'ACCEPTANCE_BODY_NORMALIZATION_FORBIDDEN' })
+})
+test('spool/fixtureだけの観測や別scenarioのartifactを実機に使わない', () => {
+  const scope = { ...checkScope, expectation: 'receipt_only_recovered' }
+  const row = { kind: 'receipt', run_id: 'run', scenario: 'package', parent_session: 'session', turn_id: 'turn', artifact: '/fixture.json', source: 'spool' }
+  assert.throws(() => validateBoundary({ expectation: scope.expectation, verified: true, observations: [row] }, scope), { code: 'ACCEPTANCE_BOUNDARY_EVIDENCE_INVALID' })
+  row.source = 'http_boundary'; row.scenario = 'audience'
+  assert.throws(() => validateBoundary({ expectation: scope.expectation, verified: true, observations: [row] }, scope), { code: 'ACCEPTANCE_BOUNDARY_EVIDENCE_INVALID' })
+})
+test('最終pageまで順序どおり読み、本文の字面を保つ', () => {
+  const pages = [
+    { page: { delivery_id: 'id', digest: 'digest', offset: 0, total_characters: 7, complete: false, event: { body: '日本語' } } },
+    { page: { delivery_id: 'id', digest: 'digest', offset: 3, total_characters: 7, complete: true, event: { body: '&gt;' } } },
+  ]
+  assert.equal(assembleNativePages(pages).body, '日本語&gt;')
+  assert.equal(assembleNativePages(pages.slice(0, 1)), null)
+  pages[1].page.offset = 4
+  assert.throws(() => assembleNativePages(pages), { code: 'ACCEPTANCE_PAGE_NATIVE_SEQUENCE' })
+})
+test('公式parent_read包装からpageを読み、任意の本文復号をしない', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'peertable-scenarios-page-')); t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const file = join(dir, 'fixture.jsonl'), page = { schema: 'peertable.parent-read-page.v1', delivery_id: 'id', digest: 'd', offset: 0, total_characters: 4, complete: true, event: { body: '&gt;' } }
+  writeFileSync(file, [JSON.stringify({ type: 'turn_context', payload: { turn_id: 't' } }), JSON.stringify({ type: 'response_item', payload: { type: 'function_call_output', output: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify({ schema: 'peertable.parent-read-result.v1', page }) }] }) } }), ''].join('\n'))
+  const pages = nativeReadPages('codex', file, 'id')
+  assert.equal(pages.length, 1); assert.equal(pages[0].turn_id, 't'); assert.equal(assembleNativePages(pages).body, '&gt;')
+})
+test('fixture proxyで実HTTP source断とreceipt障害を分け、復旧する', async t => {
+  const backend = createServer((req, res) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, path: req.url })) })
+  await new Promise(resolve => backend.listen(0, '127.0.0.1', resolve))
+  const proxy = await createScenarioProxy({ backend: `http://127.0.0.1:${backend.address().port}` })
+  t.after(async () => { await proxy.close(); await new Promise(resolve => backend.close(resolve)) })
+  assert.equal((await fetch(`${proxy.url}/api/room/messages`)).status, 200)
+  proxy.disconnectSource()
+  assert.equal((await fetch(`${proxy.url}/api/room/messages`)).status, 503)
+  assert.equal((await fetch(`${proxy.url}/api/room/messages`, { method: 'POST', body: '{}' })).status, 200)
+  proxy.reconnectSource(); proxy.failReceipts()
+  assert.equal((await fetch(`${proxy.url}/api/room/messages`)).status, 200)
+  assert.equal((await fetch(`${proxy.url}/api/room/deliveries`, { method: 'POST', body: '{}' })).status, 503)
+  proxy.restoreReceipts()
+  assert.equal((await fetch(`${proxy.url}/api/room/deliveries`, { method: 'POST', body: '{}' })).status, 200)
+  assert.ok(proxy.events.some(item => item.kind === 'source_http_failed')); assert.ok(proxy.events.some(item => item.kind === 'receipt_http_failed'))
+})
+test('実行途中のfailureでも専用processのcleanupを呼ぶ', async () => {
+  let finalized = null
+  const actions = {
+    package_inspect: async () => { throw Object.assign(new Error('試験境界'), { code: 'FIXTURE_FAILED' }) },
+    deliver: async () => {}, package_observe: async () => {},
+  }
+  await assert.rejects(runScenario('package', { harness: 'claude', session: 'session', runId: 'run', pageChars: 100, actions, finalize: async scope => { finalized = scope } }), { code: 'FIXTURE_FAILED' })
+  assert.equal(finalized.scenario, 'package'); assert.equal(finalized.runId, 'run')
+})

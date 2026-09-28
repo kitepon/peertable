@@ -1,0 +1,440 @@
+// 配布物と試験親を使う実操作。既存runnerのclosureを受け取るが、障害操作と判定はこのmoduleが所有する。
+import { createServer, request } from 'node:http'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, copyFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { randomUUID } from 'node:crypto'
+import { judgeAudience, sha256 } from './evidence.mjs'
+import { readTranscript, transcriptPath } from './harness.mjs'
+import { scenarioPlan, scenarioNames } from './scenarios.mjs'
+
+const fail = (code, detail) => { throw Object.assign(new Error(detail), { code }) }
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+const until = async (label, probe, ms = 300000, every = 1000) => {
+  const deadline = Date.now() + ms
+  for (;;) { const value = await probe(); if (value) return value; if (Date.now() >= deadline) fail('ACCEPTANCE_TIMEOUT', label); await sleep(every) }
+}
+
+// 試験roomの手前だけに置くproxy。SSE切断とreceipt HTTP失敗を製品を改造せず実境界へ注入する。
+// runnerの投稿APIはbackendへ向け、親のsetup-state.server_urlだけをproxyのURLへ向ける。
+export async function createScenarioProxy({ backend, artifact }) {
+  const sockets = new Set(), sourceResponses = new Set(), upstreams = new Set()
+  const events = []; let sourceBlocked = false, receiptBlocked = false
+  const note = (kind, fields = {}) => { const row = { at: new Date().toISOString(), kind, ...fields }; events.push(row); if (artifact) appendFileSync(artifact, JSON.stringify(row) + '\n'); return row }
+  const source = path => /^\/api\/[^/]+\/(?:events|messages|summary)(?:\?|$)/u.test(path)
+  const server = createServer((req, res) => {
+    const sourceRequest = req.method === 'GET' && source(req.url)
+    note('request', { method: req.method, path: req.url, source: sourceRequest })
+    if ((sourceBlocked && sourceRequest) || (receiptBlocked && req.method === 'POST' && /\/deliveries(?:\?|$)/u.test(req.url))) {
+      const kind = sourceRequest ? 'source_http_failed' : 'receipt_http_failed'
+      res.writeHead(503, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'acceptance_owned_boundary_failure' })); note(kind, { path: req.url }); return
+    }
+    const target = new URL(req.url, backend)
+    const upstream = request(target, { method: req.method, headers: req.headers }, response => {
+      res.writeHead(response.statusCode, response.headers)
+      if (sourceRequest) { sourceResponses.add(res); res.once('close', () => sourceResponses.delete(res)) }
+      response.pipe(res); response.once('error', error => { note('upstream_read_failed', { code: error.code }); res.destroy(error) })
+    })
+    upstreams.add(upstream); upstream.once('close', () => upstreams.delete(upstream))
+    upstream.once('error', error => { note('upstream_failed', { code: error.code }); if (!res.headersSent) res.writeHead(502); res.end() })
+    res.once('close', () => { if (!res.writableEnded) upstream.destroy() }); req.pipe(upstream)
+  })
+  server.on('connection', socket => { sockets.add(socket); socket.once('close', () => sockets.delete(socket)) })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  return {
+    url: `http://127.0.0.1:${server.address().port}`, artifact, events,
+    disconnectSource() { sourceBlocked = true; const interrupted = sourceResponses.size; for (const res of sourceResponses) res.destroy(); return note('source_disconnected', { interrupted }) },
+    reconnectSource() { sourceBlocked = false; return note('source_restored') },
+    failReceipts() { receiptBlocked = true; return note('receipt_blocked') },
+    restoreReceipts() { receiptBlocked = false; return note('receipt_restored') },
+    async close() { sourceBlocked = false; receiptBlocked = false; for (const upstream of upstreams) upstream.destroy(); for (const socket of sockets) socket.destroy(); await new Promise(resolve => server.close(resolve)); note('proxy_closed') },
+  }
+}
+
+// parent_readの公式tool出力をraw JSONLから取得する。本文はJSON decodeだけで、任意の置換をしない。
+export function nativeReadPages(harness, file, deliveryId) {
+  const rows = readFileSync(file, 'utf8').split('\n'); rows.pop()
+  const pages = []; let turn = null
+  const text = value => typeof value === 'string' ? value : Array.isArray(value) ? value.map(part => part.text ?? '').join('') : ''
+  for (const [order, line] of rows.entries()) {
+    const row = JSON.parse(line), payload = row.payload ?? {}
+    if (harness === 'claude' && row.type === 'user' && row.promptId) turn = row.promptId
+    if (harness === 'codex' && (row.type === 'turn_context' || (row.type === 'event_msg' && ['task_started', 'turn_started'].includes(payload.type)))) turn = payload.turn_id ?? turn
+    let outputs = []
+    if (harness === 'claude' && row.type === 'user') outputs = (Array.isArray(row.message?.content) ? row.message.content : []).filter(part => part.type === 'tool_result').map(part => text(part.content))
+    if (harness === 'codex' && row.type === 'response_item' && ['function_call_output', 'custom_tool_call_output'].includes(payload.type)) outputs = [text(payload.output)]
+    for (const output of outputs) {
+      const candidates = [output]
+      // MCPの公式text block包装だけを読む。未知包装を正規表現で本文へ変換しない。
+      try { const outer = JSON.parse(output); for (const part of outer.content ?? []) if (part.type === 'text') candidates.push(part.text); if (outer.structuredContent) candidates.push(JSON.stringify(outer.structuredContent)) } catch (error) { if (!(error instanceof SyntaxError)) throw error }
+      for (const candidate of candidates) {
+        let value; try { value = JSON.parse(candidate) } catch (error) { if (error instanceof SyntaxError) continue; throw error }
+        const page = value.schema === 'peertable.parent-read-page.v1' ? value : value.schema === 'peertable.parent-read-result.v1' ? value.page : null
+        if (page?.delivery_id === deliveryId && !pages.some(item => item.order === order && item.page.offset === page.offset)) pages.push({ order, turn_id: turn, session: row.sessionId ?? null, page })
+      }
+    }
+  }
+  return pages
+}
+
+export function assembleNativePages(pages) {
+  if (!pages.length) return null
+  let offset = 0, body = ''
+  const first = pages[0].page
+  for (const { page } of pages) {
+    if (page.offset !== offset || page.delivery_id !== first.delivery_id || page.digest !== first.digest || page.total_characters !== first.total_characters || typeof page.event?.body !== 'string') fail('ACCEPTANCE_PAGE_NATIVE_SEQUENCE', '実tool出力pageの順序・identityが不一致です')
+    body += page.event.body; offset += page.event.body.length
+    if (page.complete !== (offset === page.total_characters)) fail('ACCEPTANCE_PAGE_NATIVE_FINAL', '最終pageのcompleteが原文長と不一致です')
+  }
+  return pages.at(-1).page.complete && offset === first.total_characters ? { body, first, final: pages.at(-1) } : null
+}
+
+export async function createScenarioContext(options) {
+  const { meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, proxy, bin, nativeActions = {}, screen } = options
+  const importInstalled = name => import(pathToFileURL(join(pkg, 'skill/scripts', name)).href)
+  const { PAGE_CHARS } = await importInstalled('parent-delivery.mjs')
+  const { sameProcess, processIdentity, processDescendsFrom, shellCommand } = await importInstalled('parent-platform.mjs')
+  const recipient = spool.read().name, pending = [], faultState = new Map(), actions = {}
+  const context = { harness: meta.harness, session: meta.parent_session, pageChars: PAGE_CHARS, actions }
+  const anchor = () => { const seen = observe(); return seen.replies.at(-1)?.turn_id ?? seen.toolUses.at(-1)?.turn_id ?? seen.turns.at(-1) }
+  const artifactFor = (scope, label) => { const dir = join(privateDir, 'scenarios', scope.runId, scope.scenario); mkdirSync(dir, { recursive: true, mode: 0o700 }); return join(dir, `${label}.json`) }
+  const result = (scope, expectation, source, detail = {}) => {
+    const artifact = artifactFor(scope, `${scope.step_index ?? randomUUID()}-${expectation}`)
+    const evidence = { kind: expectation, run_id: scope.runId, scenario: scope.scenario, parent_session: meta.parent_session, turn_id: anchor(), source, artifact, ...detail }
+    if (!evidence.turn_id) fail('ACCEPTANCE_NATIVE_TURN_MISSING', expectation)
+    writeFileSync(artifact, JSON.stringify(evidence, null, 2))
+    return { expectation, verified: true, observations: [evidence] }
+  }
+  const recordFor = posted => spool.read().records.find(item => item.event.seq === posted.seq)
+  const receiptFor = async posted => (await api(`deliveries?seq=${posted.seq}`)).delivery[recipient]
+  const heartbeat = async () => (await api('members')).bridges?.parent_receiver?.endpoints?.find(endpoint => endpoint.endpoint_id === spool.id)?.beat_at
+  const check = async (posted, scope) => {
+    await until(`${scope.scenario}:${posted.nonce} 実親の返答`, async () => {
+      const record = recordFor(posted), receipt = await receiptFor(posted)
+      return record?.state === 'submitted' && receipt?.state === 'delivered' && observe().replies.some(reply => reply.session === meta.parent_session && reply.text.includes(posted.nonce))
+    }, options.deliveryTimeout ?? 300000)
+    const seen = await until('会話末尾確定', () => { const value = observe(); return value.pending_tail === 0 ? value : null }, 30000)
+    const record = recordFor(posted), receipt = await receiptFor(posted)
+    let deliveries = seen.deliveries
+    const preview = deliveries.find(item => item.delivery_id === record.delivery_id && item.preview)
+    const pages = nativeReadPages(meta.harness, file, record.delivery_id)
+    if (preview || pages.length) {
+      const assembled = assembleNativePages(pages)
+      if (!assembled) fail('ACCEPTANCE_NATIVE_WHOLE_BODY_MISSING', `${scope.scenario}: parent_read最終pageがありません`)
+      // previewと全文pageを別の本文として数えない。実tool出力の最終pageを全文受信の位置にする。
+      deliveries = [...deliveries.filter(item => item.delivery_id !== record.delivery_id), { ...(preview ?? {}), room: posted.room, from: assembled.first.event.from ?? assembled.first.event.message?.from, to: assembled.first.event.to_names ?? assembled.first.event.to ?? assembled.first.event.message?.to_names ?? assembled.first.event.message?.to, seq: assembled.first.event.seq, body: assembled.body, delivery_id: record.delivery_id, session: meta.parent_session, turn_id: assembled.final.turn_id, order: assembled.final.order, preview: false, boundary: { encoding: 'none', raw_body_equal: true, native_pages: pages.length } }]
+    }
+    const judged = judgeAudience({ label: posted.label, posted, record, receipt, deliveries, replies: seen.replies, session: meta.parent_session, recipient })
+    copyFileSync(file, artifactFor(scope, `${posted.nonce}-transcript.jsonl`))
+    return { ...judged, nonce: posted.nonce, scenario: scope.scenario, run_id: scope.runId, harness: meta.harness }
+  }
+  const post = async (input, scope) => {
+    const posted = { ...(await api('messages', { from: 'probe', to: recipient, body: input.body })), room: meta.room, nonce: input.nonce, label: input.label }
+    pending.push({ posted, scope: { ...scope }, defer: input.defer, allowRetained: input.allowRetained })
+    return posted
+  }
+  actions.deliver = async (input, scope) => {
+    if (input.endpoint) fail('ACCEPTANCE_NATIVE_ENDPOINT_ADAPTER_MISSING', `関連する実親の操作が未接続です: ${input.endpoint}`)
+    const posted = await post(input, scope)
+    if (input.defer || input.allowRetained) {
+      if (!['source_reconnect', 'process_recovery'].includes(scope.scenario)) await until('製品の原文保存', () => recordFor(posted)?.event.body === posted.body, 45000)
+      const observed = result(scope, 'native_delivery', 'http_boundary', { deferred: true, seq: posted.seq, posted_body_sha256: sha256(posted.body), receipt: await receiptFor(posted) })
+      // deferは配送合格ではない。後続pending_recoverの実親本文checkが必須。
+      return observed
+    }
+    const judged = await check(posted, scope)
+    return { ...result(scope, 'native_delivery', 'harness_transcript', { seq: posted.seq, delivery_id: judged.delivery?.delivery_id }), check: judged }
+  }
+  actions.pending_recover = async (_, scope) => {
+    const selected = pending.filter(item => item.scope.runId === scope.runId && item.scope.scenario === scope.scenario && item.defer && !item.recovered)
+    if (!selected.length) fail('ACCEPTANCE_PENDING_NATIVE_MISSING', scope.scenario)
+    const checks = []
+    for (const item of selected) { checks.push(await check(item.posted, scope)); item.recovered = true }
+    return { ...result(scope, 'native_delivery', 'harness_transcript', { seqs: checks.map(item => item.original.seq) }), checks }
+  }
+  if (['claude', 'codex'].includes(meta.harness)) {
+    actions.work_start = async (_, scope) => {
+      const script = artifactFor(scope, 'work-process.mjs'), identity = artifactFor(scope, 'work-start.json'), release = artifactFor(scope, 'work-release.json'), completed = artifactFor(scope, 'work-completed.json')
+      const nonce = `PEERTABLE_WORK_${randomUUID()}`
+      writeFileSync(script, `import {writeFileSync,existsSync} from 'node:fs';writeFileSync(process.argv[2],JSON.stringify({pid:process.pid,started_at:new Date().toISOString()}));while(!existsSync(process.argv[3]))await new Promise(r=>setTimeout(r,100));writeFileSync(process.argv[4],JSON.stringify({pid:process.pid,completed_at:new Date().toISOString()}));console.log(process.argv[5]);\n`)
+      const command = shellCommand(process.execPath, [script, identity, release, completed, nonce])
+      const before = observe().rows
+      faultState.set(`${scope.runId}:work`, { owner: null, identity, release, completed, nonce, before })
+      const tool = meta.harness === 'claude' ? 'Bashのrun_in_background=true' : 'exec_commandのyield_time_ms=1000'
+      await submit(`作業継続の実機受入です。${tool}で次のcommandを実行してください。試験専用processはroom配送中も待機し、runnerが解除すると終了します。終了後に符号${nonce}を報告してください。Peertable配送の符号を受信したら、この作業を中止せず報告してください。command: ${command}`)
+      await until('実親が開始した作業process', () => existsSync(identity), 120000)
+      const owner = processIdentity(JSON.parse(readFileSync(identity, 'utf8')).pid)
+      if (!owner || !sameProcess(owner) || !processDescendsFrom(owner, meta.parent_process) || existsSync(completed)) fail('ACCEPTANCE_WORK_NATIVE_OWNER', '実親が所有する存命の作業processを確認できません')
+      const seen = observe()
+      if (!seen.toolUses.some(use => use.order >= before && (meta.harness === 'claude' ? /Bash/u : /exec_command/u).test(use.name))) fail('ACCEPTANCE_WORK_NATIVE_TOOL', '公式toolの作業開始が実会話にありません')
+      faultState.set(`${scope.runId}:work`, { owner, identity, release, completed, nonce, before, started_order: seen.rows })
+      return result(scope, 'work_running', 'os_process', { owner, work_artifact: identity, start_transcript_rows: before })
+    }
+    actions.work_finish = async (_, scope) => {
+      const work = faultState.get(`${scope.runId}:work`), delivery = scope.checks.at(-1)
+      if (!work || !sameProcess(work.owner) || existsSync(work.completed) || !delivery || delivery.delivery.order < work.before) fail('ACCEPTANCE_WORK_NOT_CONTINUED', '配送中に元作業を継続していません')
+      const held = processIdentity(work.owner.pid)
+      writeFileSync(work.release, JSON.stringify({ released_at: new Date().toISOString(), delivery_seq: delivery.original.seq }))
+      await until('元作業の完了', () => existsSync(work.completed), 10000)
+      const reply = await until('作業継続の実親応答', () => observe().replies.find(item => item.text.includes(work.nonce) && item.order > delivery.delivery.order), 120000)
+      if (reply.session !== meta.parent_session) fail('ACCEPTANCE_WORK_SESSION_CHANGED', '元作業の完了は別会話です')
+      return result(scope, 'work_continued', 'harness_transcript', { live_at_delivery: held, completion_artifact: work.completed, work_reply_turn: reply.turn_id, delivery_turn: delivery.delivery.turn_id })
+    }
+  }
+  actions.idle_wait = async (_, scope) => {
+    const seen = observe(), count = seen.replies.length
+    if (!count || !screen) fail('ACCEPTANCE_IDLE_ADAPTER_MISSING', '実TUIと最終応答の待機観測が必要です')
+    const last = seen.replies.at(-1)
+    await until('実親idle', async () => {
+      const view = await screen(), current = observe()
+      const prompt = meta.harness === 'claude' ? /^\s*❯\s/mu : /^\s*›\s/mu
+      return prompt.test(view) && current.replies.at(-1)?.order === last.order
+    }, 120000, 1000)
+    // promptが作業中にも表示される実装があるため、native task終了の記録も必要にする。
+    const raw = readFileSync(file, 'utf8')
+    if (meta.harness === 'codex' && !raw.includes('task_complete')) fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', 'Codexのtask_completeを確認できません')
+    faultState.set(`${scope.runId}:idle`, { turn: last.turn_id, order: last.order, rows: seen.rows })
+    return result(scope, 'idle_without_input', 'harness_transcript', { idle_turn: last.turn_id, reply_order: last.order })
+  }
+  actions.idle_observe = async (_, scope) => {
+    const before = faultState.get(`${scope.runId}:idle`), latest = scope.checks.at(-1)
+    if (!before || !latest || latest.reply.turn_id === before.turn || latest.delivery.order <= before.order) fail('ACCEPTANCE_IDLE_WAKE_MISSING', '待機後にオーナー入力なしで新turnへ起床した記録がありません')
+    return result(scope, 'idle_new_turn_without_input', 'harness_transcript', { before_turn: before.turn, wake_turn: latest.reply.turn_id, owner_inputs_sent: 0 })
+  }
+  actions.sequence_observe = async (_, scope) => {
+    if (scope.checks.length < 2 || scope.checks.some((item, index) => index && (item.original.seq <= scope.checks[index - 1].original.seq || item.delivery.order <= scope.checks[index - 1].delivery.order))) fail('ACCEPTANCE_SEQ_ORDER', scope.scenario)
+    return result(scope, 'seq_order', 'harness_transcript', { sequences: scope.checks.map(item => ({ seq: item.original.seq, order: item.delivery.order, turn: item.delivery.turn_id })) })
+  }
+  actions.policy_set = async (input, scope) => {
+    const nonce = `PEERTABLE_POLICY_${randomUUID()}`
+    const instruction = input.tools === 'none' ? '以後は全toolを使わず、room配送を受けたら符号を報告してください。' : input.tools === 'parent_only' ? '以後の外部作業toolは使わず、Peertableの受信登録・parent_readだけを許可します。' : '以後は必要な公式toolを使用してよいです。Peertableの受信を継続してください。'
+    await submit(`${instruction} 指示を受け取ったら ${nonce} とだけ返答してください。`)
+    const reply = await until('tool条件の実親確認', () => observe().replies.find(item => item.text.includes(nonce)))
+    faultState.set(`${scope.runId}:policy:${input.tools}`, { order: reply.order, turn: reply.turn_id, tool_count: observe().toolUses.length })
+    return result(scope, 'policy_installed', 'harness_transcript', { policy: input.tools, reply_order: reply.order, policy_turn: reply.turn_id })
+  }
+  actions.tools_observe = async (_, scope) => {
+    const mode = scope.scenario === 'no_tools' ? 'none' : 'parent_only', before = faultState.get(`${scope.runId}:policy:${mode}`)
+    const used = observe().toolUses.filter(item => item.order > before.order && item.name !== 'output')
+    if (mode === 'none' ? used.length : used.some(item => !/parent_(?:join|read|leave)/u.test(item.name))) fail('ACCEPTANCE_TOOL_POLICY_VIOLATED', JSON.stringify(used.map(item => item.name)))
+    if (mode === 'none') {
+      const saved = spool.read(), sent = pending.filter(item => item.scope.runId === scope.runId)
+      if (!sent.every(item => recordFor(item.posted)?.event.body === item.posted.body)) fail('ACCEPTANCE_NO_TOOLS_BODY_LOST', scope.scenario)
+      if (!scope.checks.length && saved.runtime !== 'rearm_pending') fail('ACCEPTANCE_NO_TOOLS_STATE_UNEXPLAINED', saved.runtime)
+    }
+    return result(scope, mode === 'none' ? 'no_tools_or_explicit_rearm' : 'no_external_tools', 'harness_transcript', { tools: used, runtime: spool.read().runtime })
+  }
+  actions.retained_recover = async (_, scope) => {
+    const selected = pending.filter(item => item.scope.runId === scope.runId && item.allowRetained)
+    // no_toolsでtoolなしのnative受信が成立した場合だけ、owner_input_required:falseの実績を作る。
+    // 再武装が必要な時はその事実を失敗として報告し、後続のuser指示で起こして合格に変えない。
+    for (const item of selected) if (!observe().replies.some(reply => reply.text.includes(item.posted.nonce))) fail('ACCEPTANCE_NO_TOOLS_EXPLICIT_REARM_PENDING', '原文は保持されましたが全toolなしでnative起床できていません')
+    const checks = await Promise.all(selected.map(item => check(item.posted, scope)))
+    return { ...result(scope, 'retained_native_recovery', 'harness_transcript'), checks }
+  }
+  actions.pages_observe = async (_, scope) => {
+    if (!scope.checks.some(item => item.original.body.length > PAGE_CHARS) || scope.checks.some(item => item.body_equal !== true)) fail('ACCEPTANCE_WHOLE_BODY_MISSING', scope.scenario)
+    return result(scope, 'whole_body_recovered', 'harness_transcript', { lengths: scope.checks.map(item => item.original.body.length) })
+  }
+  actions.burst_start = async (input, scope) => {
+    const posted = []
+    for (let index = 0; index < input.count; index++) {
+      const nonce = `PEERTABLE_BURST_${index}_${randomUUID()}`, body = `日本語\n${'長文 & < > 字面&gt; 😀\n'.repeat(Math.ceil(PAGE_CHARS / 12) * 2)}\n${nonce}`
+      posted.push(await post({ label: `burst-${index}`, nonce, body, defer: true }, scope))
+    }
+    if (posted.reduce((sum, item) => sum + item.body.length, 0) <= PAGE_CHARS) fail('ACCEPTANCE_BURST_LIMIT_NOT_EXCEEDED', scope.scenario)
+    faultState.set(`${scope.runId}:burst`, posted)
+    return result(scope, 'burst_above_page_limit', 'http_boundary', { seqs: posted.map(item => item.seq), characters: posted.reduce((sum, item) => sum + item.body.length, 0), page_limit: PAGE_CHARS })
+  }
+  actions.burst_observe = async (_, scope) => {
+    const posted = faultState.get(`${scope.runId}:burst`)
+    const sample = await until('実page未読保持の観測', () => {
+      const records = posted.map(item => recordFor(item)).filter(Boolean)
+      return records.find(item => item.state === 'sending' && item.claim.offset > 0 && item.claim.offset < item.event.body.length && item.receipt === null)
+    }, 120000, 50)
+    const pages = nativeReadPages(meta.harness, file, sample.delivery_id)
+    if (!pages.length || pages.at(-1).page.complete) fail('ACCEPTANCE_BURST_INTERMEDIATE_PAGE_MISSING', '未読状態に相関する実tool途中pageがありません')
+    return result(scope, 'unread_until_last_page', 'harness_transcript', { delivery_id: sample.delivery_id, offset: sample.claim.offset, receipt: sample.receipt, native_page_count: pages.length })
+  }
+  actions.burst_finish = async (_, scope) => {
+    const checks = []
+    for (const posted of faultState.get(`${scope.runId}:burst`)) checks.push(await check(posted, scope))
+    return { ...result(scope, 'burst_seq_whole_body', 'harness_transcript'), checks }
+  }
+  if (proxy) {
+    actions.source_disconnect = async (_, scope) => {
+      const before = proxy.events.length, disconnected = proxy.disconnectSource()
+      faultState.set(`${scope.runId}:source`, { before, disconnected })
+      // 実watcherのSSEが開いている場合は切断を直接観測できる。開いていなければ次の実HTTP失敗を待つ。
+      if (!disconnected.interrupted) await until('watcherのHTTP失敗', () => proxy.events.slice(before).some(row => row.kind === 'source_http_failed'), 45000)
+      return result(scope, 'http_sse_disconnected', 'http_boundary', { proxy_artifact: proxy.artifact, disconnected })
+    }
+    actions.source_reconnect = async (_, scope) => {
+      const before = proxy.events.length; proxy.reconnectSource()
+      await until('source catch-up', () => proxy.events.slice(before).some(row => row.kind === 'request' && row.source), 45000)
+      return result(scope, 'http_sse_catchup', 'http_boundary', { proxy_artifact: proxy.artifact, request_events: proxy.events.slice(before) })
+    }
+    actions.receipt_fail_arm = async (_, scope) => { faultState.set(`${scope.runId}:receipt`, { before: proxy.events.length }); proxy.failReceipts(); return result(scope, 'own_receipt_http_failure', 'http_boundary', { proxy_artifact: proxy.artifact }) }
+    actions.receipt_failure_observe = async (_, scope) => {
+      const selected = pending.filter(item => item.scope.runId === scope.runId && item.defer).at(-1)
+      const sample = await until('本文出力後receipt失敗', () => { const saved = recordFor(selected.posted); return saved?.state === 'submitted' && saved.receipt?.pending && observe().replies.some(reply => reply.text.includes(selected.posted.nonce)) ? saved : null })
+      const failures = proxy.events.slice(faultState.get(`${scope.runId}:receipt`).before).filter(row => row.kind === 'receipt_http_failed')
+      if (!failures.length) fail('ACCEPTANCE_RECEIPT_BOUNDARY_FAILURE_MISSING', scope.scenario)
+      faultState.get(`${scope.runId}:receipt`).sample = sample
+      return result(scope, 'native_output_receipt_pending', 'harness_transcript', { delivery_id: sample.delivery_id, receipt_revision: sample.receipt.receipt_revision, failure_count: failures.length, proxy_artifact: proxy.artifact })
+    }
+    actions.receipt_restore = async (_, scope) => {
+      proxy.restoreReceipts(); const before = faultState.get(`${scope.runId}:receipt`).sample
+      await until('receiptだけ復旧', () => { const item = spool.read().records.find(record => record.delivery_id === before.delivery_id); return item.receipt?.pending === false && item.receipt.receipt_revision === before.receipt.receipt_revision })
+      return result(scope, 'receipt_only_recovered', 'http_boundary', { proxy_artifact: proxy.artifact, receipt_revision: before.receipt.receipt_revision })
+    }
+    actions.receipt_retry_observe = async (_, scope) => {
+      const check = scope.checks.at(-1), before = faultState.get(`${scope.runId}:receipt`).sample
+      if (check.count !== 1 || check.receipt.receipt_revision !== before.receipt.receipt_revision || recordFor({ seq: check.original.seq }).claim.id !== before.claim.id) fail('ACCEPTANCE_RECEIPT_BODY_RESENT', scope.scenario)
+      return result(scope, 'output_once_receipt_revision', 'harness_transcript', { delivery_id: before.delivery_id, claim_id: before.claim.id, revision: check.receipt.receipt_revision })
+    }
+  }
+  actions.watcher_stop = async (_, scope) => {
+    const saved = spool.read(), owner = saved.watcher
+    if (!owner || !sameProcess(owner) || owner.pid === meta.parent_process.pid || !processDescendsFrom(owner, meta.parent_process)) fail('ACCEPTANCE_FIXTURE_PROCESS_OWNER', '試験親のwatcher所有を確認できません')
+    process.kill(owner.pid, 'SIGTERM'); await until('watcher終了', () => !sameProcess(owner), 10000, 100)
+    faultState.set(`${scope.runId}:watcher`, { owner, cursor: saved.cursor, runtime: saved.runtime })
+    return result(scope, 'own_watcher_stopped', 'os_process', { owner, cursor: saved.cursor })
+  }
+  actions.watcher_rejoin = async (_, scope) => {
+    const before = faultState.get(`${scope.runId}:watcher`), retained = pending.filter(item => item.scope.runId === scope.runId && item.defer)
+    const records = retained.map(item => recordFor(item.posted))
+    // 製品の正規watch開始を親の同joinから行う。runnerから擬似親watcherを起動しない。
+    await submit(`Peertable parent_joinをproject=${projectDir} name=${recipient}で同じ会話から一度だけ呼び、既存受信を再開してください。配送確認の符号を正確に報告してください。`)
+    const current = await until('製品watcher再起動', () => { const saved = spool.read(); return saved.watcher && saved.watcher.pid !== before.owner.pid && sameProcess(saved.watcher) ? saved : null })
+    if (current.endpoint_id !== spool.id || current.cursor < before.cursor || current.caller.conversation !== meta.parent_session) fail('ACCEPTANCE_READY_RECOVERY_IDENTITY', '同じendpoint/cursor/親会話を継承しませんでした')
+    return result(scope, 'own_watcher_restarted', 'os_process', { before_owner: before.owner, new_owner: current.watcher, before_cursor: before.cursor, cursor: current.cursor, retained: records.map(item => ({ delivery_id: item?.delivery_id ?? null, state: item?.state ?? null })) })
+  }
+  const armInterruption = (scope, { afterDelete = false, includeWatcher = false } = {}) => {
+    const baseline = new Set(spool.read().records.map(record => record.delivery_id))
+    const monitor = { completed: false, canceled: false, interrupted: null, error: null }
+    monitor.promise = (async () => {
+      const deadline = Date.now() + 120000
+      while (!monitor.canceled && Date.now() < deadline) {
+        const record = spool.read().records.find(item => !baseline.has(item.delivery_id) && item.state === 'sending' && (!afterDelete || item.hook_state === 'deleted'))
+        if (record) {
+          const owner = record.hook_claim?.owner ?? record.claim?.owner
+          const watcher = spool.read().watcher
+          if (owner && owner.pid !== meta.parent_process.pid && (includeWatcher || owner.pid !== watcher?.pid) && sameProcess(owner) && processDescendsFrom(owner, meta.parent_process)) {
+            const now = spool.read().records.find(item => item.delivery_id === record.delivery_id)
+            if (now.state !== 'sending' || (afterDelete && now.hook_state !== 'deleted')) { await sleep(1); continue }
+            const at = new Date().toISOString()
+            process.kill(owner.pid, 'SIGKILL')
+            monitor.interrupted = { record: now, owner, at, after_delete: afterDelete }
+            monitor.completed = true
+            return monitor.interrupted
+          }
+        }
+        await sleep(1)
+      }
+      if (!monitor.canceled) monitor.error = Object.assign(new Error('実claimの中断可能な区間を観測できませんでした'), { code: 'ACCEPTANCE_CLAIM_BOUNDARY_MISSED' })
+      monitor.completed = true
+      return null
+    })().catch(error => { monitor.error = error; monitor.completed = true; return null })
+    faultState.set(`${scope.runId}:interrupt`, monitor)
+    return monitor
+  }
+  actions.output_interrupt_arm = async (_, scope) => {
+    if (meta.harness === 'codex') {
+      // delete後の出力を観測するので、nativeの同期hookを通った場合だけfaultが成立する。
+      // idle queueだけで完了した場合はboundary_missedで止める。
+      armInterruption(scope, { afterDelete: true })
+    } else armInterruption(scope)
+    return result(scope, 'own_output_boundary_armed', 'os_process', { endpoint_id: spool.id, target_parent: meta.parent_process, codex_after_delete: meta.harness === 'codex' })
+  }
+  actions.output_interrupt = async (_, scope) => {
+    const monitor = faultState.get(`${scope.runId}:interrupt`)
+    await until('実出力processの中断', () => monitor.completed, 125000, 10)
+    if (monitor.error) throw monitor.error
+    if (!monitor.interrupted) fail('ACCEPTANCE_CLAIM_BOUNDARY_MISSED', scope.scenario)
+    const interrupted = monitor.interrupted
+    await until('中断後unknown receipt', async () => {
+      const record = spool.read().records.find(item => item.delivery_id === interrupted.record.delivery_id)
+      const receipt = await receiptFor({ seq: record.event.seq })
+      return record.state === 'unknown' && record.event.body === interrupted.record.event.body && receipt?.state === 'unknown'
+    }, 45000)
+    const record = spool.read().records.find(item => item.delivery_id === interrupted.record.delivery_id)
+    faultState.set(`${scope.runId}:unknown`, { record, at_rows: observe().rows })
+    return result(scope, 'claim_output_unknown_preserved', 'os_process', { interrupted_owner: interrupted.owner, killed_at: interrupted.at, delivery_id: record.delivery_id, body_sha256: sha256(record.event.body), error_code: record.error_code, receipt_revision: record.receipt.receipt_revision, after_delete: interrupted.after_delete })
+  }
+  actions.output_unknown_observe = async (_, scope) => {
+    const before = faultState.get(`${scope.runId}:unknown`), initial = before.record
+    // sourceの次のhealth/receipt周期を跨ぎ、実会話への自動再送が無いことを確認する。
+    // 初回unknownの記録だけで再送なしを断定しない。
+    const initialSource = await heartbeat()
+    if (!initialSource) fail('ACCEPTANCE_SOURCE_HEARTBEAT_MISSING', scope.scenario)
+    const nextSource = await until('unknown後の製品維持周期', async () => { const at = await heartbeat(); return at && at > initialSource ? at : null }, 60000)
+    const record = spool.read().records.find(item => item.delivery_id === initial.delivery_id), seen = observe()
+    if (record.state !== 'unknown' || record.event.body !== initial.event.body || record.claim.id !== initial.claim.id || record.receipt.receipt_revision !== initial.receipt.receipt_revision || seen.deliveries.some(item => item.delivery_id === initial.delivery_id && item.order >= before.at_rows)) fail('ACCEPTANCE_UNKNOWN_RESENT_OR_LOST', scope.scenario)
+    return result(scope, 'unknown_not_resent', 'harness_transcript', { delivery_id: record.delivery_id, initial_source_progress: initialSource, next_source_progress: nextSource, observed_rows: seen.rows, initial_rows: before.at_rows, body_sha256: sha256(record.event.body), receipt_revision: record.receipt.receipt_revision })
+  }
+  actions.sending_interrupt = async (_, scope) => {
+    const nonce = `PEERTABLE_SENDING_INTERRUPT_${randomUUID()}`
+    const monitor = armInterruption(scope, { includeWatcher: true })
+    await post({ label: 'sending中断', nonce, body: `日本語 sending原文\n${nonce}`, defer: true }, scope)
+    await until('実sending processの中断', () => monitor.completed, 125000, 10)
+    if (monitor.error) throw monitor.error
+    if (monitor.interrupted?.owner.pid === spool.read().watcher?.pid) {
+      await submit(`同じPeertable parent_joinをproject=${projectDir} name=${recipient}で一度だけ呼び、実watcherの孤児claim回収を継続してください。`)
+      await until('中断後の実watcher再起動', () => { const owner = spool.read().watcher; return owner && owner.pid !== monitor.interrupted.owner.pid && sameProcess(owner) })
+    }
+    await actions.output_interrupt({}, scope)
+    await actions.output_unknown_observe({}, scope)
+    return result(scope, 'sending_unknown_no_resend', 'harness_transcript', { interrupted: monitor.interrupted, receipt: await receiptFor({ seq: monitor.interrupted.record.event.seq }) })
+  }
+  actions.submitted_restart = async (_, scope) => {
+    const submitted = scope.checks.at(-1)
+    if (!submitted) fail('ACCEPTANCE_SUBMITTED_BASELINE_MISSING', scope.scenario)
+    const record = recordFor({ seq: submitted.original.seq }), before = { claim: record.claim.id, receipt: record.receipt.receipt_revision, count: observe().deliveries.filter(item => item.delivery_id === record.delivery_id).length }
+    const owner = spool.read().watcher
+    if (owner && sameProcess(owner)) {
+      if (owner.pid === meta.parent_process.pid || !processDescendsFrom(owner, meta.parent_process)) fail('ACCEPTANCE_FIXTURE_PROCESS_OWNER', 'watcherの所有が不一致です')
+      process.kill(owner.pid, 'SIGTERM'); await until('watcher停止', () => !sameProcess(owner), 10000, 100)
+    }
+    await submit(`同じPeertable parent_joinをproject=${projectDir} name=${recipient}で一度だけ呼び、既存受信を継続してください。`)
+    await until('watcher再起動', () => { const current = spool.read().watcher; return current && sameProcess(current) && current.pid !== owner?.pid })
+    const firstBeat = await heartbeat()
+    await until('再起動後の製品維持周期', async () => { const at = await heartbeat(); return at && at > firstBeat }, 60000)
+    const after = recordFor({ seq: submitted.original.seq }), count = observe().deliveries.filter(item => item.delivery_id === record.delivery_id).length
+    if (after.state !== 'submitted' || after.claim.id !== before.claim || after.receipt.receipt_revision !== before.receipt || count !== before.count) fail('ACCEPTANCE_SUBMITTED_RESENT', scope.scenario)
+    return result(scope, 'submitted_not_resubmitted', 'harness_transcript', { delivery_id: record.delivery_id, before, after_count: count, new_watcher: spool.read().watcher })
+  }
+  actions.package_inspect = async (_, scope) => {
+    const state = spool.read(), paths = [state.watcher?.executable, ...(state.wait_receipt?.args ?? [])].filter(Boolean)
+    if (meta.package_version !== JSON.parse(readFileSync(join(pkg, 'package.json'), 'utf8')).version || !meta.package_tarball_sha256 || paths.some(path => path.includes('/Developer/peertable/') || path.includes('/worktrees/'))) fail('ACCEPTANCE_PACKAGE_CHECKOUT_DEPENDENCY', '配布物の版・tarball・実receiver pathが不一致です')
+    const watcher = state.watcher && processIdentity(state.watcher.pid)
+    if (!watcher?.command.includes(join(pkg, 'skill/scripts/parent-watch.mjs'))) fail('ACCEPTANCE_PACKAGE_NATIVE_ENTRY_MISSING', '実watcherが導入物のentryを使用していません')
+    return result(scope, 'pack_installed_no_checkout_paths', 'installed_package', { tarball_sha256: meta.package_tarball_sha256, version: meta.package_version, runtime_digest: meta.runtime_digest, native_watcher: watcher, installed_root: pkg })
+  }
+  actions.package_observe = async (_, scope) => {
+    if (!scope.checks.length || scope.checks.at(-1).status !== 'passed') fail('ACCEPTANCE_PACKAGE_NATIVE_DELIVERY_MISSING', scope.scenario)
+    return result(scope, 'pack_native_entry_used', 'harness_transcript', { installed_root: pkg, endpoint_id: spool.id })
+  }
+  // 専用のnative adapterは親の所有を検証して操作し、その実artifactを返す。
+  // callbackが無い境界はrunScenarioが事前にtyped errorで停止する。
+  for (const [name, action] of Object.entries(nativeActions)) {
+    if (actions[name]) fail('ACCEPTANCE_ACTION_OVERRIDE', `既存の実操作を上書きできません: ${name}`)
+    actions[name] = (input, scope) => action(input, { ...scope, meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, result, pending, check, post, faultState, sameProcess, processIdentity, processDescendsFrom, shellCommand })
+  }
+  context.finalize = async scope => {
+    const monitor = faultState.get(`${scope.runId}:interrupt`)
+    if (monitor) { monitor.canceled = true; await monitor.promise }
+    const work = faultState.get(`${scope.runId}:work`)
+    if (work) {
+      // releaseはこの試験が作ったprocessだけが読む。startに失敗しても後発のchildを待機させない。
+      writeFileSync(work.release, JSON.stringify({ released_at: new Date().toISOString(), cleanup: true }))
+      if (work.owner && sameProcess(work.owner)) {
+        try { await until('試験作業processの後片付け', () => !sameProcess(work.owner), 10000, 100) }
+        catch (error) { if (error.code !== 'ACCEPTANCE_TIMEOUT') throw error; if (sameProcess(work.owner)) process.kill(work.owner.pid, 'SIGKILL') }
+      }
+    }
+  }
+  context.supported = scenarioNames.filter(name => scenarioPlan(name, { pageChars: PAGE_CHARS }).every(item => typeof actions[item.action] === 'function'))
+  context.missing = Object.fromEntries(scenarioNames.filter(name => !context.supported.includes(name)).map(name => [name, [...new Set(scenarioPlan(name, { pageChars: PAGE_CHARS }).map(item => item.action))].filter(action => !actions[action])]))
+  return context
+}
