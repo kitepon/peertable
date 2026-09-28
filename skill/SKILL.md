@@ -72,7 +72,7 @@ seat-statusは`pty_observe`の状態・本人性・token hint・活動差分と�
 
 ## resume
 
-`peertable resume <project> [--plan <plan-key>] [--phase <id>] [--no-probe]` は既存`.team/`を基に生成物を更新し、登録された席の復帰と3 bridgeの更新を行い、fresh heartbeatとprobeのdelivered receiptを読み返す。生存席・roomログ・他projectは保つ。役割のない復帰対象はエラーで止まる。`--no-probe`は明示的に配達試験を省略する時だけ使う。親の監視は呼出し元に属するため、`parent_join`と耳疎通を現在の実会話で行う。Cursor/Grokは返却されたnative背景tool入力を登録し、`rearm_pending`から`armed`への進行を確認する。耳疎通probeの期限はnative receiverの準備確認後から計る。
+`peertable resume <project> [--plan <plan-key>] [--phase <id>] [--no-probe]` は既存`.team/`を基に生成物を更新し、登録された席の復帰と3 bridgeの更新を行い、fresh heartbeatとprobeのdelivered receiptを読み返す。生存席・roomログ・他projectは保つ。役割のない復帰対象はエラーで止まる。`--no-probe`は明示的に配達試験を省略する時だけ使う。親の監視は呼出し元に属するため、`parent_join`と耳疎通を現在の実会話で行う。Cursor/Grokは返却されたnative背景tool入力を登録し、`rearm_pending`から`armed`への進行を確認する。耳疎通probeの期限はnative receiverの準備確認後から計る。 同じ会話で確認が既知の失敗となった場合は、`parent_join`で新しい確認を開始できる。旧本文・失敗記録は残り、結果不明の配送は自動再送しない。
 
 ## 席設定とmission
 

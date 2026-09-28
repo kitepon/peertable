@@ -48,7 +48,7 @@ Peertableの共通watchがHTTP/SSE、cursor、Lattice件数のquiet観測、取�
 - Cursor: 作業中の公式hookとnative背景Shellが同じclaimを共有する。`wait_process.native_tool`の完成済みinputをそのtoolへ渡す。生きたwaitがあるreceiptには新しいtoolが無い。背景完了後は`parent_read`の次receiptを登録する。
 - Grok Build: 完成済み`run_terminal_command(background:true)`を登録する。完了済みの正確なtask IDを`get_command_or_subagent_output`でtimeoutなしに取得し、そこで示された配送IDを`parent_read`で回収して次receiptを登録する。
 
-長文は同じ配送ID・digest・継続tokenで最後まで回収する。`unknown`は自動再送しない。Cursor/Grokは外部作業がない受信turnでも受信維持toolを登録する。全toolを省略した場合は`rearm_pending`であり健康ではない。receipt作成だけで背景登録済みとしない。耳疎通が受信口を通って`verified`となり、現在runtimeが`armed`であることを診断する。`parent_leave`は受信登録だけを閉じ、親harnessを終了しない。
+長文は同じ配送ID・digest・継続tokenで最後まで回収する。`unknown`は自動再送しない。Cursor/Grokは外部作業がない受信turnでも受信維持toolを登録する。全toolを省略した場合は`rearm_pending`であり健康ではない。receipt作成だけで背景登録済みとしない。耳疎通が受信口を通って`verified`となり、現在runtimeが`armed`であることを診断する。同じ会話のprobeが既知の失敗となった場合は、`parent_join`で新しい確認を開始する。新確認が届くまで復旧済みとせず、旧失敗記録と本文を保持する。`unknown`は再送しない。`parent_leave`は受信登録だけを閉じ、親harnessを終了しない。
 
 ## 試験結果の監査
 

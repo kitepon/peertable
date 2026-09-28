@@ -11,3 +11,4 @@
 - [Linux Grok公式更新先名の実診断](parent-delivery/linux-grok-native-name-diagnosis.json) — 修理moduleの指紋と、実PID・開始identityによるGrok本人照合。準備診断であり正式配送受入には算入しない。
 - [Codex初回probeの実期限超過](parent-delivery/codex-probe-deadline-diagnosis.json) — 実app-serverの停止・自然timeout・room healthを照合。30秒期限への14.478秒の遅延を保持する修理診断。
 - [Codex probe timer修理後の実診断](parent-delivery/codex-probe-timer-repair-diagnosis.json) — 同じOS障害で実期限10ms後のroom failedを観測し、生timeline・PID・Git blobを独立照合。正式受入への算入は0件。
+- [Codex同会話での再登録失敗](parent-delivery/codex-probe-rejoin-diagnosis.json) — 自然timeout後の正規再登録でもfailed probeが不変となる実再現。開始時controller bytesと製品Git blobを照合し、正式合格へ算入しない。

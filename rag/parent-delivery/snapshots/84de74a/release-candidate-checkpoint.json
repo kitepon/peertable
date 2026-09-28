@@ -3,8 +3,8 @@
   "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
   "runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
   "package_version": "0.8.63",
-  "candidate_state": "withdrawn_rejoin_defect",
-  "source_frozen": false,
+  "candidate_state": "verifying_frozen_candidate",
+  "source_frozen": true,
   "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/017bf2c/release-candidate-checkpoint.json",
   "product_ci": {
     "status": "success",
@@ -87,11 +87,9 @@
     "checkpoint_counts_as_live_acceptance": false
   },
   "lease": {
-    "status": "withdrawal_requested",
-    "reported_live_before_withdrawal": 2,
+    "status": "no_active_long_lease",
     "passed": 0,
-    "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
-    "reason": "製品runtimeの再登録欠陥で候補撤回。原記録を保持し、所有試験だけを停止する。"
+    "previous_attempts": "failed_before_24h_wait"
   },
   "gui_observation": {
     "status": "blocked",
@@ -112,7 +110,5 @@
       "linux": "passed",
       "win32": "passed"
     }
-  },
-  "repair_commit": "bce891b2cbf3a77afa7ab738e19f965e7ac9808c",
-  "withdrawal_evidence": "rag/parent-delivery/codex-probe-rejoin-diagnosis.json"
+  }
 }

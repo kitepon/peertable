@@ -55,3 +55,9 @@ watcherは所有spoolのdirectoryを監視し、atomic renameによる更新後�
 旧候補`43348b8`の6 audienceと18本文の独立監査は、元のsource・本文・判定を保った[snapshot](snapshots/43348b8/rag/parent-delivery/product-acceptance.json)へ保存した。現行manifestに算入しない。修理後の配布sourceと試験controllerをcommitへ固定し、Git blob・digest・版を照合して全必須面の正式試験を行う。main着地、npm公開、registry導入、本番反映はまだ行っていない。
 
 Cursorのidle確認には[公式stop仕様](https://cursor.com/docs/hooks#stop)のcompletedと、同じconversation/generationを持つ専用observerを使う。公式資料とCLI実装の確認は、実機発火の合格と分ける。observerの起動時PID・開始identityを保存し、その本人の終了を照合する。親が先に終了した故障試験でも、停止時の所有証拠で私物receiverを再開・回収する。
+
+## Codexの同会話での明示再登録
+
+[実診断](codex-probe-rejoin-diagnosis.json)は初回app-serverを1回だけOS停止し、製品の自然timeoutと期限失敗の後に、同じ会話から正規`parent_join`を1回呼んだ。watcher本人とendpointは維持されたが、失敗probeのIDと記録が不変で、更新した30秒の期限でも再度failedになった。製品state・時計・RPC応答を変更していない。rootは[開始時bytesと製品Git blob](codex-probe-rejoin-fingerprints.json)を照合した。実装継続で変更されたcontrollerについては、診断開始時に保存したbytesを照合対象にした。
+
+`startEndpoint`の生存watcherによる早期returnより前にprobeを保存し、明示joinでは現在の既知failed probeだけを新しい符号へ更新する。新probeの実受信完了後に旧failed synthetic probeへ`resolved_by`を追加する。原文・失敗状態・cursorを保持し、結果不明のprobeやDMの失敗を解決しない。配送29件、実join内部契約1件、watcher継続3件の関連focused試験が合格した。修正版の正規MCPによる再登録・新probe受信・後続DM・healthは再測定待ちであり、正式合格を増やしていない。

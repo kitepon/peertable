@@ -1,0 +1,115 @@
+{
+  "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
+  "runtime_digest": "778b09708b12cdd808a1d7d8451aad5b34131ec9b5207f7bb50e4313f525ee7f",
+  "started_at": "2026-09-28T21:08:50.328Z",
+  "finished_at": "2026-09-28T21:11:07.698Z",
+  "CID": "01a0e9d9-5bde-7532-b060-ea66f0f62034",
+  "endpoint_id": "e293475e-606d-408d-8158-459462a6cee0",
+  "probe_id_before": "fc93fdd2-8fd1-4774-b547-7732574f3cd7",
+  "probe_id_after": "fc93fdd2-8fd1-4774-b547-7732574f3cd7",
+  "own_os_stops": 1,
+  "recovered_verified": false,
+  "fixture_closed": true,
+  "server_gone": true,
+  "errors": [],
+  "schema": "peertable.parent-rejoin-diagnosis.v1",
+  "product_live": false,
+  "formal_acceptance_credit": 0,
+  "independent_review": true,
+  "private_raw": "/Users/kite/.codex/worktrees/parent-cli-scenarios/peertable/.lease-execution-017-b639/diagnostics/codex-probe-rejoin-raw",
+  "cause": "明示parent_join後も生存watcherの早期returnで新probeが作られず、既知failed probeを再利用する",
+  "natural_child_close": {
+    "at": "2026-09-28T21:09:25.077Z",
+    "signal": "SIGTERM",
+    "pid": 56640
+  },
+  "observations": [
+    {
+      "at": "2026-09-28T21:09:43.251Z",
+      "state": "failed",
+      "runtime": "failed",
+      "probe_id": "fc93fdd2-8fd1-4774-b547-7732574f3cd7",
+      "probe_deadline": 1790629777876,
+      "error": "PARENT_PROBE_TIMEOUT",
+      "caller_use": "2",
+      "health": {
+        "recipient": "fixture-4fc08108",
+        "endpoint_id": "e293475e-606d-408d-8158-459462a6cee0",
+        "state": "failed",
+        "beat_at": "2026-09-28T21:09:37.882Z",
+        "detail": "{\"endpoint_id\":\"e293475e-606d-408d-8158-459462a6cee0\",\"state\":\"failed\",\"error_code\":\"PARENT_PROBE_TIMEOUT\"}"
+      },
+      "records": [
+        {
+          "delivery_id": "e2e9c2c5-5263-4615-931f-f4ac93fd74ba",
+          "state": "failed",
+          "digest": "c55ac47de796d2e3d8cf881d9708eda1786cccf00175850ff4623a1964c63e53"
+        }
+      ]
+    },
+    {
+      "at": "2026-09-28T21:09:53.958Z",
+      "state": "receiving",
+      "runtime": "armed",
+      "probe_id": "fc93fdd2-8fd1-4774-b547-7732574f3cd7",
+      "probe_deadline": 1790629822965,
+      "error": null,
+      "caller_use": "3",
+      "health": {
+        "recipient": "fixture-4fc08108",
+        "endpoint_id": "e293475e-606d-408d-8158-459462a6cee0",
+        "state": "failed",
+        "beat_at": "2026-09-28T21:09:52.293Z",
+        "detail": "{\"endpoint_id\":\"e293475e-606d-408d-8158-459462a6cee0\",\"state\":\"failed\",\"error_code\":\"PARENT_PROBE_TIMEOUT\"}"
+      },
+      "records": [
+        {
+          "delivery_id": "e2e9c2c5-5263-4615-931f-f4ac93fd74ba",
+          "state": "failed",
+          "digest": "c55ac47de796d2e3d8cf881d9708eda1786cccf00175850ff4623a1964c63e53"
+        }
+      ]
+    },
+    {
+      "at": "2026-09-28T21:10:23.129Z",
+      "state": "failed",
+      "runtime": "failed",
+      "probe_id": "fc93fdd2-8fd1-4774-b547-7732574f3cd7",
+      "probe_deadline": 1790629822965,
+      "error": "PARENT_PROBE_TIMEOUT",
+      "caller_use": "3",
+      "health": {
+        "recipient": "fixture-4fc08108",
+        "endpoint_id": "e293475e-606d-408d-8158-459462a6cee0",
+        "state": "failed",
+        "beat_at": "2026-09-28T21:10:22.969Z",
+        "detail": "{\"endpoint_id\":\"e293475e-606d-408d-8158-459462a6cee0\",\"state\":\"failed\",\"error_code\":\"PARENT_PROBE_TIMEOUT\"}"
+      },
+      "records": [
+        {
+          "delivery_id": "e2e9c2c5-5263-4615-931f-f4ac93fd74ba",
+          "state": "failed",
+          "digest": "c55ac47de796d2e3d8cf881d9708eda1786cccf00175850ff4623a1964c63e53"
+        }
+      ]
+    }
+  ],
+  "rejoin_native_tool_calls": [
+    {
+      "at": "2026-09-28T21:09:52.975Z",
+      "conversation": "01a0e9d9-5bde-7532-b060-ea66f0f62034",
+      "turn": "01a0e9da-312d-7601-ac46-81cc5d2c62b1",
+      "tool_use_id": "exec-d42f0d64-e9a2-47a8-9087-32ab239dee2b",
+      "status": "completed",
+      "result": {
+        "schema": "peertable.parent-join-result.v1",
+        "endpoint_id": "e293475e-606d-408d-8158-459462a6cee0",
+        "state": "receiving",
+        "harness": "codex",
+        "wait_process": null,
+        "actor_environment": null,
+        "error_code": null
+      }
+    }
+  ]
+}
