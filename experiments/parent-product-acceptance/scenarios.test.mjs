@@ -163,3 +163,42 @@ test('Cursorのidleは対象会話/generationの公式completed stopだけを採
   assert.equal(cursorIdleCompletion([{ event: {} }], last, 'own'), null)
   assert.throws(() => cursorIdleCompletion([entry], { ...last, session: '別会話' }, 'own'), { code: 'ACCEPTANCE_IDLE_NATIVE_END_MISSING' })
 })
+
+// 実runで確認した3欠陥(work-process拡張子・idle開始レース・burst観測レース)の最小再現。
+test('用途名に拡張子を持つartifactはそのまま渡り、実Node scriptとして実行できる', async () => {
+  const { artifactPath } = await import('./scenarios-context.mjs')
+  const { mkdtempSync, writeFileSync, readFileSync } = await import('node:fs')
+  const { spawnSync } = await import('node:child_process')
+  const { tmpdir } = await import('node:os')
+  const dir = mkdtempSync(join(tmpdir(), 'artifact-'))
+  const script = artifactPath(dir, 'work-process.mjs')
+  assert.equal(script, join(dir, 'work-process.mjs'))
+  assert.equal(artifactPath(dir, 'work-start.json'), join(dir, 'work-start.json'))
+  assert.equal(artifactPath(dir, '3-own_finite_lease'), join(dir, '3-own_finite_lease.json'))
+  writeFileSync(script, "import {writeFileSync} from 'node:fs';writeFileSync(process.argv[2],'ok')\n")
+  const out = join(dir, 'out.txt')
+  assert.equal(spawnSync(process.execPath, [script, out]).status, 0)
+  assert.equal(readFileSync(out, 'utf8'), 'ok')
+})
+
+test('idleはjoin後の親最終返答が会話に確定するまで基準にしない', async () => {
+  const { finalReplyConfirmed } = await import('./scenarios-context.mjs')
+  assert.equal(finalReplyConfirmed({ replies: [], pending_tail: 0 }), false)
+  assert.equal(finalReplyConfirmed({ replies: [{ order: 1 }], pending_tail: 1 }), false)
+  assert.equal(finalReplyConfirmed({ replies: [{ order: 1 }], pending_tail: 0 }), true)
+})
+
+test('burstは未読保持のspoolと同じoffsetまで返した実中間pageが揃うまで成立させない', async () => {
+  const { intermediatePageMatch } = await import('./scenarios-context.mjs')
+  const record = { state: 'sending', receipt: null, claim: { offset: 12000 }, event: { body: 'x'.repeat(24000) } }
+  const page = (offset, length, complete) => ({ page: { offset, complete, event: { body: 'x'.repeat(length) } } })
+  // spoolが先に更新され、transcriptにまだ中間pageが無い(実runで観測した順序)。
+  assert.equal(intermediatePageMatch(record, []), null)
+  assert.equal(intermediatePageMatch(record, [page(0, 6000, false)]), null)
+  assert.equal(intermediatePageMatch(record, [page(0, 12000, false)]).page.offset, 0)
+  // 最終pageや別offset、receipt済み・非sendingは未読保持ではない。
+  assert.equal(intermediatePageMatch(record, [page(12000, 12000, true)]), null)
+  assert.equal(intermediatePageMatch({ ...record, receipt: { result: 'delivered' } }, [page(0, 12000, false)]), null)
+  assert.equal(intermediatePageMatch({ ...record, state: 'submitted' }, [page(0, 12000, false)]), null)
+  assert.equal(intermediatePageMatch({ ...record, claim: { offset: 0 } }, [page(0, 12000, false)]), null)
+})

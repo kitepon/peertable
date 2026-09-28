@@ -53,6 +53,15 @@ export async function createScenarioProxy({ backend, artifact }) {
 }
 
 // parent_readの公式tool出力をraw JSONLから取得する。本文はJSON decodeだけで、任意の置換をしない。
+// 試験専用artifactの正規path。用途名が拡張子(.json/.jsonl/.mjs)を持てばそのまま使い、無ければ.jsonを付ける。
+export const artifactPath = (dir, label) => join(dir, /\.(?:json|jsonl|mjs)$/u.test(label) ? label : `${label}.json`)
+// join後の親最終返答が会話に確定した(応答があり、未確定の書込み末尾が無い)ことの観測。
+export const finalReplyConfirmed = seen => seen.replies.length > 0 && seen.pending_tail === 0
+// spoolの未読保持state(途中offset・receipt無し)と、同じoffsetまで返した実tool途中pageが同時に揃った時だけ返す。
+export const intermediatePageMatch = (record, pages) => {
+  if (record?.state !== 'sending' || !(record.claim.offset > 0 && record.claim.offset < record.event.body.length) || record.receipt !== null) return null
+  return pages.find(item => item.page.complete === false && item.page.offset + item.page.event.body.length === record.claim.offset) ?? null
+}
 export function nativeReadPages(harness, file, deliveryId) {
   const rows = readFileSync(file, 'utf8').split('\n'); rows.pop()
   const pages = []; let turn = null
@@ -176,7 +185,7 @@ export async function createScenarioContext(options) {
       if (waiter?.native_task?.id && sameProcess(waiter.owner) && !nativeRegistrations.some(item => item.native_task.id === waiter.native_task.id && item.parent_session === target.meta.parent_session)) nativeRegistrations.push({ parent_session: target.meta.parent_session, endpoint_id: target.spool.id, waiter_owner: waiter.owner, native_task: waiter.native_task, owner_verified: true, observed_at: new Date().toISOString() })
     }
   }
-  const artifactFor = (scope, label) => { const dir = join(privateDir, 'scenarios', scope.runId, scope.scenario); mkdirSync(dir, { recursive: true, mode: 0o700 }); return join(dir, `${label}.json`) }
+  const artifactFor = (scope, label) => { const dir = join(privateDir, 'scenarios', scope.runId, scope.scenario); mkdirSync(dir, { recursive: true, mode: 0o700 }); return artifactPath(dir, label) }
   const result = (scope, expectation, source, detail = {}) => {
     captureNativeRegistrations()
     const artifact = artifactFor(scope, `${scope.step_index ?? randomUUID()}-${expectation}`)
@@ -288,11 +297,14 @@ export async function createScenarioContext(options) {
     }
   }
   actions.idle_wait = async (_, scope) => {
-    const seen = observe(), count = seen.replies.length
-    if (!count || !screen) fail('ACCEPTANCE_IDLE_ADAPTER_MISSING', '実TUIと最終応答の待機観測が必要です')
-    const last = seen.replies.at(-1)
+    if (!screen) fail('ACCEPTANCE_IDLE_ADAPTER_MISSING', '実TUIの観測が必要です')
+    // joinは製品状態のverifiedが先に立つ。親の最終返答が会話へ確定するまで待ってから基準にする。
+    const seen = await until('join後の実最終返答の会話への確定', () => { const value = observe(); return finalReplyConfirmed(value) ? value : null }, 120000, 100)
+    let count = seen.replies.length, last = seen.replies.at(-1)
     await until('実親idle', async () => {
       const view = await screen(), current = observe()
+      // 待つ間に親が別の最終返答を確定したら、その返答を基準にidleを待ち直す。
+      if (finalReplyConfirmed(current) && current.replies.at(-1).order !== last.order) { count = current.replies.length; last = current.replies.at(-1); return null }
       if (meta.harness === 'cursor') {
         if (!nativeStopFile) fail('ACCEPTANCE_IDLE_NATIVE_END_MISSING', 'Cursorの専用stop hook保存先がありません')
         const events = existsSync(nativeStopFile) ? readJsonl(readFileSync(nativeStopFile, 'utf8'), nativeStopFile).rows.map(item => item.row) : []
@@ -369,12 +381,17 @@ export async function createScenarioContext(options) {
   }
   actions.burst_observe = async (_, scope) => {
     const posted = faultState.get(`${scope.runId}:burst`)
-    const sample = await until('実page未読保持の観測', () => {
-      const records = posted.map(item => recordFor(item)).filter(Boolean)
-      return records.find(item => item.state === 'sending' && item.claim.offset > 0 && item.claim.offset < item.event.body.length && item.receipt === null)
-    }, 120000, 50)
-    const pages = ['cursor', 'grok'].includes(meta.harness) ? (observe().pages ?? []).filter(item => item.page.delivery_id === sample.delivery_id) : nativeReadPages(meta.harness, file, sample.delivery_id)
-    if (!pages.length || pages.at(-1).page.complete) fail('ACCEPTANCE_BURST_INTERMEDIATE_PAGE_MISSING', '未読状態に相関する実tool途中pageがありません')
+    const pagesOf = deliveryId => ['cursor', 'grok'].includes(meta.harness) ? (observe().pages ?? []).filter(item => item.page.delivery_id === deliveryId) : nativeReadPages(meta.harness, file, deliveryId)
+    // 未読保持のspoolと実中間pageは同時に揃うまで待つ。spool更新の方がtranscript記録より先に起きる。
+    const observed = await until('未読保持のspoolと実tool途中pageの同時観測', () => {
+      for (const item of posted) {
+        const sample = recordFor(item), pages = sample ? pagesOf(sample.delivery_id) : []
+        const matched = intermediatePageMatch(sample, pages), again = sample && recordFor(item)
+        if (matched && again.state === 'sending' && again.claim.offset === sample.claim.offset && again.receipt === null) return { sample, pages }
+      }
+      return null
+    }, 120000, 50).catch(error => { if (error.code === 'ACCEPTANCE_TIMEOUT') fail('ACCEPTANCE_BURST_INTERMEDIATE_PAGE_MISSING', '未読状態に相関する実tool途中pageがありません'); throw error })
+    const { sample, pages } = observed
     return result(scope, 'unread_until_last_page', 'harness_transcript', { delivery_id: sample.delivery_id, offset: sample.claim.offset, receipt: sample.receipt, native_page_count: pages.length })
   }
   actions.burst_finish = async (_, scope) => {
