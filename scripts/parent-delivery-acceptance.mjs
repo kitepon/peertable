@@ -85,10 +85,22 @@ export function auditAcceptance(records, { sourceCommit, sourceDigest, packageVe
   for (const id of byId.keys()) if (!expected.some(item => item.id === id)) errors.push({ id, code: 'PARENT_ACCEPTANCE_UNEXPECTED' })
   return { schema: 'peertable.parent-acceptance-audit.v1', status: errors.length ? 'failed' : 'passed', expected: expected.length, errors }
 }
+export function approvedReleaseDeferral(decision, { packageVersion, sourceDigest }) {
+  return decision?.decision === 'release_with_live_acceptance_deferred'
+    && decision.package_version === packageVersion && decision.runtime_digest === sourceDigest
+    && typeof decision.owner_instruction === 'string' && decision.owner_instruction.length > 0
+}
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const [file, commit] = process.argv.slice(2)
+  const [file, option, decisionFile] = process.argv.slice(2)
+  const commit = option === '--release-decision' ? undefined : option
   const manifest = JSON.parse(readFileSync(file, 'utf8')), records = manifest.records
   try {
-    const result = auditAcceptance(records, { sourceCommit: testedSourceCommit(records, { sourceCommit: commit ?? manifest.source_commit }), sourceDigest: runtimeDigest(), packageVersion: JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version }); console.log(JSON.stringify(result)); if (result.status !== 'passed') process.exitCode = 1
+    const sourceDigest = runtimeDigest(), packageVersion = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version
+    const decision = option === '--release-decision' ? JSON.parse(readFileSync(decisionFile, 'utf8')) : null
+    if (approvedReleaseDeferral(decision, { packageVersion, sourceDigest })) {
+      console.log(JSON.stringify({ schema: 'peertable.parent-acceptance-audit.v1', status: 'deferred_by_owner', package_version: packageVersion, expected: expectedCases().length, records: records.length, owner_instruction: decision.owner_instruction }))
+    } else {
+      const result = auditAcceptance(records, { sourceCommit: testedSourceCommit(records, { sourceCommit: commit ?? manifest.source_commit }), sourceDigest, packageVersion }); console.log(JSON.stringify(result)); if (result.status !== 'passed') process.exitCode = 1
+    }
   } catch (error) { console.log(JSON.stringify({ schema: 'peertable.parent-acceptance-audit.v1', status: 'failed', expected: expectedCases().length, errors: [{ code: error.code ?? 'PARENT_ACCEPTANCE_SOURCE_FAILED', detail: error.message }] })); process.exitCode = 1 }
 }

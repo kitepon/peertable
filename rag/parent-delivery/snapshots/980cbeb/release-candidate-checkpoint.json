@@ -1,21 +1,22 @@
 {
   "schema": "peertable.parent-release-checkpoint.v1",
-  "source_commit": "6689b32164f26d32ec2212159074e1cd9369e42d",
-  "runtime_digest": "9b4e7b94db839946b669ea61f714ff60431b9b3d0de3f9e5f920fc281b2c263c",
+  "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+  "runtime_digest": "19cceff45965f64a0733b9bc8f207fca58a2295b8d0c54ad1e0deb72f573c5b1",
   "package_version": "0.8.63",
-  "candidate_state": "owner_approved_release_live_acceptance_deferred",
-  "source_frozen": true,
-  "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/980cbeb/release-candidate-checkpoint.json",
+  "candidate_state": "diagnostic_candidate_native_input_and_windows_identity_repair_pending",
+  "source_frozen": false,
+  "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/c97b431/release-candidate-checkpoint.json",
   "product_ci": {
     "status": "success",
-    "source_commit": "6689b32164f26d32ec2212159074e1cd9369e42d",
-    "head_commit": "6689b32164f26d32ec2212159074e1cd9369e42d",
-    "url": "https://github.com/kitepon/peertable/actions/runs/36496202551",
+    "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+    "head_commit": "980cbebc1acab7461daa064abec8814b410f0137",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36488941014",
     "native_os": {
       "darwin": "passed",
       "linux": "passed",
       "win32": "passed"
-    }
+    },
+    "previous_failure_evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
   },
   "focused_verification": {
     "darwin_process_exit": {
@@ -95,10 +96,10 @@
   },
   "package": {
     "status": "fixture_installed_diagnostics_only",
-    "sha256": "faac3c786f2f7807e2b56ee39759a6bb66baea3759de4c6e822fee75ca87aa3a",
-    "files": 138,
-    "dry_run_files": 138,
-    "installed_runtime_digest": "9b4e7b94db839946b669ea61f714ff60431b9b3d0de3f9e5f920fc281b2c263c",
+    "sha256": "9fc56bbce1f49015e49de9ca4110303ca83f7acd8b3e6b66e4b3d9f57b71bdad",
+    "files": 135,
+    "dry_run_files": 135,
+    "installed_runtime_digest": "19cceff45965f64a0733b9bc8f207fca58a2295b8d0c54ad1e0deb72f573c5b1",
     "registry_install": false,
     "skill_placement": {
       "status": "required",
@@ -119,8 +120,7 @@
     "errors": {
       "PARENT_ACCEPTANCE_MISSING": 525
     },
-    "checkpoint_counts_as_live_acceptance": false,
-    "release_requirement": "deferred_by_owner_for_this_version_and_runtime_only"
+    "checkpoint_counts_as_live_acceptance": false
   },
   "lease": {
     "status": "withdrawn_monitors_finished_cleanup_review_pending",
@@ -129,7 +129,7 @@
     "source_commit": "84de74a097469ef4abd43698635805696b1302ff",
     "reason": "製品runtimeの再登録欠陥で候補撤回。原記録を保持し、所有試験だけを停止する。",
     "active": 0,
-    "cleanup_status": "中断入口は43cba5fで修理済み。旧runは正常終了やlease合格に数えない。追加実測は今回の公開条件から延期。",
+    "cleanup_status": "rootは旧Mac/Linux Claude既知processの存命0を独立確認。旧controller finallyは未実行でsummary running残留。新run前に中断入口の修理が必要。",
     "cleanup_evidence": "rag/parent-delivery/withdrawn-lease-stop-audit.json"
   },
   "gui_observation": {
@@ -143,15 +143,14 @@
   "registry_install": false,
   "previous_product_ci": {
     "status": "success",
-    "source_commit": "980cbebc1acab7461daa064abec8814b410f0137",
-    "head_commit": "980cbebc1acab7461daa064abec8814b410f0137",
-    "url": "https://github.com/kitepon/peertable/actions/runs/36488941014",
+    "source_commit": "356f9c408bfb8a46327651130b513b21b1b2842a",
+    "head_commit": "590f5a8b65c0a00b7b0877495da2c6a65428101c",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36478777216",
     "native_os": {
       "darwin": "passed",
       "linux": "passed",
       "win32": "passed"
-    },
-    "previous_failure_evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
+    }
   },
   "repair_commit": "bce891b2cbf3a77afa7ab738e19f965e7ac9808c",
   "withdrawal_evidence": "rag/parent-delivery/codex-probe-rejoin-diagnosis.json",
@@ -170,14 +169,12 @@
       "evidence": "rag/parent-delivery/codex-probe-rejoin-repair-diagnosis.json"
     },
     "cursor_native_input": {
-      "state": "focused_and_three_os_ci_passed_live_diagnosis_in_progress",
+      "state": "focused_passed_controller_and_native_verification_pending",
       "evidence": "rag/parent-delivery/cursor-native-input-diagnosis.json"
     },
     "windows_lock_contention": {
-      "state": "native_identity_integrated_three_os_ci_passed",
-      "evidence": "rag/parent-delivery/windows-lock-contention-diagnosis.json",
-      "identity_evidence": "rag/parent-delivery/windows-process-identity-diagnosis.json"
+      "state": "real_timeout_reproduced_native_identity_adapter_diagnosis_pending",
+      "evidence": "rag/parent-delivery/windows-lock-contention-diagnosis.json"
     }
-  },
-  "release_decision": "rag/parent-delivery/release-decision.json"
+  }
 }

@@ -1,11 +1,19 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { expectedCases, auditAcceptance, auditScenarioSteps, testedSourceCommit } from './parent-delivery-acceptance.mjs'
+import { expectedCases, auditAcceptance, auditScenarioSteps, testedSourceCommit, approvedReleaseDeferral } from './parent-delivery-acceptance.mjs'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { scenarioPlan } from '../experiments/parent-product-acceptance/scenarios.mjs'
+test('オーナーの公開裁定は対象versionとruntimeだけに適用し、正式受入を合格にしない', () => {
+  const decision = { decision: 'release_with_live_acceptance_deferred', package_version: '0.8.63', runtime_digest: 'approved', owner_instruction: '一旦それでリリース、インストールして。' }
+  assert.equal(approvedReleaseDeferral(decision, { packageVersion: '0.8.63', sourceDigest: 'approved' }), true)
+  assert.equal(approvedReleaseDeferral(decision, { packageVersion: '0.8.64', sourceDigest: 'approved' }), false)
+  assert.equal(approvedReleaseDeferral(decision, { packageVersion: '0.8.63', sourceDigest: 'changed' }), false)
+  assert.equal(approvedReleaseDeferral(null, { packageVersion: '0.8.63', sourceDigest: 'approved' }), false)
+  assert.equal(auditAcceptance([]).status, 'failed')
+})
 test('全12組合せの必須実行面は欠落/skip/fixtureを製品実機passedにしない', () => {
   const expected = expectedCases()
   assert.equal(expected.length, 525)

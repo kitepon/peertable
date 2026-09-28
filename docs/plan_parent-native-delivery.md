@@ -417,3 +417,7 @@ Codexの`binding_deadline`前半は、[公式callerの比較](../rag/parent-deli
 [AitermのCursor受信実装との対照](../rag/parent-delivery/cursor-aiterm-parity.md)に従い、本文を`postToolUse`／`postToolUseFailure`だけへ出し、`afterMCPExecution`は束縛だけに揃えた。Aitermのhandlerは失敗後hookにも対応するが、参照時点のsetupは成功後hookだけを登録している。Peertableは本計画の失敗後hook契約も登録する。Aiterm本体は変更しない。
 
 [Windows本人確認APIの実測](../rag/parent-delivery/windows-process-identity-diagnosis.json)では、既存CIM形式とnative APIが463件すべて一致し、終了processと実PID再利用も区別できた。同じhandleで開始時刻と存命を読む実装を採用し、親process・実行file・commandの取得は従来のCIMに残す。排他の仕組み・期限・永続identityは変えない。修理後配布物の6process競合と実Cursor受信は次の確認とする。
+
+## 今回の公開裁定
+
+オーナーの「いいよもう。一旦それでリリース、インストールして。」を受け、[対象を固定した裁定](../rag/parent-delivery/release-decision.json)のversion・runtimeは全正式実機受入の完了を待たず公開する。3 OS製品CIの合格は確認済み。未実施・失敗・長時間leaseを合格に変更せず、現行manifestを保持する。この裁定を次versionへ自動継承しない。main着地、Trusted Publishing、registry導入、本番反映と公開後smokeを今回の完了範囲とする。

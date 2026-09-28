@@ -74,7 +74,7 @@ curl -sN --max-time 30 https://peertable.kitepon.dev/api/<room>/events | head -6
 
 ## 親配送の変更を反映する時
 
-親配送を含むreleaseでは、`npm run verify:parent-delivery`の合格と既定ブランチへの着地を先に確認する。roomの親`parent_receiver`、宛先別`unknown` receiptとhealth、UTF-8本文保存はサーバー側の契約であり、clientの導入だけで本番反映済みとしない。roomの入替と公開API確認を済ませてから、利用端末へregistry版をglobal installし、同じ親会話へのDM・複数人宛・allの公開後smokeを行う。旧imageへ戻す時もログvolumeは保持する。
+親配送を含むreleaseでは、`npm run verify:parent-delivery`の合格と既定ブランチへの着地を先に確認する。オーナーが実機受入の完了前に公開を指示した対象だけは、[公開裁定](../rag/parent-delivery/release-decision.json)のversion・runtime一致を確認して進め、未確認を合格に変更しない。roomの親`parent_receiver`、宛先別`unknown` receiptとhealth、UTF-8本文保存はサーバー側の契約であり、clientの導入だけで本番反映済みとしない。roomの入替と公開API確認を済ませてから、利用端末へregistry版をglobal installし、同じ親会話へのDM・複数人宛・allの公開後smokeを行う。旧imageへ戻す時もログvolumeは保持する。
 
 ## ロールバック
 

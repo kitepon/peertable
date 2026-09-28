@@ -67,6 +67,8 @@ Cursorの本文差し込みはAitermの受信handlerと同じ`postToolUse`／`po
 
 耳疎通の`verified`と現在の受信継続は別に確認する。runtimeは`armed`、`rearm_pending`、`stopped`、`failed`を区別し、Cursor/Grokはreceiptの完成済みnative tool入力を登録して次の受信を維持する。故障は宛先別receipt、health、診断へ原因code付きで出す。旧parent_watchは移行診断の対象である。
 
+今回の親配送releaseは、3 OSの製品CI合格後、オーナーの明示指示で全正式実機受入の完了を待たず公開する。[公開裁定](../rag/parent-delivery/release-decision.json)が対象version・runtimeと未確認項目の正本であり、対応設計と実機検証済みの範囲を区別する。
+
 受付不明は`unknown`として原文と受付証拠を保持し、自動再送しない。Codexのqueue受付ID・時刻は後続receiptでも保持する。長文は同じ配送ID・digestへ束縛した継続tokenで最後まで読み、最後の出力完了までackしない。
 
 このcampaignの製品実機受入・公開は未完了。[親配送計画](plan_parent-native-delivery.md)と[実機受入目録](../rag/parent-delivery/product-acceptance.json)の全必須面が成立するまで公開判定を行わない。

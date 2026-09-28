@@ -23,3 +23,4 @@
 - [Windows排他の実再現](parent-delivery/windows-lock-contention-diagnosis.json) — 6process同時更新でCIM本人確認が10秒期限を占めた原記録。
 - [Windows本人確認APIの実測](parent-delivery/windows-process-identity-diagnosis.json) — native handleの存命・開始時刻とCIM互換性、実PID再利用、計測の限界。
 - [120秒期限のLinux Grok診断](parent-delivery/linux-grok-probe-repair-diagnosis.json) — 正規本文回収33.102秒とhealth復旧。次のsourceの正式受入には算入しない。
+- [親配送の公開裁定](parent-delivery/release-decision.json) — オーナーが正式実機受入の完了を待たず公開するよう指示した対象version・runtimeと未確認範囲。

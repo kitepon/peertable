@@ -1,0 +1,14 @@
+{
+  "schema": "peertable.release-decision.v1",
+  "decision": "release_with_live_acceptance_deferred",
+  "package_version": "0.8.63",
+  "source_commit": "6689b32164f26d32ec2212159074e1cd9369e42d",
+  "runtime_digest": "9b4e7b94db839946b669ea61f714ff60431b9b3d0de3f9e5f920fc281b2c263c",
+  "owner_instruction": "いいよもう。一旦それでリリース、インストールして。",
+  "recorded_date": "2026-09-29",
+  "product_ci": "https://github.com/kitepon/peertable/actions/runs/36496202551",
+  "verified": ["macOS・Linux・Windows nativeの製品CI合格", "npm packの配布fileとruntime一致"],
+  "deferred": ["3 OS・4ハーネスの全必須利用面における正式実機受入の完了", "長時間leaseの実機受入", "Cursor Desktop・Codex Desktop/IDEの未実測項目"],
+  "formal_acceptance_credit": 0,
+  "scope": "このversionとruntimeに限り正式実機受入の完了を公開条件から外す。未実施・失敗をpassedにせず、次versionや変更されたruntimeへ裁定を継承しない。"
+}
