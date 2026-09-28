@@ -544,6 +544,11 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
   for (const [action, fault] of [['hook_disable', 'disabled'], ['hook_untrust', 'untrusted'], ['hook_remove_file', 'file_missing']]) {
     actions[action] = async (_, s) => {
       const fixture = fixtureFor(self(s)), config = fixture.configuration
+      if (s.harness === 'claude' && fault === 'disabled') {
+        const proof = await fixture.setClaudeOwnedHookFault(true)
+        state(s).hookFault = { fixture, fault, proof }
+        return s.result(s, 'own_hook_disabled', 'official_hook', proof)
+      }
       if (s.harness === 'codex' && fault !== 'file_missing') {
         const proof = await fixture.setCodexOwnedHookFault(fault)
         state(s).hookFault = { fixture, fault, proof }
@@ -560,21 +565,30 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     if (!fault) sourceUnconfirmed(s.harness, '専用sessionに限定したhook障害join')
     const target = self(s), before = target.observe().rows
     await fault.fixture.submit(`Peertable parent_joinをproject=${fault.fixture.project} name=${fault.fixture.name}で1回呼び、返されたerror codeをそのまま報告してください。再試行や設定変更はしないでください。`)
-    const expected = 'PARENT_CODEX_HOOK_UNTRUSTED'
-    const observed = await s.until('障害joinの公式tool返答', () => {
+    const expected = s.harness === 'claude' ? 'PARENT_CALLER_UNBOUND' : 'PARENT_CODEX_HOOK_UNTRUSTED'
+    const observed = await s.until('障害joinの同tool ID公式MCP返答', () => {
       const seen = target.observe(), uses = seen.toolUses.filter(use => use.order >= before && /parent_join$/u.test(use.name ?? ''))
       for (const use of uses) {
-        const output = seen.toolUses.find(row => row.name === 'output' && row.id === use.id && row.order > use.order && productToolError(row.output, expected))
-        if (output) return { use, output }
+        const result = bindingToolError({ harness: s.harness, file: target.file, session: target.meta.parent_session, useId: use.id, seen, expected })
+        if (result) return result
       }
       return null
     }, 120000, 100)
     const failed = target.spool.read()
-    const error = productToolError(observed.output.output, expected)
+    const error = observed.error
     if (!error) fail('ACCEPTANCE_HOOK_JOIN_NOT_TYPED_FAILED', '公式MCP parent-errorのschema/state/error_codeが一致しません')
-    return s.result(s, fault.fault === 'disabled' ? 'disabled_hook_typed_failure' : 'untrusted_hook_typed_failure', 'harness_transcript', { error_code: error.error_code, existing_endpoint_state: failed.state, failure_stage: 'joinEndpointより前の公式receiver検証', tool_use_id: observed.use.id, official_tool_output: observed.output.output, parent_session: target.meta.parent_session, turn_id: observed.output.turn_id, sourcePath: fault.proof.global_sourcePath, local_config: fault.proof.local_config })
+    return s.result(s, fault.fault === 'disabled' ? 'disabled_hook_typed_failure' : 'untrusted_hook_typed_failure', 'harness_transcript', { error_code: error.error_code, existing_endpoint_state: failed.state, failure_stage: s.harness === 'claude' ? '公式PreToolUse context無し、joinEndpointより前のconsumeCaller' : 'joinEndpointより前の公式receiver検証', tool_use_id: observed.use.id, official_tool_output: observed.output, parent_session: target.meta.parent_session, turn_id: observed.use.turn_id ?? target.observe().replies.at(-1)?.turn_id, sourcePath: fault.proof.global_sourcePath, local_config: fault.proof.local_config })
   }
-  actions.hook_restore = async (_, s) => { fixtureFor(self(s)).configuration.assertHooksUnchanged(); return s.result(s, 'normal_launch_intact', 'official_hook', { configuration_unchanged: true }) }
+  actions.hook_restore = async (_, s) => {
+    const fixture = fixtureFor(self(s))
+    let restored = null
+    if (fixture.claudeHookFault) {
+      restored = await fixture.setClaudeOwnedHookFault(false)
+      const target = await fixture.join(); s.context.registerEndpoint('self', target)
+    }
+    fixture.configuration.assertHooksUnchanged()
+    return s.result(s, 'normal_launch_intact', 'official_hook', { configuration_unchanged: true, restored })
+  }
 
   // bind期限は製品が作ったcontextを読取り、同期hookとMCPの間を実時間で跨がせる。
   actions.binding_timeout_arm = async (_, s) => {

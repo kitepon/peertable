@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { processIdentity, sameProcess } from '../../skill/scripts/parent-platform.mjs'
-import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit, nativeHookObserverSource, appendGrokProductObserver, observeFixtureProcessIdentity, fixtureJoinInstruction } from './scenarios-fixtures.mjs'
+import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit, nativeHookObserverSource, appendGrokProductObserver, observeFixtureProcessIdentity, fixtureJoinInstruction, setClaudeSessionHookFault } from './scenarios-fixtures.mjs'
 
 test('fixture終了は実child消失の後も製品自己停止と索引撤去を待つ', async t => {
   const child = spawn(process.execPath, ['-e', 'setTimeout(()=>process.exit(0),150)'], { stdio: 'ignore' })
@@ -118,4 +118,18 @@ test('Grok初期joinは実task完了後のtask_idsだけの全文readerを指示
   assert.match(grok, /公式task_completed.*同じtask_id/u); assert.match(grok, /入力はtask_idsの1キーだけ/u); assert.match(grok, /timeout_msキーは付けず、0も不可/u); assert.match(grok, /公式全文readerの結果にdelivery_idがある場合だけ/u)
   const cursor = fixtureJoinInstruction({ harness: 'cursor', project: '/私物', name: '親' }); assert.match(cursor, /公式Readで全文/u); assert.match(cursor, /offset\/limitを付けず/u); assert.doesNotMatch(cursor, /get_command_or_subagent_output/u)
   assert.doesNotMatch(fixtureJoinInstruction({ harness: 'claude', project: '/私物', name: '親' }), /task_ids|Shell/u)
+})
+
+
+test('Claude hook障害は同CIDの自己CLI設定だけを変え、元session設定とglobal bytesを保持する', async () => {
+  const actions = [], original = { model: '設定の原値', permissions: { allow: ['Read'] } }
+  const fixture = { harness: 'claude', session: '自己会話', sessionSettings: original, configuration: { hooks: '/通常/settings.json', assertHooksUnchanged: () => actions.push('通常bytes照合') }, stopOwnPane: async () => actions.push('自己CLI終了'), launch: async options => actions.push({ options, settings: structuredClone(fixture.sessionSettings) }) }
+  const disabled = await setClaudeSessionHookFault(fixture, true)
+  assert.equal(disabled.global_changed, false); assert.equal(disabled.official_option, '--settings')
+  assert.deepEqual(actions[2], { options: { resume: '自己会話' }, settings: { ...original, disableAllHooks: true } })
+  assert.equal(Object.hasOwn(original, 'disableAllHooks'), false)
+  await setClaudeSessionHookFault(fixture, false)
+  assert.equal(fixture.sessionSettings, original); assert.equal(fixture.claudeHookFault, null)
+  assert.deepEqual(actions[6], { options: { resume: '自己会話' }, settings: original })
+  await assert.rejects(setClaudeSessionHookFault({ ...fixture, harness: 'cursor' }, true), { code: 'ACCEPTANCE_CLAUDE_SESSION_FAULT_UNBOUND' })
 })

@@ -52,6 +52,21 @@ export function fixtureJoinInstruction({ harness, project, name }) {
   return common + registration + read + 'continuation_tokenがある間は同じ配送のparent_readを完了まで続けます。その結果の次wait_processも同じ完成入力で登録してください。'
 }
 
+// 共有設定fileを書かず、公式--settingsを次の自己CLI runへ渡す。同じ実会話をresumeする。
+export async function setClaudeSessionHookFault(fixture, disabled) {
+  if (fixture.harness !== 'claude' || !fixture.session) fail('ACCEPTANCE_CLAUDE_SESSION_FAULT_UNBOUND', '既知の専用Claude会話が必要です')
+  const session = fixture.session
+  fixture.configuration.assertHooksUnchanged()
+  if (disabled && !fixture.claudeHookFault) fixture.claudeHookFault = { session, originalSettings: fixture.sessionSettings }
+  if (!disabled && !fixture.claudeHookFault) fail('ACCEPTANCE_CLAUDE_SESSION_FAULT_MISSING', '復元対象の私物session設定がありません')
+  await fixture.stopOwnPane()
+  fixture.sessionSettings = disabled ? { ...(fixture.claudeHookFault.originalSettings ?? {}), disableAllHooks: true } : fixture.claudeHookFault.originalSettings
+  await fixture.launch({ resume: session })
+  fixture.configuration.assertHooksUnchanged()
+  if (!disabled) fixture.claudeHookFault = null
+  return { fault: disabled ? 'disabled' : 'restored', parent_session: session, official_option: '--settings', session_settings: fixture.sessionSettings, global_sourcePath: fixture.configuration.hooks, normal_hook_bytes_equal: true, global_changed: false, official_source: 'https://code.claude.com/docs/en/hooks#disable-or-remove-hooks' }
+}
+
 export function hookConfigurationSnapshot(hooks) {
   const beforeBytes = existsSync(hooks) ? readFileSync(hooks) : null
   const beforeHooks = beforeBytes ? JSON.parse(beforeBytes.toString('utf8').replace(/^\uFEFF/u, '')) : null
@@ -168,6 +183,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         fixture.observations.push({ method: 'config/batchWrite', own_project: project, action: 'temporary_project_trust_removed', others_semantically_unchanged: true, toml_bytes_equal: true })
         fixture.projectTrust = null
       }
+      fixture.setClaudeOwnedHookFault = disabled => setClaudeSessionHookFault(fixture, disabled)
       fixture.modify = (file, mutate) => {
         if (!contained(project, file)) fail('ACCEPTANCE_FIXTURE_WRITE_OUTSIDE', file)
         if (existsSync(file) && realpathSync(file) !== file) fail('ACCEPTANCE_FIXTURE_LINK_WRITE', file)
@@ -258,7 +274,7 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
       fixture.launch = async ({ resume } = {}) => {
         const cli = adapter.resolveCli(), launcher = join(directory, 'launcher.mjs'), input = join(directory, 'launch.json')
         const argv = harness === 'codex' ? ['-c', 'mcp_servers.peertable_parent.env_vars=["PEERTABLE_TOKEN_SOURCE_FILE"]', '-c', 'check_for_update_on_startup=false'] : harness === 'claude' ? [] : adapter.argv?.({ project, tokenFile }) ?? []
-        if (sessionSettings && harness === 'claude') { const settings = join(project, 'session-settings.json'); writeJson(settings, sessionSettings); argv.push('--settings', settings) }
+        if (fixture.sessionSettings && harness === 'claude') { const settings = join(project, 'session-settings.json'); writeJson(settings, fixture.sessionSettings); argv.push('--settings', settings) }
         if (model) argv.push(harness === 'codex' ? '-m' : '--model', model)
         if (resume) argv.unshift(...(harness === 'codex' ? ['resume', resume] : harness === 'claude' ? ['--resume', resume] : adapter.resumeArgs(resume)))
         const invocation = nativeInvocation(cli.executable, argv, { shellCommand: platform.shellCommand, interactive: true })
@@ -301,6 +317,12 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         }
         await fixture.submit(exit)
         await until('fixture親終了', () => !platform.sameProcess(fixture.owner), 30000)
+      }
+      fixture.stopOwnPane = async () => {
+        await fixture.trackOwnProcesses()
+        if (fixture.pty) { await fixture.aiterm.close(fixture.pty); fixture.pty = null }
+        await waitOwnedFixtureExit({ readEndpoints: () => projectEndpoints(project), sameProcess: platform.sameProcess, knownOwners: [...fixture.nativeOwners, ...fixture.receiverOwners, fixture.paneOwner].filter(Boolean), indexExists: id => existsSync(join(homedir(), '.peertable/parent-receivers/endpoints', `${id}.json`)) })
+        fixture.ready = false; fixture.owner = null; fixture.paneOwner = null
       }
       fixture.close = async () => {
         if (fixture.closed) return
