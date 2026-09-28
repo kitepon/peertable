@@ -17,6 +17,8 @@ export function armParentState(state) {
   state.runtime = 'armed'
   if (state.state !== 'verified' && state.probe_deadline == null) state.probe_deadline = Date.now() + 30000
 }
+// 明示再登録で新しいprobeが届いた場合だけ、既知の失敗probeを解決済みにする。
+export const failedParentRecords = state => state.records.filter(record => record.state === 'failed' && !(record.event.type === 'parent_probe' && record.resolved_by))
 
 export function withParentLock(root, fn) {
     const owner = processIdentity(process.pid)
@@ -88,7 +90,7 @@ export class ParentSpool {
   }
   async publishHealth() {
     const saved = this.read()
-    const state = saved.runtime === 'armed' && (saved.state !== 'verified' || saved.receipt_error || saved.migration?.status === 'evidence_missing' || saved.records.some(record => ['unknown', 'failed'].includes(record.state))) ? 'failed' : saved.runtime
+    const state = saved.runtime === 'armed' && (saved.state !== 'verified' || saved.receipt_error || saved.migration?.status === 'evidence_missing' || saved.records.some(record => record.state === 'unknown') || failedParentRecords(saved).length) ? 'failed' : saved.runtime
     try {
       await new RoomApi(saved, { credential: saved.credential }).request('bridges', { method: 'POST', body: { kind: 'parent_receiver', recipient: saved.name, endpoint_id: this.id, pid: process.pid, state, detail: JSON.stringify({ endpoint_id: this.id, state: saved.state, error_code: saved.error_code ?? saved.receipt_error?.code ?? null }) } })
       this.update({ health_error: null })
@@ -194,8 +196,9 @@ export class ParentSpool {
       if (queued_submission_id) saved.queued_submission_id = queued_submission_id
       if (accepted_at) saved.accepted_at = accepted_at
       saved.receipt = this.receiptFor(state, saved, saved.state === 'submitted' ? 'delivered' : saved.state, saved.state === 'unknown' && outcome === 'submitted' ? saved.receipt?.reason ?? reason : reason)
-      if (saved.event.type === 'parent_probe' && saved.state === 'submitted') {
+      if (saved.event.type === 'parent_probe' && saved.state === 'submitted' && (!state.probe_id || saved.event.event_id === `probe:${state.probe_id}`)) {
         state.state = 'verified'
+        for (const previous of state.records) if (previous.event.type === 'parent_probe' && previous.state === 'failed') previous.resolved_by = saved.delivery_id
         if (state.error_code === 'PARENT_PROBE_TIMEOUT') {
           state.error_code = null
           if (state.runtime === 'failed') state.runtime = state.harness === 'codex' || sameProcess(state.waiter?.owner) ? 'armed' : 'rearm_pending'

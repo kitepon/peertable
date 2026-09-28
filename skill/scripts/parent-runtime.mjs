@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { randomUUID } from 'node:crypto'
-import { ParentSpool, armParentState } from './parent-delivery.mjs'
+import { ParentSpool, armParentState, failedParentRecords } from './parent-delivery.mjs'
 import { atomicJson, readJson, processIdentity, sameProcess, failure, posixQuote, psQuote } from './parent-platform.mjs'
 import { registerEndpoint, endpointsFor, forgetEndpoint } from './parent-caller.mjs'
 import { ownsParentConnection } from './parent-connect.mjs'
@@ -90,10 +90,14 @@ export async function migrateLegacy(spool, api) {
   }
   spool.update({ cursor: legacy.last_seq, source_state: { ...legacy }, migration: { legacy_cursor: legacy.last_seq, insufficient_evidence_seqs: missingEvidence, status: missingEvidence.length ? 'evidence_missing' : 'verified', stopped_at: new Date().toISOString() } })
 }
-export async function startEndpoint(spool) {
+export async function startEndpoint(spool, { renewProbe = false } = {}) {
   const state = spool.recover()
   if (!sameProcess(state.caller.owner)) throw failure('PARENT_SESSION_NOT_RUNNING')
   if (!Number.isSafeInteger(state.cursor)) throw failure('PARENT_CURSOR_MISSING')
+  const oldProbe = state.records.find(record => record.event.event_id === `probe:${state.probe_id}`)
+  const probe = !state.probe_id || renewProbe && oldProbe?.state === 'failed' ? randomUUID() : state.probe_id
+  spool.update({ probe_id: probe })
+  spool.saveEvent({ schema: 'peertable.parent-watch-event.v1', type: 'parent_probe', event_id: `probe:${probe}`, room: state.room, from: 'peertable', to: state.name, body: `配送確認の符号は ${probe}。` })
   const currentDigest = runtimeDigest()
   if (state.watcher && sameProcess(state.watcher) && state.runtime_digest === currentDigest) return
   if (state.watcher && sameProcess(state.watcher)) await stopOwnedProcess(state.watcher)
@@ -115,9 +119,6 @@ export async function startEndpoint(spool) {
     if (!identity) throw failure('PARENT_WATCH_START_FAILED')
     saved.watcher = identity
   })
-  const probe = spool.read().probe_id ?? randomUUID()
-  spool.update({ probe_id: probe })
-  spool.saveEvent({ schema: 'peertable.parent-watch-event.v1', type: 'parent_probe', event_id: `probe:${probe}`, room: state.room, from: 'peertable', to: state.name, body: `配送確認の符号は ${probe}。` })
 }
 export async function joinEndpoint(projectArg, name, caller, display = {}) {
   const project = realpathSync(projectArg), setup = setupFor(project)
@@ -142,7 +143,7 @@ export async function joinEndpoint(projectArg, name, caller, display = {}) {
   actorEnvironment(project, name)
   // Codexはjoin前に公式queueと同期hookの準備を確認済み。初回も実probeの期限を開始する。
   if (caller.harness === 'codex') spool.transact(armParentState)
-  await startEndpoint(spool)
+  await startEndpoint(spool, { renewProbe: true })
   return spool
 }
 export async function parentRuntimeStatus(project, { restart = false } = {}) {
@@ -161,7 +162,7 @@ export async function parentRuntimeStatus(project, { restart = false } = {}) {
       const live = sameProcess(state.caller.owner) && sameProcess(state.watcher) && state.runtime_digest === runtimeDigest()
       const armed = state.runtime === 'armed' && (state.harness === 'codex' || sameProcess(state.waiter?.owner))
       const unknown = state.records.filter(record => record.state === 'unknown').map(record => record.delivery_id)
-      const failed = state.records.filter(record => record.state === 'failed').map(record => record.delivery_id)
+      const failed = failedParentRecords(state).map(record => record.delivery_id)
       const missingEvidence = state.migration?.status === 'evidence_missing'
       checks.push({ name: member.name, endpoint_id: spool.id, state: state.state, runtime: state.runtime, status: live && armed && state.state === 'verified' && !state.receipt_error && !state.health_error && !unknown.length && !failed.length && !missingEvidence ? 'ready' : 'failed',
         error_code: state.error_code ?? (!live ? 'PARENT_SESSION_NOT_RUNNING' : !armed ? 'PARENT_REARM_REQUIRED' : state.state !== 'verified' ? 'PARENT_PROBE_PENDING' : state.receipt_error ? 'PARENT_RECEIPT_FAILED' : state.health_error ? 'PARENT_HEALTH_REPORT_FAILED' : unknown.length ? 'PARENT_DELIVERY_UNKNOWN' : failed.length ? 'PARENT_DELIVERY_FAILED' : missingEvidence ? 'PARENT_LEGACY_EVIDENCE_MISSING' : null), unknown, failed, migration: state.migration })

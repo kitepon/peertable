@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { atomicJson, processIdentity } from './parent-platform.mjs'
 import { joinEndpoint, stopEndpoint, projectEndpoints } from './parent-runtime.mjs'
+import { failedParentRecords } from './parent-delivery.mjs'
 
 test('初回Codex joinはwatcher起動前にprobe期限を開始し、背景登録待ちのCursorは開始しない', async t => {
   const project = realpathSync(mkdtempSync(join(tmpdir(), 'peertable-join-probe-')))
@@ -53,6 +54,43 @@ test('初回Codex joinはwatcher起動前にprobe期限を開始し、背景登�
     } else {
       assert.equal(state.runtime, 'rearm_pending')
       assert.equal(state.probe_deadline, undefined)
+      // 生存中watcherの明示rejoinでも、新probeだけを追加し、失敗本文とcursorを保つ。
+      const failedProbe = state.records.find(record => record.event.type === 'parent_probe')
+      const failedDm = spool.saveEvent({ type: 'parent_dm', seq: 1, body: '配送失敗を保持する本文' })
+      const unknownDm = spool.saveEvent({ type: 'parent_dm', seq: 2, body: '未確定を保持する本文' })
+      spool.transact(saved => {
+        saved.state = 'failed'; saved.runtime = 'failed'; saved.error_code = 'PARENT_PROBE_TIMEOUT'
+        for (const record of saved.records) record.state = record.delivery_id === unknownDm.delivery_id ? 'unknown' : 'failed'
+      })
+      const rejoined = await joinEndpoint(project, `fixture-${harness}`, { harness, conversation: `fixture-${harness}`, owner: processIdentity(process.pid) })
+      const renewed = rejoined.read()
+      assert.equal(rejoined.id, spool.id)
+      assert.deepEqual(renewed.watcher, state.watcher)
+      assert.notEqual(renewed.probe_id, state.probe_id)
+      assert.equal(renewed.cursor, state.cursor)
+      assert.deepEqual(renewed.records.find(record => record.delivery_id === failedProbe.delivery_id).event, failedProbe.event)
+      assert.equal(renewed.records.find(record => record.delivery_id === failedDm.delivery_id).state, 'failed')
+      assert.equal(renewed.records.find(record => record.delivery_id === unknownDm.delivery_id).state, 'unknown')
+      const retry = spool.claim('parent_read')
+      assert.equal(retry.event.event_id, `probe:${renewed.probe_id}`)
+      assert.ok(failedParentRecords(spool.read()).some(record => record.delivery_id === failedProbe.delivery_id))
+      spool.finish(retry)
+      const verified = spool.read()
+      assert.equal(verified.state, 'verified')
+      assert.equal(verified.records.find(record => record.delivery_id === failedProbe.delivery_id).state, 'failed')
+      assert.equal(verified.records.find(record => record.delivery_id === failedProbe.delivery_id).resolved_by, retry.delivery_id)
+      assert.deepEqual(failedParentRecords(verified).map(record => record.delivery_id), [failedDm.delivery_id])
+      await joinEndpoint(project, `fixture-${harness}`, { harness, conversation: `fixture-${harness}`, owner: processIdentity(process.pid) })
+      assert.equal(spool.read().probe_id, renewed.probe_id)
+      assert.equal(spool.read().records.length, verified.records.length)
+      spool.transact(saved => {
+        saved.state = 'failed'; saved.runtime = 'failed'
+        saved.records.find(record => record.delivery_id === retry.delivery_id).state = 'unknown'
+      })
+      await joinEndpoint(project, `fixture-${harness}`, { harness, conversation: `fixture-${harness}`, owner: processIdentity(process.pid) })
+      assert.equal(spool.read().probe_id, renewed.probe_id)
+      assert.equal(spool.read().records.length, verified.records.length)
+      assert.equal(spool.read().records.find(record => record.delivery_id === retry.delivery_id).state, 'unknown')
     }
     await stopEndpoint(spool)
   }
