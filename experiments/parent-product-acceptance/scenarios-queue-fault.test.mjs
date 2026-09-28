@@ -26,6 +26,10 @@ test('公式RPCは方向/接続ごとにchunkを連結し、未確定末尾は�
   assert.deepEqual(queueFaultRpcRows([{ ...events[0], raw: raw.slice(0, 7) }, { ...events[0], raw: raw.slice(7) }])[0].row, { id: 1, result: {} })
   assert.equal(queueFaultRpcRows([{ ...events[0], raw: raw.slice(0, -1) }]).length, 0)
   assert.throws(() => queueFaultRpcRows([{ ...events[0], raw: '非JSON\n' }]), { code: 'ACCEPTANCE_QUEUE_FAULT_RPC_CORRUPT' })
+  const bytes = Buffer.from(JSON.stringify({ id: 2, result: { text: '原文<&>\r\n' } }) + '\n'), boundary = bytes.indexOf(Buffer.from('原')) + 1
+  const byteEvents = [bytes.subarray(0, boundary), bytes.subarray(boundary)].map(chunk => ({ ...events[0], raw: chunk.toString('utf8'), raw_base64: chunk.toString('base64') }))
+  assert.equal(queueFaultRpcRows(byteEvents)[0].row.result.text, '原文<&>\r\n')
+  assert.throws(() => queueFaultRpcRows([{ ...events[0], raw_base64: Buffer.from([0xff]).toString('base64') }]), { code: 'ACCEPTANCE_QUEUE_FAULT_RPC_UTF8_INVALID' })
 })
 
 test('receiver成功と初回queue受付前を照合し、別CID/不信頼/受付後を拒否する', () => {

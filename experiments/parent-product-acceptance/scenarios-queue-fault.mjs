@@ -26,10 +26,17 @@ export function codexProbeJoinBoundary({ file, session, project, name, endpointI
 
 // chunk分割を保持した原logから、改行で確定した公式JSON-RPCだけを復元する。
 export function queueFaultRpcRows(events) {
-  const buffers = new Map(), rows = []
+  const buffers = new Map(), decoders = new Map(), rows = []
   for (const event of events) {
     if (!['rpc_write_raw', 'rpc_read_raw'].includes(event.kind)) continue
-    const key = `${event.pid}:${event.child_pid}:${event.kind}`, text = (buffers.get(key) ?? '') + event.raw
+    const key = `${event.pid}:${event.child_pid}:${event.kind}`
+    let decoded = event.raw
+    if (event.raw_base64 !== undefined) {
+      if (!decoders.has(key)) decoders.set(key, new TextDecoder('utf-8', { fatal: true }))
+      try { decoded = decoders.get(key).decode(Buffer.from(event.raw_base64, 'base64'), { stream: true }) }
+      catch { fail('ACCEPTANCE_QUEUE_FAULT_RPC_UTF8_INVALID', '公式RPCの原bytesがUTF-8ではありません') }
+    }
+    const text = (buffers.get(key) ?? '') + decoded
     const lines = text.split('\n'); buffers.set(key, lines.pop())
     for (const line of lines) {
       let row
@@ -160,8 +167,8 @@ if (configPath && existsSync(configPath)) {
       const childOwner = config.pause_probe ? null : platform.processIdentity(child.pid)
       log('official_connection_spawn', { child_pid: child.pid, child_owner: childOwner, executable, spawn_argv: argv, owned_fault: Boolean(proof), owned_queue: Boolean(queueProof), ...queueProof })
       const write = child.stdin.write
-      child.stdin.write = function (...writeArgs) { log('rpc_write_raw', { child_pid: child.pid, raw: Buffer.isBuffer(writeArgs[0]) ? writeArgs[0].toString('utf8') : writeArgs[0] }); return Reflect.apply(write, this, writeArgs) }
-      child.stdout.on('data', chunk => log('rpc_read_raw', { child_pid: child.pid, raw: chunk.toString('utf8') }))
+      child.stdin.write = function (...writeArgs) { const bytes = Buffer.isBuffer(writeArgs[0]) ? writeArgs[0] : Buffer.from(writeArgs[0], typeof writeArgs[1] === 'string' ? writeArgs[1] : 'utf8'); log('rpc_write_raw', { child_pid: child.pid, raw: bytes.toString('utf8'), raw_base64: bytes.toString('base64') }); return Reflect.apply(write, this, writeArgs) }
+      child.stdout.on('data', chunk => log('rpc_read_raw', { child_pid: child.pid, raw: chunk.toString('utf8'), raw_base64: chunk.toString('base64') }))
       child.on('close', (code, signal) => log('official_connection_closed', { child_pid: child.pid, child_owner: childOwner, code, signal, child_identity_alive: childOwner ? Boolean(platform.sameProcess(childOwner)) : null }))
       if (proof) {
         process.kill(child.pid, 'SIGSTOP'); suspended = true
