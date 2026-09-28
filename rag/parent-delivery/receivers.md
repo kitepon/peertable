@@ -1,12 +1,16 @@
 # 親セッションの公式受信口
 
-取得日: 2026-09-28。確度: Aitermのsource確認、公式仕様と配布資料の確認、固定snapshotのCLI実測。Peertable全対応の製品受入は未達。
+取得日: 2026-09-29。確度: Aitermのsource確認、公式仕様と配布資料の確認、固定snapshotのCLI実測。Peertable全対応の製品受入は未達。
 
 この文書は調査記録である。実装要求は[配送設計](../../docs/plan_parent-native-delivery.md)を正本とする。Aitermの内部state・hook・moduleは参照資料だけであり、Peertableの実行時依存にしない。
 
 ## Aitermの実装
 
 比較commitは`8cfe1da43a28606ccb53acd1dbfcc0607436add0`。以下は同commitのsourceを読んで確認した。
+
+公開snapshotの再照合では、npmの`aiterm-mcp`が0.42.2、公開commitが[`9673442989b375bbdd7563f9c4b509924ae0b0b7`](https://github.com/kitepon/aiterm-mcp/commit/9673442989b375bbdd7563f9c4b509924ae0b0b7)であることを確認した。基準とのGit差分を読み、親配送manager、Codex/Claude/Cursorのreceiver・hook、Codex hook stateと導入、背景waitの12ファイルはGit blob IDがすべて一致した。requestでの親識別とreceiver選択にも変更はない。
+
+同snapshotの変更はClaude/Codexの利用上限の観測、完了記録を優先したCursorのSteer/新turn判定、BellTeam向けの途中経過metadataに関するものである。前二つはAitermが所有する子の完了観測・通常席の送信判断であり、Peertableは公開APIを通して使う。途中経過metadataは親返信の本文receiverの契約とは別である。Peertableの親配送機構の変更を要する差分は見つからず、検証中の製品sourceを変更しない。
 
 - [requestでの親識別と背景受信](https://github.com/kitepon/aiterm-mcp/blob/8cfe1da43a28606ccb53acd1dbfcc0607436add0/src/index.ts): Codex、Claude Code、Cursorのreceiverを選ぶ。これ以外の親は構造化`wait_process`で子の完了を受信して結果を回収する。
 - [配送の保存と復旧](https://github.com/kitepon/aiterm-mcp/blob/8cfe1da43a28606ccb53acd1dbfcc0607436add0/src/parent-delivery.ts): waiting/ready/sending/submitted/failed/unknownを保存。孤立したsendingはunknownとし再送しない。子の回答保存と親への受信は別処理。
