@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline'
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver, nativeLeaseRegistration, bindingContextProof } from './scenarios-native.mjs'
+import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver, nativeLeaseRegistration, bindingContextProof, bindingToolError } from './scenarios-native.mjs'
 import { processIdentity, sameProcess, processDescendsFrom } from '../../skill/scripts/parent-platform.mjs'
 import { scenarioPlan } from './scenarios.mjs'
 import { digest } from '../../skill/scripts/parent-delivery.mjs'
@@ -177,4 +177,24 @@ test('束縛armが実event待ちで失敗しても私物holdを解除してfacto
   await assert.rejects(native.actions.binding_timeout_arm({}, scope), { code: 'TEST_BIND_EVENT_TIMEOUT' })
   assert.equal(existsSync(release), false); await native.finalize(scope)
   assert.equal(readFileSync(release, 'utf8'), '{}'); assert.equal(closed, true)
+})
+
+
+test('束縛失敗はClaude実tool名と同ID user.tool_resultの原包装から読む', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'peertable-binding-result-')); t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const file = join(dir, 'transcript.jsonl'), error = { schema: 'peertable.parent-error.v1', state: 'failed', error_code: 'PARENT_BIND_TIMEOUT' }
+  const tool = { type: 'tool_use', id: 'toolu_actual', name: 'mcp__peertable_parent__parent_join', input: { project: '/own', name: '親' } }, result = { type: 'tool_result', tool_use_id: tool.id, content: [{ type: 'text', text: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(error) }], isError: true }) }], is_error: true }
+  const records = [{ type: 'assistant', sessionId: 'own', message: { content: [tool] } }, { type: 'user', sessionId: 'other', message: { content: [result] } }, { type: 'user', sessionId: 'own', message: { content: [{ ...result, tool_use_id: '他tool' }] } }, { type: 'user', sessionId: 'own', uuid: 'result-entry', message: { content: [result] } }]
+  const write = rows => writeFileSync(file, rows.map(row => JSON.stringify(row)).join('\n') + '\n' + '{"未確定tail":')
+  const options = { harness: 'claude', file, session: 'own', useId: tool.id, expected: error.error_code }
+  write(records); const proof = bindingToolError(options)
+  assert.deepEqual(proof.output, result); assert.deepEqual(proof.error, error); assert.equal(proof.use.name, tool.name); assert.equal(proof.output_order, 3); assert.equal(proof.output_entry_uuid, 'result-entry')
+  write(records.slice(0, 3)); assert.equal(bindingToolError(options), null)
+  write([{ ...records[0], message: { content: [{ ...tool, name: 'mcp__other__parent_join' }] } }, records[3]]); assert.equal(bindingToolError(options), null)
+  for (const harness of ['cursor', 'grok']) {
+    const output = harness === 'grok' ? { type: 'MCP', tool_name: 'parent_join', output: { OkayOutput: JSON.stringify(error) } } : { content: [{ type: 'text', text: JSON.stringify(error) }] }
+    const use = { id: tool.id, name: 'parent_join', session: 'own', output, order: 4 }
+    assert.deepEqual(bindingToolError({ ...options, harness, seen: { toolUses: [use] } }).error, error)
+    assert.equal(bindingToolError({ ...options, harness, seen: { toolUses: [{ ...use, session: 'other' }] } }), null)
+  }
 })

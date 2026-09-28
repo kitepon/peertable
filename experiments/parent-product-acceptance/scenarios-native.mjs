@@ -75,6 +75,34 @@ export function productToolError(value, expected) {
   return null
 }
 
+// Claudeのtool_resultは既存observerのtoolUsesへ入らないため、対象IDだけを原transcriptで照合する。
+export function bindingToolError({ harness, file, session, useId, seen, expected }) {
+  const name = value => ['parent_join', 'mcp__peertable_parent__parent_join', 'peertable_parent__parent_join'].includes(value)
+  if (harness !== 'claude') {
+    for (const use of seen.toolUses.filter(use => name(use.name) && use.id === useId && use.session === session)) {
+      const output = use.output ?? seen.toolUses.find(row => row.name === 'output' && row.id === useId && row.order > use.order)?.output
+      const error = productToolError(output, expected)
+      if (error) return { use, output, error }
+    }
+    return null
+  }
+  const lines = readFileSync(file, 'utf8').split('\n'); lines.pop()
+  let call = null
+  for (const [order, line] of lines.entries()) {
+    let row
+    try { row = JSON.parse(line) } catch { fail('ACCEPTANCE_TRANSCRIPT_CORRUPT', `${file}:${order + 1} が確定行なのにJSONではありません`) }
+    if (row.sessionId !== session) continue
+    const parts = Array.isArray(row.message?.content) ? row.message.content : []
+    if (row.type === 'assistant') for (const part of parts) if (part.type === 'tool_use' && part.id === useId && name(part.name)) call = { order, session, id: part.id, name: part.name, input: part.input, raw: part }
+    if (!call || row.type !== 'user' || order <= call.order) continue
+    for (const part of parts) if (part.type === 'tool_result' && part.tool_use_id === useId) {
+      const output = part.content, error = productToolError(typeof output === 'string' ? output : { content: output }, expected)
+      if (error) return { use: call, output: part, error, output_order: order, output_entry_uuid: row.uuid }
+    }
+  }
+  return null
+}
+
 // 実prehookが作った原bytesと相関を読む。期限や所有者をfixtureで補正しない。
 export function bindingContextProof({ file, harness, parentSession, parentProcess, event, digest, sameProcess }) {
   if (!existsSync(file)) return null
@@ -581,13 +609,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     }, 45000, 100)
     const releasedAt = new Date().toISOString(); writeFileSync(pending.release, '{}')
     const observed = await s.until('実MCPのPARENT_BIND_TIMEOUT', () => {
-      const seen = pending.target.observe()
-      for (const use of seen.toolUses.filter(use => use.name === 'parent_join' && use.id === pending.context.value.use)) {
-        const output = use.output ?? seen.toolUses.find(row => row.name === 'output' && row.id === use.id && row.order > use.order)?.output
-        const error = productToolError(output, 'PARENT_BIND_TIMEOUT')
-        if (error) return { use, output, error }
-      }
-      return null
+      return bindingToolError({ harness: s.harness, file: pending.target.file, session: pending.target.meta.parent_session, useId: pending.context.value.use, seen: s.harness === 'claude' ? null : pending.target.observe(), expected: 'PARENT_BIND_TIMEOUT' })
     }, 120000, 100)
     return s.result(s, 'binding_timeout_typed_failed', 'harness_transcript', { tool_use_id: observed.use.id, error_code: observed.error.error_code, official_tool_output: observed.output, context_created_at: pending.context.value.created_at, released_at: releasedAt, elapsed_before_mcp_ms: Date.parse(releasedAt) - pending.context.value.created_at, observer_owner: pending.event.owner, endpoint_state_after_prejoin_failure: pending.target.spool.read().state, context_modified: false })
   }
