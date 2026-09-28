@@ -78,6 +78,7 @@ setup、resume、teardownはそれぞれ一回の製品入口で必要な順序�
 - setupは明示projectの生成物、接続、bridge起動、ready確認までを持つ。再実行時は既存roomと議題を保ってresumeへ進む。席の追加は`peertable launch`がroom登録と実ターン開始まで確認する。
 - 着任指示の成立まで、その席への通常通知はpendingに保持する。初回指示と参加通知の配達順序はPeertableが所有し、起動中断の記録は再着席前の退席処理で解除する。
 - resumeはPeertable所有の生成物とroom MCPを現行treeへ同期してから席を復帰する。
+- 親の実processが終了した場合も、watcherはendpointを停止して所有するglobal索引を撤去する。配送履歴・保存本文はprojectに残し、他の親の索引は保持する。故障した受信口はresumeの対象として索引を保持する。
 - teardownは親の購読・背景受信とwakeup、seat-status、alarmの3 bridgeを停止してから生成物を片付ける。親のharness processは終了せず、親の配送履歴と受付不明の本文を保持する。既定は席と足場だけを畳み、room履歴とLattice storeを残す。痕跡ゼロは明示した`--purge`だけで行う。
 
 roomは解散状態（archive）を持つ。teardownがroomをarchiveし、公開一覧（`/api/rooms`のrooms欄とトップページ主一覧）から外す。個別ページとログAPIは読めるまま残る。次のsetupのmember登録が同じroomを自動で現役へ戻す。公開面に並ぶのは現役の卓だけである。

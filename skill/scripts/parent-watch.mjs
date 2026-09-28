@@ -17,6 +17,7 @@ import { RoomApi } from './room-api.mjs'
 import { queueCodex } from './parent-receivers/codex.mjs'
 import { isParentMember } from '../../room/parent-kind.mjs'
 import { processIdentity, sameProcess, failure, atomicJson } from './parent-platform.mjs'
+import { forgetEndpoint } from './parent-caller.mjs'
 
 const args = process.argv.slice(2)
 const project = args.shift()
@@ -173,6 +174,7 @@ function releaseLock() {
         if (saved.runtime !== 'stopped') { saved.runtime = 'failed'; saved.error_code ??= 'PARENT_SOURCE_EXITED' }
         if (existsSync(lockPath)) unlinkSync(lockPath)
       })
+      if (spool.read().runtime === 'stopped') forgetEndpoint(spool)
     } catch (error) { process.stderr.write(`${error.code ?? 'PARENT_SOURCE_RELEASE_FAILED'}: ${error.message}\n`) }
     return
   }

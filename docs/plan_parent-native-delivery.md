@@ -360,7 +360,7 @@ fixtureは実process境界・競合・障害を速く再現する。実機は親
 
 ## 11. 外部観測待ちからの再開
 
-配布候補のsource・版・CI・package確認と、GUI観測の停止位置は[チェックポイント](../rag/parent-delivery/release-candidate-checkpoint.json)を参照する。実装文書と配布候補はcommit・push済みだが、実機受入manifestが未達のため、mainへの着地・tag・npm公開・registry導入・本番反映は残る。
+配布候補のsource・版・CI・package確認と、GUI観測の停止位置は[チェックポイント](../rag/parent-delivery/release-candidate-checkpoint.json)を参照する。 このチェックポイントの候補`a07630d`は、その後に親終了時の索引撤去を修理したため最終候補ではない。実装文書と配布候補はcommit・push済みだが、実機受入manifestが未達のため、mainへの着地・tag・npm公開・registry導入・本番反映は残る。
 
 GUI試験はJevによる画面取得で停止した。必要なOS権限は確認済みで、専用Cursor projectへの試験メッセージは未送信である。オーナーへGUI試験に限る操作ツール変更を確認中。許可前に代替操作へ進まず、専用の試験ウィンドウとサーバーは閉じている。
 
@@ -371,3 +371,7 @@ GUI試験はJevによる画面取得で停止した。必要なOS権限は確認
 GUI準備では3 OSのCodex App、macOSとWindowsのCursor Desktopを確認し、不足していたLinuxのVS Code/Cursor Desktop、WindowsのVS Codeと各Codex拡張を公式installer・package managerで導入した。アプリと拡張の存在確認は配送の合格に数えない。公式導入方法は[環境準備の記録](../rag/parent-delivery/gui-environment-preparation.md)を参照する。
 
 本番向けLinux imageの開発機での確認は[image確認](../rag/parent-delivery/room-image-preflight.json)へ保存した。HTTP保存/読出しのUTF-8原文、読取CORS、SSE接続は合格し、試験containerは停止済みである。本番未反映であり、親のnative配送の受入を代替しない。
+
+実機runnerで、終了したCodex親のwatcherがglobal索引を残す欠陥を再現した。project撤去後に別の親hookが全索引を読むと`ENOENT`で配送が止まる。停止したwatcher自身が既存の`forgetEndpoint`で所有索引を撤去する修理を行い、本文・受付済み記録と他の親の索引を保持する。修正前に失敗した実processの回帰試験は修正後に合格し、関連focused testは28件合格した。`a07630d`で取得したmacOS Claude/Codexのaudience証拠は候補観測として保管し、修理後の最終候補へ流用しない。
+
+Codexの公式hook本文はXMLのtextとして記録される。[一次仕様の確認](../rag/parent-delivery/codex-hook-body-encoding.md)に従い、公式の符号化だけを一度復号して原文と照合する。raw記録の等値判定と復号後の照合を別々に残し、任意の文字列補正を行わない。

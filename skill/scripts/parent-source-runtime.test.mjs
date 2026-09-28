@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -81,4 +81,58 @@ test('SSEが正常で新seqが無くてもreceipt retry/孤児回収/probe期限
   await waitFor(() => spool.read().error_code === 'PARENT_PROBE_TIMEOUT' && health.some(item => item.state === 'failed' && JSON.parse(item.detail).error_code === 'PARENT_PROBE_TIMEOUT'))
   assert.equal(spool.read().cursor, 0)
   assert.equal(watcher.exitCode, null, stderr)
+})
+
+test('親終了後のwatcherは所有索引を撤去し、project削除後も別の親の相関を壊さない', async t => {
+  const fixture = mkdtempSync(join(tmpdir(), 'peertable-parent-index-'))
+  const project = join(fixture, 'closed-project'), otherProject = join(fixture, 'other-project'), home = join(fixture, 'home')
+  const env = { ...process.env, HOME: home, USERPROFILE: home }
+  const owner = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' })
+  await once(owner, 'spawn')
+  const identity = processIdentity(owner.pid)
+  assert.ok(identity)
+  const credential = join(fixture, 'credential'); writeFileSync(credential, 'fixture', { mode: 0o600 })
+  let spool, watcher
+  const server = createServer(async (req, res) => {
+    let raw = ''; for await (const chunk of req) raw += chunk
+    res.setHeader('content-type', 'application/json')
+    if (req.url.endsWith('/members')) return res.end(JSON.stringify({ members: [{ name: 'parent', delivery: { kind: 'parent_receiver', endpoint_id: spool.id } }] }))
+    if (req.url.endsWith('/bridges') || req.url.endsWith('/deliveries')) return res.end(JSON.stringify({ ok: true }))
+    res.statusCode = 404; res.end(JSON.stringify({ error: 'fixture_path_unknown' }))
+  })
+  t.after(async () => {
+    if (owner.exitCode === null && owner.signalCode === null) { owner.kill(); await once(owner, 'exit') }
+    if (watcher?.exitCode === null && watcher.signalCode === null) { watcher.kill(); await once(watcher, 'exit') }
+    await new Promise(resolve => server.close(resolve))
+    rmSync(fixture, { recursive: true, force: true })
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const base = `http://127.0.0.1:${server.address().port}`
+  spool = ParentSpool.create(project, { name: 'parent', room: 'fixture', server_url: base, credential, start_seq: 0, harness: 'codex', caller: { harness: 'codex', conversation: 'closed', owner: identity } })
+  const other = ParentSpool.create(otherProject, { name: 'other', room: 'other', server_url: base, credential, start_seq: 0, harness: 'claude', caller: { harness: 'claude', conversation: 'other', owner: processIdentity(process.pid) } })
+  const indexDir = join(home, '.peertable', 'parent-receivers', 'endpoints'), index = join(indexDir, `${spool.id}.json`), otherIndex = join(indexDir, `${other.id}.json`)
+  atomicJson(index, { endpoint_id: spool.id, project }); atomicJson(otherIndex, { endpoint_id: other.id, project: otherProject })
+  atomicJson(join(project, '.team', 'setup-state.json'), { room: 'fixture', server_url: base })
+  const unread = spool.saveEvent({ type: 'parent_dm', seq: 1, body: '終了後にも保持する本文' })
+  const submitted = spool.claim('fixture', unread.delivery_id); spool.finish(submitted)
+  const pending = spool.saveEvent({ type: 'parent_dm', seq: 2, body: '未配送の本文' })
+  owner.kill(); await once(owner, 'exit')
+  watcher = spawn(process.execPath, [fileURLToPath(new URL('./parent-watch.mjs', import.meta.url)), project, 'parent', '--deliver', spool.id], { env, stdio: ['ignore', 'ignore', 'pipe'] })
+  let stderr = ''; watcher.stderr.on('data', chunk => { stderr += chunk })
+  const [exit] = await once(watcher, 'exit'); assert.equal(exit, 0, stderr)
+  const stopped = spool.read()
+  assert.equal(stopped.runtime, 'stopped')
+  assert.equal(stopped.error_code, 'PARENT_SESSION_CLOSED')
+  assert.equal(stopped.watcher, null)
+  assert.equal(stopped.records.find(record => record.delivery_id === unread.delivery_id).state, 'submitted')
+  assert.equal(stopped.records.find(record => record.delivery_id === pending.delivery_id).state, 'failed')
+  assert.deepEqual(stopped.records.map(record => record.event.body), ['終了後にも保持する本文', '未配送の本文'])
+  assert.equal(existsSync(index), false)
+  assert.equal(existsSync(otherIndex), true)
+  rmSync(project, { recursive: true })
+  const code = `import {endpointsFor} from ${JSON.stringify(new URL('./parent-caller.mjs', import.meta.url).href)};process.stdout.write(JSON.stringify(endpointsFor({caller:{harness:'claude',conversation:'other'}}).map(spool=>spool.id)));`
+  const probe = spawn(process.execPath, ['--input-type=module', '-e', code], { env, stdio: ['ignore', 'pipe', 'pipe'] })
+  let stdout = '', probeError = ''; probe.stdout.on('data', chunk => { stdout += chunk }); probe.stderr.on('data', chunk => { probeError += chunk })
+  const [probeExit] = await once(probe, 'exit'); assert.equal(probeExit, 0, probeError)
+  assert.deepEqual(JSON.parse(stdout), [other.id])
 })
