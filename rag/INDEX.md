@@ -24,3 +24,4 @@
 - [Windows本人確認APIの実測](parent-delivery/windows-process-identity-diagnosis.json) — native handleの存命・開始時刻とCIM互換性、実PID再利用、計測の限界。
 - [120秒期限のLinux Grok診断](parent-delivery/linux-grok-probe-repair-diagnosis.json) — 正規本文回収33.102秒とhealth復旧。次のsourceの正式受入には算入しない。
 - [親配送の公開裁定](parent-delivery/release-decision.json) — オーナーが正式実機受入の完了を待たず公開するよう指示した対象version・runtimeと未確認範囲。
+- [親配送0.8.63の公開結果](parent-delivery/release-result-0.8.63.json) — npm公開、3 OS導入・接続更新、本番API確認、再起動待ちと延期した実機受入。

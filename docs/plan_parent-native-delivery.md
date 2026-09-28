@@ -360,7 +360,7 @@ fixtureは実process境界・競合・障害を速く再現する。実機は親
 
 ## 11. 外部観測待ちからの再開
 
-配布候補のsource・版・CI・package確認と、GUI観測の停止位置は[チェックポイント](../rag/parent-delivery/release-candidate-checkpoint.json)を参照する。 旧候補`a07630d`の[過去チェックポイント](../rag/parent-delivery/snapshots/a07630d-release-checkpoint.json)は保存済みで、後続の修理後候補とは分ける。実装文書と配布候補はcommit・push済みだが、実機受入manifestが未達のため、mainへの着地・tag・npm公開・registry導入・本番反映は残る。
+配布候補のsource・版・CI・package確認と、GUI観測の停止位置は[チェックポイント](../rag/parent-delivery/release-candidate-checkpoint.json)を参照する。 旧候補`a07630d`の[過去チェックポイント](../rag/parent-delivery/snapshots/a07630d-release-checkpoint.json)は保存済みで、後続の修理後候補とは分ける。実機受入manifestは未達を保持する。オーナーの今回の公開裁定に従い、main着地・tag・npm公開・3 OSのregistry導入・本番反映は完了した。[公開結果](../rag/parent-delivery/release-result-0.8.63.json)が実施範囲と未確認項目の正本である。
 
 GUI試験はJevによる画面取得で停止した。必要なOS権限は確認済みで、専用Cursor projectへの試験メッセージは未送信である。オーナーへGUI試験に限る操作ツール変更を確認中。許可前に代替操作へ進まず、専用の試験ウィンドウとサーバーは閉じている。
 
@@ -421,3 +421,5 @@ Codexの`binding_deadline`前半は、[公式callerの比較](../rag/parent-deli
 ## 今回の公開裁定
 
 オーナーの「いいよもう。一旦それでリリース、インストールして。」を受け、[対象を固定した裁定](../rag/parent-delivery/release-decision.json)のversion・runtimeは全正式実機受入の完了を待たず公開する。3 OS製品CIの合格は確認済み。未実施・失敗・長時間leaseを合格に変更せず、現行manifestを保持する。この裁定を次versionへ自動継承しない。main着地、Trusted Publishing、registry導入、本番反映と公開後smokeを今回の完了範囲とする。
+
+[公開結果](../rag/parent-delivery/release-result-0.8.63.json)に、Trusted Publishing、3 OSの公開package・スキル配置・4ハーネス接続設定の更新、room本番反映、DM/複数宛/allの公開API smokeを保存した。既存AIの再起動は行っておらず、接続設定は再起動後に反映される。mainの製品CIは3 OS合格。直前のbranch CIで発生したWindows probe fixtureの件数不一致は原因未確定として残し、成功へ書き換えない。

@@ -1,0 +1,176 @@
+{
+  "schema": "peertable.release-result.v1",
+  "package_version": "0.8.63",
+  "release_commit": "f5565b08e15885d9fbc62afaa7f68f7b8036fb15",
+  "tag": "v0.8.63",
+  "runtime_digest": "9b4e7b94db839946b669ea61f714ff60431b9b3d0de3f9e5f920fc281b2c263c",
+  "published": true,
+  "publish_workflow": "https://github.com/kitepon/peertable/actions/runs/36497065797",
+  "registry_integrity": "sha512-O7fpP/+hTjFnWaphfT3XerbDaZnNCu0KkFKWXEKbr3rWovjrjGkiuvgNmlKRCDRPfMbi36qeN/iivXy5Yo8nlw==",
+  "registry_shasum": "f928387824e1d998f00b15ecb6acfa72a5bc07b4",
+  "product_ci": {
+    "status": "success",
+    "url": "https://github.com/kitepon/peertable/actions/runs/36497011125",
+    "os": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  },
+  "installs": [
+    {
+      "os": "darwin",
+      "version": "0.8.63",
+      "runtime_digest": "9b4e7b94db839946b669ea61f714ff60431b9b3d0de3f9e5f920fc281b2c263c",
+      "koffi": "3.3.2",
+      "skills": "ready",
+      "connections": [
+        {
+          "target": "claude",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        },
+        {
+          "target": "codex",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        },
+        {
+          "target": "grok",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        },
+        {
+          "target": "cursor",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "os": "linux",
+      "version": "0.8.63",
+      "runtime_digest": "9b4e7b94db839946b669ea61f714ff60431b9b3d0de3f9e5f920fc281b2c263c",
+      "koffi": "3.3.2",
+      "skills": "ready",
+      "connections": [
+        {
+          "target": "claude",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        },
+        {
+          "target": "codex",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        },
+        {
+          "target": "grok",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        },
+        {
+          "target": "cursor",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "os": "win32",
+      "version": "0.8.63",
+      "runtime_digest": "9b4e7b94db839946b669ea61f714ff60431b9b3d0de3f9e5f920fc281b2c263c",
+      "koffi": "3.3.2",
+      "skills": "ready",
+      "connections": [
+        {
+          "target": "claude",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        },
+        {
+          "target": "codex",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        },
+        {
+          "target": "grok",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        },
+        {
+          "target": "cursor",
+          "status": "registered",
+          "runtime_status": "PARENT_RESTART_REQUIRED"
+        }
+      ],
+      "status": "passed"
+    }
+  ],
+  "production": {
+    "image": "peertable-room:20260929-6689b32",
+    "previous_image": "peertable-room:20260910-c451ceb",
+    "volume": "peertable_room-data:/data",
+    "state": "running",
+    "public_smoke": {
+      "schema": "peertable.public-release-smoke.v1",
+      "version": "0.8.63",
+      "room": "release-smoke-5840a8e9-419e-46f0-8754-8ae6a47f59cf",
+      "image": "peertable-room:20260929-6689b32",
+      "native_parent_delivery": false,
+      "checks": [
+        {
+          "audience": "dm",
+          "seq": 2,
+          "body_equal": true,
+          "sha256": "b99a66fd5d84073f61103dbd414cf23e57defd2df9d00c629bd05c0b20a55810",
+          "parent_route": true
+        },
+        {
+          "audience": "multiple",
+          "seq": 3,
+          "body_equal": true,
+          "sha256": "81e914ecb67a28a3f9a6c5705d9ccff5ea21a9f9875efc7a410b11df5731ec66",
+          "parent_route": true
+        },
+        {
+          "audience": "all",
+          "seq": 4,
+          "body_equal": true,
+          "sha256": "d2fc3d06a65e548fc592f2d9fea6d976fd0f34c7c56b1ff26290035d5f8cd4a9",
+          "parent_route": true
+        }
+      ],
+      "sse": "passed",
+      "status": "passed",
+      "cleanup": "passed"
+    }
+  },
+  "release_decision": "rag/parent-delivery/release-decision.json",
+  "formal_acceptance_credit": 0,
+  "remaining": [
+    "全対象の正式native受入と長時間leaseはオーナーの指示で公開条件から延期。",
+    "登録済み接続はPARENT_RESTART_REQUIRED。既存AIを勝手に再起動せず、次の再起動で新設定を読み込む。"
+  ],
+  "observed_ci_failure": {
+    "url": "https://github.com/kitepon/peertable/actions/runs/36496921139",
+    "test": "parent-runtime-probe.test.mjs:92",
+    "platform": "win32",
+    "expected_records": 4,
+    "actual_records": 5,
+    "cause": "未確定。後続のmain CIは同じ製品runtimeで3 OS合格。失敗記録を取り消さない。",
+    "raw_sha256": "f23f63740f8e37e2d375c66751931ceef46efcd7a5098d7533f3ccb01bdfe786"
+  },
+  "install_notes": [
+    "registry反映待ちの404を経て0.8.63の取得可能を確認。",
+    "npmがpostinstallを保留したため、npm rebuild -g --allow-scripts=peertable,koffi peertable koffiで製品と依存のscriptを許可した。",
+    "導入前のスキル配置と対象設定を3端末でtarへ退避。",
+    "peertable --versionは未対応だったため、正規peertable-client --versionとdiagnosticsを使って確認。"
+  ],
+  "smoke_notes": [
+    "コンテナからhostのLAN bindへの初回接続はtimeout。コンテナの正規listener 127.0.0.1:8790で書込み、公開URLで本文を照合した。",
+    "専用smoke roomは終了時に正規DELETE APIで撤去。既存roomと永続volumeを保持。"
+  ]
+}
