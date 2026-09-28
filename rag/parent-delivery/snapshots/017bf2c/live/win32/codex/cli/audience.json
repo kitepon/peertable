@@ -1,0 +1,485 @@
+{
+  "schema": "peertable.parent-live-case.v1",
+  "case_id": "win32/codex/cli/audience",
+  "status": "passed",
+  "reasons": [],
+  "native": true,
+  "os": "win32",
+  "harness": "codex",
+  "surface": "cli",
+  "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+  "runtime_digest": "aab616d50a6a0ec7752f492e1f28cfa73f6afb501b31a3d3eae1041584bfc2f2",
+  "package_version": "0.8.63",
+  "client_version": "0.8.63",
+  "package_tarball_sha256": "b68ff9a9744ff38ef20065b73fd6273cd670426a96d4a664be612c3f45ef5cd2",
+  "harness_version": "codex-cli 0.158.0",
+  "node_version": "v24.20.0",
+  "parent_session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+  "parent_process": {
+    "started": "2026-09-28T19:44:45.4113440Z",
+    "pid": 67192,
+    "executable": "~\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+    "parent": 40120,
+    "command": "~\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe -c \"mcp_servers.peertable_parent.env_vars=[\\\"PEERTABLE_TOKEN_SOURCE_FILE\\\"]\" -c check_for_update_on_startup=false -m gpt-6-sol"
+  },
+  "endpoint_id": "7be09068-41b3-437d-b0a1-05019f70874d",
+  "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+  "owner_input_required": false,
+  "isolation": {
+    "home": "normal",
+    "room": "local_private_room_server",
+    "session_args": [
+      "-c mcp_servers.peertable_parent.env_vars=[\"PEERTABLE_TOKEN_SOURCE_FILE\"]",
+      "-c check_for_update_on_startup=false"
+    ],
+    "folder_trust": "起動dialogで試験dirを信頼し、終了後に公式config/batchWriteでその projects entry だけを削除"
+  },
+  "controller": {
+    "files_sha256": {
+      "README.md": "b388692fe0b584dd88ef73180bb9cebd5bf8e20b22c38a930251c1873c2a4a10",
+      "aiterm.mjs": "c3fa88a1032455dd70698e567d0e364d4714a6c3afd96cff46d5aad6ab953b16",
+      "background-harness.mjs": "40614a98000ec761dc38c6ba54a114c744db450d7efa7bc67a1276ab9a5ddca0",
+      "evidence.mjs": "216a4667764bcd7b7c402e2d81353f5c3cba200f20a303b1b1abb80735280490",
+      "harness.mjs": "282d2bf7d8aff8493a05eaef9903e2eadda85e3d4ef45a7762242d0f209f3712",
+      "run.mjs": "1b0aad3d3be8bf2a430c6469559b3d00bd579ed6d8e0bb4eb3582a5e4b4fc1ac",
+      "runner-provenance.mjs": "ec44651161c6f27bad824c75102a299c0ce6502b8ab6b7f640114f6488e4ad74",
+      "scenarios-context.mjs": "aa569402743406df39d9ff4d0bdf50fe7dcbd1c4ff3f2dd1858be5c44aa403e5",
+      "scenarios-fixtures.mjs": "f4ad05cafcede3132c322fee4f768626b97275e051219cc70241a0286a1e0bf8",
+      "scenarios-lease-run.mjs": "6348a310b1f56a350eb6c38c3bcd6b729bef369da408229a1a837a55f024becc",
+      "scenarios-native.mjs": "cce9267bc404b41c89e56608888086b3efb4aa1ff89af934f510358dd41b42fe",
+      "scenarios-surfaces.mjs": "bf5fab85bbdb8d50f4182d0db635779c0ced280eb0fda7ddcb28423da5906ea8",
+      "scenarios.mjs": "08db776c879b02b8da7b6263511256b192d35a6d78fdaf1164e05328184fca98"
+    }
+  },
+  "runner": {
+    "commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+    "modules_sha256": {
+      "README.md": "b388692fe0b584dd88ef73180bb9cebd5bf8e20b22c38a930251c1873c2a4a10",
+      "aiterm.mjs": "c3fa88a1032455dd70698e567d0e364d4714a6c3afd96cff46d5aad6ab953b16",
+      "background-harness.mjs": "40614a98000ec761dc38c6ba54a114c744db450d7efa7bc67a1276ab9a5ddca0",
+      "evidence.mjs": "216a4667764bcd7b7c402e2d81353f5c3cba200f20a303b1b1abb80735280490",
+      "harness.mjs": "282d2bf7d8aff8493a05eaef9903e2eadda85e3d4ef45a7762242d0f209f3712",
+      "run.mjs": "1b0aad3d3be8bf2a430c6469559b3d00bd579ed6d8e0bb4eb3582a5e4b4fc1ac",
+      "runner-provenance.mjs": "ec44651161c6f27bad824c75102a299c0ce6502b8ab6b7f640114f6488e4ad74",
+      "scenarios-context.mjs": "aa569402743406df39d9ff4d0bdf50fe7dcbd1c4ff3f2dd1858be5c44aa403e5",
+      "scenarios-fixtures.mjs": "f4ad05cafcede3132c322fee4f768626b97275e051219cc70241a0286a1e0bf8",
+      "scenarios-lease-run.mjs": "6348a310b1f56a350eb6c38c3bcd6b729bef369da408229a1a837a55f024becc",
+      "scenarios-native.mjs": "cce9267bc404b41c89e56608888086b3efb4aa1ff89af934f510358dd41b42fe",
+      "scenarios-surfaces.mjs": "bf5fab85bbdb8d50f4182d0db635779c0ced280eb0fda7ddcb28423da5906ea8",
+      "scenarios.mjs": "08db776c879b02b8da7b6263511256b192d35a6d78fdaf1164e05328184fca98"
+    },
+    "product_source_is_separate": true
+  },
+  "observations": [
+    {
+      "kind": "parent_join",
+      "parent_session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+      "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+      "tool_use_id": "2",
+      "tool_name": "output",
+      "endpoint_id": "7be09068-41b3-437d-b0a1-05019f70874d",
+      "caller_owner": {
+        "started": "2026-09-28T19:44:45.4113440Z",
+        "pid": 67192,
+        "executable": "~\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+        "parent": 40120,
+        "command": "~\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe -c \"mcp_servers.peertable_parent.env_vars=[\\\"PEERTABLE_TOKEN_SOURCE_FILE\\\"]\" -c check_for_update_on_startup=false -m gpt-6-sol"
+      },
+      "call_generation": null
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "dm",
+      "parent_session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+      "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+      "seq": 3,
+      "delivery_id": "07ccae7b-d892-4475-bc5d-8df9e0a8b046",
+      "entry": {
+        "uuid": null,
+        "type": "response_item:message:user",
+        "role": "user"
+      },
+      "native_hook": "stop",
+      "boundary": {
+        "encoding": "codex_hook_prompt_xml_text",
+        "raw_body_equal": false
+      },
+      "native_queue": [],
+      "native_ack_id": "01a0e98d-0160-7091-bd8b-2378dc509829"
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "dm",
+      "parent_session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+      "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+      "seq": 3,
+      "entry_uuid": null
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "multiple",
+      "parent_session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+      "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+      "seq": 4,
+      "delivery_id": "a080fc61-f4ef-433b-92ca-2c5d3c629d5f",
+      "entry": {
+        "uuid": null,
+        "type": "response_item:message:user",
+        "role": "user"
+      },
+      "native_hook": "stop",
+      "boundary": {
+        "encoding": "codex_hook_prompt_xml_text",
+        "raw_body_equal": false
+      },
+      "native_queue": [],
+      "native_ack_id": "01a0e98d-8636-7de1-a4f1-eeab14000eae"
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "multiple",
+      "parent_session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+      "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+      "seq": 4,
+      "entry_uuid": null
+    },
+    {
+      "kind": "delivery_in_parent_conversation",
+      "label": "all",
+      "parent_session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+      "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+      "seq": 5,
+      "delivery_id": "d7cc1862-c411-42da-8c31-69b9c31154d2",
+      "entry": {
+        "uuid": null,
+        "type": "response_item:message:user",
+        "role": "user"
+      },
+      "native_hook": "stop",
+      "boundary": {
+        "encoding": "codex_hook_prompt_xml_text",
+        "raw_body_equal": false
+      },
+      "native_queue": [],
+      "native_ack_id": "01a0e98d-ade7-71c3-b845-e4ce0d8b41e7"
+    },
+    {
+      "kind": "parent_reply_after_delivery",
+      "label": "all",
+      "parent_session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+      "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+      "seq": 5,
+      "entry_uuid": null
+    }
+  ],
+  "receipts": [
+    {
+      "seq": 3,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "codex_hook_output_complete",
+      "receipt_revision": 2,
+      "queued_submission_id": "01a0e98d-0160-7091-bd8b-2378dc509829",
+      "accepted_at": "2026-09-28T19:45:27.399Z"
+    },
+    {
+      "seq": 4,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "codex_hook_output_complete",
+      "receipt_revision": 2,
+      "queued_submission_id": "01a0e98d-8636-7de1-a4f1-eeab14000eae",
+      "accepted_at": "2026-09-28T19:46:01.403Z"
+    },
+    {
+      "seq": 5,
+      "recipient": "bell",
+      "route": "parent_receiver",
+      "result": "delivered",
+      "reason": "codex_hook_output_complete",
+      "receipt_revision": 2,
+      "queued_submission_id": "01a0e98d-ade7-71c3-b845-e4ce0d8b41e7",
+      "accepted_at": "2026-09-28T19:46:11.564Z"
+    }
+  ],
+  "body_checks": [
+    {
+      "label": "dm",
+      "original": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_DM_bced905e-46fe-4d60-8190-ee69ad6a70ff です。"
+      },
+      "received": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_DM_bced905e-46fe-4d60-8190-ee69ad6a70ff です。"
+      }
+    },
+    {
+      "label": "multiple",
+      "original": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_MULTIPLE_c1519edb-e1b3-4f4b-bd36-97ab2478e5d2 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_MULTIPLE_c1519edb-e1b3-4f4b-bd36-97ab2478e5d2 です。"
+      }
+    },
+    {
+      "label": "all",
+      "original": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_ALL_69981e9a-7986-4b0b-84d7-7f380f566c59 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_ALL_69981e9a-7986-4b0b-84d7-7f380f566c59 です。"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "dm",
+      "recipient": "bell",
+      "original": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_DM_bced905e-46fe-4d60-8190-ee69ad6a70ff です。"
+      },
+      "received": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_DM_bced905e-46fe-4d60-8190-ee69ad6a70ff です。"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "bell",
+        "seq": 3,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_DM_bced905e-46fe-4d60-8190-ee69ad6a70ff です。",
+        "delivery_id": "07ccae7b-d892-4475-bc5d-8df9e0a8b046",
+        "digest": "c6eb107ac0b77905c01ec0e5e98bc5791917bf06c4d03ea746d8fad88a3d4d60",
+        "preview": false,
+        "order": 37,
+        "session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+        "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+        "hook": "stop",
+        "boundary": {
+          "encoding": "codex_hook_prompt_xml_text",
+          "raw_body_equal": false
+        },
+        "entry": {
+          "uuid": null,
+          "type": "response_item:message:user",
+          "role": "user"
+        }
+      },
+      "reply": {
+        "order": 40,
+        "session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+        "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+        "text": "符号：`PEERTABLE_ACCEPT_CODEX_DM_bced905e-46fe-4d60-8190-ee69ad6a70ff`。送信者：`probe`、宛先：`bell`、seq：`3`。"
+      },
+      "spool": {
+        "delivery_id": "07ccae7b-d892-4475-bc5d-8df9e0a8b046",
+        "state": "submitted",
+        "queued_submission_id": "01a0e98d-0160-7091-bd8b-2378dc509829",
+        "accepted_at": "2026-09-28T19:45:27.399Z",
+        "reason": "codex_hook_output_complete"
+      },
+      "receipt": {
+        "seq": 3,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "codex_hook_output_complete",
+        "receipt_revision": 2,
+        "queued_submission_id": "01a0e98d-0160-7091-bd8b-2378dc509829",
+        "accepted_at": "2026-09-28T19:45:27.399Z"
+      }
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "multiple",
+      "recipient": "bell",
+      "original": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_MULTIPLE_c1519edb-e1b3-4f4b-bd36-97ab2478e5d2 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_MULTIPLE_c1519edb-e1b3-4f4b-bd36-97ab2478e5d2 です。"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": [
+          "bell",
+          "rui"
+        ],
+        "seq": 4,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_MULTIPLE_c1519edb-e1b3-4f4b-bd36-97ab2478e5d2 です。",
+        "delivery_id": "a080fc61-f4ef-433b-92ca-2c5d3c629d5f",
+        "digest": "c0ee7faaa5b6fb535f85956fb28d02164be12e63ba4df26c0299e3ba0e8069a1",
+        "preview": false,
+        "order": 43,
+        "session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+        "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+        "hook": "stop",
+        "boundary": {
+          "encoding": "codex_hook_prompt_xml_text",
+          "raw_body_equal": false
+        },
+        "entry": {
+          "uuid": null,
+          "type": "response_item:message:user",
+          "role": "user"
+        }
+      },
+      "reply": {
+        "order": 46,
+        "session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+        "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+        "text": "符号：`PEERTABLE_ACCEPT_CODEX_MULTIPLE_c1519edb-e1b3-4f4b-bd36-97ab2478e5d2`。送信者：`probe`、宛先：`[\"bell\",\"rui\"]`、seq：`4`。"
+      },
+      "spool": {
+        "delivery_id": "a080fc61-f4ef-433b-92ca-2c5d3c629d5f",
+        "state": "submitted",
+        "queued_submission_id": "01a0e98d-8636-7de1-a4f1-eeab14000eae",
+        "accepted_at": "2026-09-28T19:46:01.403Z",
+        "reason": "codex_hook_output_complete"
+      },
+      "receipt": {
+        "seq": 4,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "codex_hook_output_complete",
+        "receipt_revision": 2,
+        "queued_submission_id": "01a0e98d-8636-7de1-a4f1-eeab14000eae",
+        "accepted_at": "2026-09-28T19:46:01.403Z"
+      }
+    },
+    {
+      "status": "passed",
+      "reasons": [],
+      "label": "all",
+      "recipient": "bell",
+      "original": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_ALL_69981e9a-7986-4b0b-84d7-7f380f566c59 です。"
+      },
+      "received": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_ALL_69981e9a-7986-4b0b-84d7-7f380f566c59 です。"
+      },
+      "body_equal": true,
+      "count": 1,
+      "delivery": {
+        "room": "parent-acceptance-codex-adc9714a-8e25-4b65-bd03-222232fb692f",
+        "from": "probe",
+        "to": "all",
+        "seq": 5,
+        "body": "日本語の観測\n「引用」😀 > 引用行 <tag a=\"1\"> & 'q' 字面&gt;\n配送確認の符号は PEERTABLE_ACCEPT_CODEX_ALL_69981e9a-7986-4b0b-84d7-7f380f566c59 です。",
+        "delivery_id": "d7cc1862-c411-42da-8c31-69b9c31154d2",
+        "digest": "90d6ec094c72d0903b23a09fb955f7150f55990892ea91de30361bc985710c59",
+        "preview": false,
+        "order": 49,
+        "session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+        "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+        "hook": "stop",
+        "boundary": {
+          "encoding": "codex_hook_prompt_xml_text",
+          "raw_body_equal": false
+        },
+        "entry": {
+          "uuid": null,
+          "type": "response_item:message:user",
+          "role": "user"
+        }
+      },
+      "reply": {
+        "order": 52,
+        "session": "01a0e98c-6399-7003-b3f7-3cfcd5c7a295",
+        "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+        "text": "符号：`PEERTABLE_ACCEPT_CODEX_ALL_69981e9a-7986-4b0b-84d7-7f380f566c59`。送信者：`probe`、宛先：`all`、seq：`5`。"
+      },
+      "spool": {
+        "delivery_id": "d7cc1862-c411-42da-8c31-69b9c31154d2",
+        "state": "submitted",
+        "queued_submission_id": "01a0e98d-ade7-71c3-b845-e4ce0d8b41e7",
+        "accepted_at": "2026-09-28T19:46:11.564Z",
+        "reason": "codex_hook_output_complete"
+      },
+      "receipt": {
+        "seq": 5,
+        "recipient": "bell",
+        "route": "parent_receiver",
+        "result": "delivered",
+        "reason": "codex_hook_output_complete",
+        "receipt_revision": 2,
+        "queued_submission_id": "01a0e98d-ade7-71c3-b845-e4ce0d8b41e7",
+        "accepted_at": "2026-09-28T19:46:11.564Z"
+      }
+    }
+  ],
+  "transcript_rows": 56,
+  "turns_seen": [
+    "01a0e98c-8710-7402-b313-45c3b4ff9508"
+  ]
+}

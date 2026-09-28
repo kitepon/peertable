@@ -7,3 +7,4 @@
 - [Cursor/Grokの正式CLI証拠の親監査](parent-delivery/cursor-grok-formal-review.json) — 旧候補の6 audience、18本文と公式turn・後続返答の独立照合、画面取得の不足。
 - [CLIの終了・設定解除・本人相関の修理](parent-delivery/cli-lifecycle-repairs.md) — Linuxの削除済みbinary、Windows Codex Job、公式設定解除とJSON構造、旧証跡の保存と再測定条件。
 - [修理後候補のCLI正式証拠の独立監査](parent-delivery/cli-formal-review-017bf2c.json) — macOS Claude/Codexのaudience原文・実会話・receipt・controller・pack・終了回収の照合。
+- [旧sourceのWindows・Linux CLI追加監査](parent-delivery/snapshots/017bf2c/additional-cli-independent-review.json) — 各3通の実会話・receipt照合と、Windows packのmode差。製品修理後の候補には算入しない。

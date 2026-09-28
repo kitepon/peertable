@@ -1,0 +1,636 @@
+{
+  "schema": "peertable.parent-independent-review.v1",
+  "reports": [
+    {
+      "case_id": "win32/claude/cli/audience",
+      "status": "passed",
+      "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "evidence_path": "rag/parent-delivery/snapshots/017bf2c/live/win32/claude/cli/audience.json",
+      "runner_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "package_tarball_sha256": "b68ff9a9744ff38ef20065b73fd6273cd670426a96d4a664be612c3f45ef5cd2",
+      "raw_transcript_sha256": "9a827eac536db392737d6ac95037c0df3314064ed511fd4652337e906fc9c5bb",
+      "raw_spool_sha256": "3bb6964d70687af1ebcfcf7f626e56e6e90cb14c558a80be2100897918f5da68",
+      "checks": [
+        {
+          "label": "dm",
+          "seq": 3,
+          "delivery_id": "1d7105f9-982d-4976-b955-5158d833759e",
+          "turn_id": "2db14ae3-d6cd-4085-8ea6-2b3fe5ec30b7",
+          "reply_turn_id": "2db14ae3-d6cd-4085-8ea6-2b3fe5ec30b7",
+          "body_sha256": "7b4bf5c6196b415588091ded313f59734a1b183c4ac31e897de7add6faf6b104",
+          "body_equal": true,
+          "receipt_revision": 1
+        },
+        {
+          "label": "multiple",
+          "seq": 4,
+          "delivery_id": "7a6b3ae5-a4cc-4fc6-9ec8-f3676a645cea",
+          "turn_id": "95545bcd-fa86-4f02-b3a9-c706d2cdf9a3",
+          "reply_turn_id": "95545bcd-fa86-4f02-b3a9-c706d2cdf9a3",
+          "body_sha256": "f9d186ea505718b78dc6c79f595607a6e0187e9a89ca8a23c53c984d55a5ef0f",
+          "body_equal": true,
+          "receipt_revision": 1
+        },
+        {
+          "label": "all",
+          "seq": 5,
+          "delivery_id": "d6e4ad4b-8ee9-4a2d-86f0-cc5949a11ad2",
+          "turn_id": "68622e5c-f437-4727-a24d-54750785d5c8",
+          "reply_turn_id": "68622e5c-f437-4727-a24d-54750785d5c8",
+          "body_sha256": "2d037a8fe3b0fc7da60e44ae39246b035b6a93d2eea199d4bf50436548d87473",
+          "body_equal": true,
+          "receipt_revision": 1
+        }
+      ],
+      "cleanup": [
+        {
+          "label": "harness_exit",
+          "status": "done",
+          "pid": 41340,
+          "exited": true
+        },
+        {
+          "label": "endpoint_stop",
+          "status": "done",
+          "product_index_left_after_stop": false,
+          "runtime_before": "stopped",
+          "runtime_after": "stopped",
+          "product_stopped_within_30s": true,
+          "product_stop_latency_ms": 1,
+          "stopped_by_runner": false,
+          "owned_alive_after": []
+        },
+        {
+          "label": "pty_close",
+          "status": "done",
+          "session": "ptacc-claude-2c02583a",
+          "outcome": "closed",
+          "pane_pid": 70816,
+          "pane_alive_after": false
+        },
+        {
+          "label": "room_server",
+          "status": "done",
+          "pid": 55632,
+          "exit": "SIGTERM",
+          "alive_after": false
+        },
+        {
+          "label": "connect_remove",
+          "status": "done",
+          "removed": [
+            "claude:removed"
+          ],
+          "semantic_equal": true,
+          "settings_diff_keys": [],
+          "mcp_diff_keys": [],
+          "user_keys_added": [],
+          "backup": null
+        }
+      ],
+      "negative_delivery_scope": "当該audience原証拠には他人宛DM/self投稿は含まれていない",
+      "package_comparison": {
+        "sha256": "b68ff9a9744ff38ef20065b73fd6273cd670426a96d4a664be612c3f45ef5cd2",
+        "entries": 131,
+        "content_equal": true,
+        "mode_equal": false,
+        "differences": {
+          "package/skill/scripts/seat-status-bridge.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/codex-parent-watch.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-all-bridges.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/leave-seat.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/set-mission.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/launch-seat.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/teardown.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-project-runtime.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/setup.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/resolve-seat-placement.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-bridge.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/resume.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/room/client.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/bridge-record-live.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/make-plan-input.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/kickoff-gate.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/change-effort.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/archive-room-log.py": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/external-pane.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-codex-room-mcp.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/alarm-set.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-room-mcp.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/doctor.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/parent-join.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/upgrade-team-assets.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/wakeup-bridge.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/change-seat.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          }
+        }
+      },
+      "current_candidate_accepted": false,
+      "note": "製品修理前の実観測。Windows packは全file本文が一致するが27 fileのmodeが凍結packと異なる。現行候補へ流用しない。"
+    },
+    {
+      "case_id": "win32/codex/cli/audience",
+      "status": "passed",
+      "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "evidence_path": "rag/parent-delivery/snapshots/017bf2c/live/win32/codex/cli/audience.json",
+      "runner_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "package_tarball_sha256": "b68ff9a9744ff38ef20065b73fd6273cd670426a96d4a664be612c3f45ef5cd2",
+      "raw_transcript_sha256": "c241983f448fdad35f2a4f29d7768f873f93ecb5bc58c30d3be8b59fbe0a5573",
+      "raw_spool_sha256": "ccdc022e38452b4ca5978aa5d1ceca12c0890c9ea226d4d37664eb213eb7f488",
+      "checks": [
+        {
+          "label": "dm",
+          "seq": 3,
+          "delivery_id": "07ccae7b-d892-4475-bc5d-8df9e0a8b046",
+          "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+          "reply_turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+          "body_sha256": "18236de68e208590ade8bff102e3ed6ace47a727140498df1b458922f8bec792",
+          "body_equal": true,
+          "receipt_revision": 2
+        },
+        {
+          "label": "multiple",
+          "seq": 4,
+          "delivery_id": "a080fc61-f4ef-433b-92ca-2c5d3c629d5f",
+          "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+          "reply_turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+          "body_sha256": "bb8a98e7b738f635c0e37d15af8b64788d38e0acfab810de5e38ae53dd4ecb93",
+          "body_equal": true,
+          "receipt_revision": 2
+        },
+        {
+          "label": "all",
+          "seq": 5,
+          "delivery_id": "d7cc1862-c411-42da-8c31-69b9c31154d2",
+          "turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+          "reply_turn_id": "01a0e98c-8710-7402-b313-45c3b4ff9508",
+          "body_sha256": "27e7fb16597b80adc2f393ef15deb1cae861b25ed7f07b7009e36f192a884a42",
+          "body_equal": true,
+          "receipt_revision": 2
+        }
+      ],
+      "cleanup": [
+        {
+          "label": "harness_exit",
+          "status": "done",
+          "pid": 67192,
+          "exited": true
+        },
+        {
+          "label": "endpoint_stop",
+          "status": "done",
+          "product_index_left_after_stop": false,
+          "runtime_before": "stopped",
+          "runtime_after": "stopped",
+          "product_stopped_within_30s": true,
+          "product_stop_latency_ms": 11286,
+          "stopped_by_runner": false,
+          "owned_alive_after": []
+        },
+        {
+          "label": "codex_folder_trust_remove",
+          "status": "done",
+          "removed_trust_entries": 1,
+          "remaining_trust_entries": 0
+        },
+        {
+          "label": "pty_close",
+          "status": "done",
+          "session": "ptacc-codex-96548ea4",
+          "outcome": "closed",
+          "pane_pid": 55880,
+          "pane_alive_after": false
+        },
+        {
+          "label": "room_server",
+          "status": "done",
+          "pid": 50072,
+          "exit": "SIGTERM",
+          "alive_after": false
+        },
+        {
+          "label": "connect_remove",
+          "status": "done",
+          "removed": [
+            "codex:removed"
+          ],
+          "semantic_equal": true,
+          "effective_diff_keys": [],
+          "hooks_diff_keys": [],
+          "config_text_equal": true,
+          "backup": null
+        }
+      ],
+      "negative_delivery_scope": "当該audience原証拠には他人宛DM/self投稿は含まれていない",
+      "package_comparison": {
+        "sha256": "b68ff9a9744ff38ef20065b73fd6273cd670426a96d4a664be612c3f45ef5cd2",
+        "entries": 131,
+        "content_equal": true,
+        "mode_equal": false,
+        "differences": {
+          "package/skill/scripts/seat-status-bridge.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/codex-parent-watch.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-all-bridges.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/leave-seat.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/set-mission.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/launch-seat.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/teardown.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-project-runtime.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/setup.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/resolve-seat-placement.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-bridge.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/resume.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/room/client.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/bridge-record-live.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/make-plan-input.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/kickoff-gate.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/change-effort.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/archive-room-log.py": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/external-pane.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-codex-room-mcp.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/alarm-set.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/ensure-room-mcp.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/doctor.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/parent-join.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/upgrade-team-assets.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/wakeup-bridge.mjs": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          },
+          "package/skill/scripts/change-seat.sh": {
+            "mode": {
+              "frozen": 493,
+              "actual": 420
+            }
+          }
+        }
+      },
+      "current_candidate_accepted": false,
+      "note": "製品修理前の実観測。Windows packは全file本文が一致するが27 fileのmodeが凍結packと異なる。現行候補へ流用しない。"
+    },
+    {
+      "case_id": "linux/claude/cli/audience",
+      "status": "passed",
+      "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "evidence_path": "rag/parent-delivery/snapshots/017bf2c/live/linux/claude/cli/audience.json",
+      "runner_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+      "package_tarball_sha256": "5bb34d5512b18b4ad9c920c707002b8f04d694f0643eec3766ca97e0da1ffc2e",
+      "raw_transcript_sha256": "f02badbe34ad3f96514a0c8e7f4c3ed10ca230d706dfb0d5f1ba85341a0bdd67",
+      "raw_spool_sha256": "39efcbe76c0745e0969697c3f785c82b9e9791b38eb9b65f6742c50aa75bb1df",
+      "checks": [
+        {
+          "label": "dm",
+          "seq": 3,
+          "delivery_id": "5675de08-24f3-494e-9980-1b4221188815",
+          "turn_id": "3258827a-eed5-4f5e-aa87-c10ff129c73a",
+          "reply_turn_id": "3258827a-eed5-4f5e-aa87-c10ff129c73a",
+          "body_sha256": "0add03d9a4983db57ce0d3dd4513642652aa90aae7be41617ea9cc489c856533",
+          "body_equal": true,
+          "receipt_revision": 1
+        },
+        {
+          "label": "multiple",
+          "seq": 4,
+          "delivery_id": "adc3925e-b1cf-489d-89dc-07423d07f8ca",
+          "turn_id": "3a7ea80d-4728-40b0-9999-ed35f58d5fe4",
+          "reply_turn_id": "3a7ea80d-4728-40b0-9999-ed35f58d5fe4",
+          "body_sha256": "10a9194262bf563161297f59335da92b791ba7feb89442f10ae8a7489976a74e",
+          "body_equal": true,
+          "receipt_revision": 1
+        },
+        {
+          "label": "all",
+          "seq": 5,
+          "delivery_id": "2de14aeb-0b52-4ba4-b611-5974b59ba005",
+          "turn_id": "8408518c-e972-40a9-955e-0bc0fe1c042e",
+          "reply_turn_id": "8408518c-e972-40a9-955e-0bc0fe1c042e",
+          "body_sha256": "051b3c29a224db65cbce9d649bdff41e3b962347f904152304168b226a44030a",
+          "body_equal": true,
+          "receipt_revision": 1
+        }
+      ],
+      "cleanup": [
+        {
+          "label": "harness_exit",
+          "status": "done",
+          "pid": 4011965,
+          "exited": true
+        },
+        {
+          "label": "endpoint_stop",
+          "status": "done",
+          "product_index_left_after_stop": false,
+          "runtime_before": "stopped",
+          "runtime_after": "stopped",
+          "product_stopped_within_30s": true,
+          "product_stop_latency_ms": 1,
+          "stopped_by_runner": false,
+          "owned_alive_after": []
+        },
+        {
+          "label": "pty_close",
+          "status": "done",
+          "session": "ptacc-claude-887baec0",
+          "outcome": "already_closed",
+          "pane_pid": 4011965,
+          "pane_alive_after": false
+        },
+        {
+          "label": "room_server",
+          "status": "done",
+          "pid": 4011943,
+          "exit": "SIGTERM",
+          "alive_after": false
+        },
+        {
+          "label": "connect_remove",
+          "status": "done",
+          "removed": [
+            "claude:removed"
+          ],
+          "semantic_equal": true,
+          "settings_diff_keys": [],
+          "mcp_diff_keys": [],
+          "user_keys_added": [
+            "tipsHistoryByCommand"
+          ],
+          "backup": null
+        }
+      ],
+      "negative_delivery_scope": "当該audience原証拠には他人宛DM/self投稿は含まれていない",
+      "package_comparison": {
+        "sha256": "5bb34d5512b18b4ad9c920c707002b8f04d694f0643eec3766ca97e0da1ffc2e",
+        "entries": 131,
+        "content_equal": true,
+        "mode_equal": true,
+        "differences": {}
+      },
+      "current_candidate_accepted": false,
+      "note": "製品修理前の実観測。現行候補へ流用しない。"
+    }
+  ],
+  "frozen_pack_sha256": "9094a3a53b4d66b6322c9ca1e4f23e93810a760d79872b862fe73e26b85dd774",
+  "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+  "current_candidate_accepted": false
+}

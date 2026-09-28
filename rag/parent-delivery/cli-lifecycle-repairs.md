@@ -28,6 +28,16 @@ runnerの空eventを除く意味比較は廃止した。Codexの試験dir信頼�
 
 ## 本人相関と試験の再開条件
 
+macOSのCursor通常CLI試験では、Throughlineの短命なprompt-submit用`/bin/zsh`を走査する間に終了競合を再現した。元の`ps`は開始identityを正常に返し、3ms後の`lsof`は終了code 0・空出力を返した。25ms後の両APIの再照会では本人が消失していた。旧adapterは成功した空出力を`PARENT_PROCESS_API_SCHEMA_INVALID`として伝播していた。
+
+OS adapterは形式異常でも本人の消失を`ps`で確認し、確認できた場合だけ終了を返す。存命中の形式異常と、生存確認APIの権限異常は引き続きtyped errorにする。macOS境界のfocused 2件と修理moduleを使った実Cursor join・自己回収を確認した。実joinの再試行では同じ終了競合自体の再発火は観測していないため、正式受入合格としては扱わない。
+
+Linux Grokは公式installerの実体名`grok-1.0.41-linux-x86_64`を旧判定が認識せず、事前hookが相関なしの`{}`を返し、実MCPのjoinが`PARENT_CALLER_UNBOUND`で失敗した。同じ公式実体の再起動で、実PID・開始identity・実pathと判定`null`を確認した。失敗当時の`/proc`原記録は取得できていない。版なしの公式実体名に加えて版を含む公式命名形式を認識し、未知のOS名は引き続き拒否する。正式Linux配送は新候補で再測定する。
+
+修理前`017bf2c`の受入manifest・Mac2件の原証拠は[snapshot](snapshots/017bf2c/product-acceptance.json)へbyte単位で保存した。[追加3件の独立監査](snapshots/017bf2c/additional-cli-independent-review.json)はWindows Claude/Codex・Linux Claudeのroom原文、実会話、後続返答、spool、SQLite receipt、controllerのGit blobを照合した。各3通は一致した。Linux packの全131entryは凍結packと本文・modeとも一致した。Windows packの全file本文は一致したが27fileのmodeが異なり、圧縮byte列だけの差ではなかった。いずれも修理後の候補へ流用しない。
+
+長時間leaseはMac Claudeの公式slotまで成立したが、controllerのpath関数とendpoint再join関数の名前衝突で開始処理が失敗し、24時間の検証は成立しなかった。Mac Cursor/GrokとWindows Cursor/Grokも準備段階で失敗し、Linux Cursorは未ログインで開始できなかった。私物processは回収済みで、長時間受信の合格は0件である。controllerの名前衝突、Grokの完了task全文reader入力、実応答・途中page・Codex task完了記録を待つ処理を修理し、正式試験と区別してfocused確認した。
+
 Claude/Cursor/Grokの事前hookはharness・名前・入力digest・PID開始identityを照合する。照合記録の30秒期限切れは`PARENT_BIND_TIMEOUT`として本人不一致と区別し、endpoint作成前に失敗する。Codexは公式thread metadataと実processを直接照合する。
 
 旧候補`43348b8`の6 audienceと18本文の独立監査は、元のsource・本文・判定を保った[snapshot](snapshots/43348b8/rag/parent-delivery/product-acceptance.json)へ保存した。現行manifestに算入しない。修理後の配布sourceと試験controllerをcommitへ固定し、Git blob・digest・版を照合して全必須面の正式試験を行う。main着地、npm公開、registry導入、本番反映はまだ行っていない。

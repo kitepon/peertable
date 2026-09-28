@@ -1,16 +1,32 @@
 {
   "schema": "peertable.parent-release-checkpoint.v1",
-  "source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
-  "runtime_digest": "aab616d50a6a0ec7752f492e1f28cfa73f6afb501b31a3d3eae1041584bfc2f2",
+  "source_commit": "356f9c408bfb8a46327651130b513b21b1b2842a",
+  "runtime_digest": "1fd30ff226657e52a40416e2f9b2699631aecaef03307a4b34449cc0787647db",
   "package_version": "0.8.63",
+  "candidate_state": "repairing_before_source_freeze",
+  "source_frozen": false,
+  "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/017bf2c/release-candidate-checkpoint.json",
   "product_ci": {
-    "url": "https://github.com/kitepon/peertable/actions/runs/36473398201",
-    "head_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
-    "status": "success",
-    "native_os": {
-      "darwin": "passed",
-      "linux": "passed",
-      "win32": "passed"
+    "status": "pending_new_product_source",
+    "previous_source_commit": "017bf2c6342f573b23fa8b00c19ae34d0d291392",
+    "previous_url": "https://github.com/kitepon/peertable/actions/runs/36473398201"
+  },
+  "focused_verification": {
+    "darwin_process_exit": {
+      "passed": 2,
+      "failed": 0
+    },
+    "parent_delivery_and_harness_identity": {
+      "passed": 29,
+      "failed": 0
+    },
+    "native_fixture_and_lease_entry": {
+      "passed": 24,
+      "failed": 0
+    },
+    "scenario_transcript_observation": {
+      "passed": 22,
+      "failed": 0
     }
   },
   "documentation_tests": {
@@ -19,25 +35,24 @@
     "skipped": 0
   },
   "package": {
-    "filename": "peertable-0.8.63.tgz",
-    "sha256": "9094a3a53b4d66b6322c9ca1e4f23e93810a760d79872b862fe73e26b85dd774",
-    "pack_dry_run_files": 131,
-    "pack_files": 131,
-    "parent_process_included": true,
-    "install_source": "npm_pack_tarball",
-    "install_scope": "fixture_local_prefix",
-    "diagnostics": "ready",
+    "status": "pending_new_product_source",
+    "previous_candidate_only": true,
     "registry_install": false
   },
   "product_acceptance": {
     "manifest": "rag/parent-delivery/product-acceptance.json",
     "status": "failed",
     "expected": 525,
-    "records": 2,
+    "records": 0,
     "errors": {
-      "PARENT_ACCEPTANCE_MISSING": 523
+      "PARENT_ACCEPTANCE_MISSING": 525
     },
     "checkpoint_counts_as_live_acceptance": false
+  },
+  "lease": {
+    "status": "no_active_long_lease",
+    "passed": 0,
+    "previous_attempts": "failed_before_24h_wait"
   },
   "gui_observation": {
     "status": "blocked",
