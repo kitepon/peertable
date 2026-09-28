@@ -135,6 +135,10 @@ export function parseCursorNativeTranscript({ transcript, hooks = [], expectedCo
       if (tool.name === 'parent_read') {
         const reader = [...seen.tasks].reverse().find(item => item.type === 'task_output_read' && item.result.delivery_id === tool.input?.delivery_id && item.order < order)
         if (output.some(value => pageOf(value)) && !reader) fail('ACCEPTANCE_NATIVE_FULL_READER_MISSING', 'Cursor parent_readに先行する同taskの公式全文Readがありません')
+        for (const value of output) {
+          const page = pageOf(value)
+          if (page && (reader.result.digest !== page.digest || (reader.result.endpoint_id !== undefined && reader.result.endpoint_id !== page.endpoint_id))) fail('ACCEPTANCE_NATIVE_TASK_PAGE_MISMATCH', 'Cursor全文Readとparent_readのdigest/endpointが一致しません')
+        }
         addPages(seen, output, { order, session: expectedConversationId, turn_id: turn, id: entry.id, native_task_id: reader?.task_id ?? null, reader_id: reader?.reader_tool_use_id ?? null, reader_order: reader?.order ?? null, source: 'cursor parent_read MCP result (postToolUse hook)' })
       }
     }

@@ -8,7 +8,7 @@ import { readBackgroundJsonl, parseCursorNativeTranscript, parseGrokNativeUpdate
 const cid = 'native-conversation', deliveryId = '11111111-1111-1111-1111-111111111111', digest = 'a'.repeat(64)
 const jl = rows => Buffer.from(rows.map(row => JSON.stringify(row)).join('\n') + '\n')
 const rendered = body => `[Peertable room=room from=worker to=all seq=4]\n本文: ${body}\n[配送ID=${deliveryId} digest=${digest}]`
-const background = body => ({ schema: 'peertable.parent-background-result.v1', delivery_id: deliveryId, digest, ...(body !== undefined ? { text: rendered(body) } : {}) })
+const background = body => ({ schema: 'peertable.parent-background-result.v1', endpoint_id: 'endpoint', delivery_id: deliveryId, digest, ...(body !== undefined ? { text: rendered(body) } : {}) })
 const cursorFile = body => Buffer.from(`---\npid: 42\ncommand: node /package/skill/scripts/parent-receive.mjs\nstatus: succeeded\n---\n${JSON.stringify(background(body))}\n\n---\nexit_code: 0\n---\n`)
 const cursorFixture = ({ body = '日本語\n  原文\t ', repeat = false, duplicate = false, pendingRead = false } = {}) => {
   const paths = ['/native/terminals/42.txt', '/native/terminals/43.txt'], files = new Map(paths.map(path => [path, cursorFile(body)])), hooks = [], rows = []
@@ -111,6 +111,24 @@ test('Cursor previewと公式長文page回収は一配送として関連付け�
   const seen = parseCursorNativeTranscript({ ...fixture, transcript: jl(rows) })
   assert.equal(seen.deliveries.length, 1); assert.equal(seen.deliveries[0].preview, true)
   assert.deepEqual(seen.pages.map(item => item.page), pages)
+})
+
+const cursorPageFixture = value => {
+  const fixture = cursorFixture({ body: 'a' }), rows = readBackgroundJsonl(fixture.transcript).rows.map(item => item.row)
+  const args = { delivery_id: deliveryId, endpoint_id: 'endpoint' }
+  rows.push({ role: 'assistant', message: { content: [{ type: 'tool_use', name: 'CallDynamicTool', input: { namespace: 'peertable_parent', toolName: 'parent_read', arguments: args } }] } })
+  fixture.hooks.push({ event: { conversation_id: cid, generation_id: 'actual-turn', hook_event_name: 'postToolUse', tool_name: 'MCP:parent_read', tool_input: args, tool_use_id: 'parent-page', tool_output: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify({ schema: 'peertable.parent-read-result.v1', page: value }) }] }) } })
+  return { ...fixture, transcript: jl(rows) }
+}
+
+test('Cursor同配送IDでも全文Readとpageのdigestが異なれば拒否', () => {
+  const value = { ...page('a', 0, 1, true), digest: 'b'.repeat(64) }
+  assert.throws(() => parseCursorNativeTranscript(cursorPageFixture(value)), { code: 'ACCEPTANCE_NATIVE_TASK_PAGE_MISMATCH' })
+})
+
+test('Cursor同配送IDでも全文Readとpageのendpointが異なれば拒否', () => {
+  const value = { ...page('a', 0, 1, true), endpoint_id: 'other-endpoint' }
+  assert.throws(() => parseCursorNativeTranscript(cursorPageFixture(value)), { code: 'ACCEPTANCE_NATIVE_TASK_PAGE_MISMATCH' })
 })
 
 // 外部保存データの再観測はparserの受入で、過去の製品成績の新規作成ではない。
