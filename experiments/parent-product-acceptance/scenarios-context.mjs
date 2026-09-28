@@ -137,6 +137,16 @@ export function nativeReceiveToolAllowed(use, registrations, session) {
   })
 }
 
+// 受信taskの全量readerも受信維持の一部。実task/readの相関がないRead等は許可しない。
+export function nativeReceiveReaderAllowed(use, registrations, tasks, session) {
+  const read = tasks.find(task => task.reader_tool_use_id === use.id && task.session === session && task.result?.schema === 'peertable.parent-background-result.v1')
+  if (!read || (use.session ?? use.parent_session) !== session) return false
+  const registration = registrations.find(item => item.owner_verified === true && item.parent_session === session && item.native_task.id === String(read.task_id ?? read.id) && item.endpoint_id === read.result.endpoint_id)
+  if (!registration || !registration.native_task.process_identity?.started || !registration.waiter_owner.started) return false
+  if (registration.native_task.input?.name === 'Shell') return use.name === 'Read' && use.input?.path === read.output_file && !Object.hasOwn(use.input, 'offset') && !Object.hasOwn(use.input, 'limit')
+  return registration.native_task.input?.name === 'run_terminal_command' && use.name === 'get_command_or_subagent_output' && isDeepStrictEqual(use.input, { task_ids: [registration.native_task.id] })
+}
+
 export async function createScenarioContext(options) {
   const { meta, spool, api, observe, submit, file, pkg, projectDir, privateDir, proxy, bin, nativeActions = {}, screen } = options
   const importInstalled = name => import(pathToFileURL(join(pkg, 'skill/scripts', name)).href)
@@ -182,7 +192,7 @@ export async function createScenarioContext(options) {
     const record = recordFor(posted), receipt = await receiptFor(posted)
     let deliveries = seen.deliveries
     const preview = deliveries.find(item => item.delivery_id === record.delivery_id && item.preview)
-    const pages = nativeReadPages(targetMeta.harness, target.file, record.delivery_id)
+    const pages = ['cursor', 'grok'].includes(targetMeta.harness) ? (seen.pages ?? []).filter(item => item.page.delivery_id === record.delivery_id) : nativeReadPages(targetMeta.harness, target.file, record.delivery_id)
     if (preview || pages.length) {
       const assembled = assembleNativePages(pages)
       if (!assembled || pages.some(item => item.page.endpoint_id !== target.spool.id)) fail('ACCEPTANCE_NATIVE_WHOLE_BODY_MISSING', `${scope.scenario}: parent_read最終page/endpointが不一致です`)
@@ -305,7 +315,7 @@ export async function createScenarioContext(options) {
   actions.tools_observe = async (_, scope) => {
     const mode = scope.scenario === 'no_tools' ? 'none' : 'parent_only', before = faultState.get(`${scope.runId}:policy:${mode}`)
     const used = observe().toolUses.filter(item => item.order > before.order && item.name !== 'output')
-    if (mode === 'none' ? used.length : used.some(item => !/parent_(?:join|read|leave)/u.test(item.name) && !nativeReceiveToolAllowed(item, nativeRegistrations, meta.parent_session))) fail('ACCEPTANCE_TOOL_POLICY_VIOLATED', JSON.stringify(used.map(item => item.name)))
+    if (mode === 'none' ? used.length : used.some(item => !/parent_(?:join|read|leave)/u.test(item.name) && !nativeReceiveToolAllowed(item, nativeRegistrations, meta.parent_session) && !nativeReceiveReaderAllowed(item, nativeRegistrations, observe().tasks ?? [], meta.parent_session))) fail('ACCEPTANCE_TOOL_POLICY_VIOLATED', JSON.stringify(used.map(item => item.name)))
     const noTools = mode === 'none' ? await Promise.all(pending.filter(item => item.scope.runId === scope.runId && item.allowRetained).map(async item => { const target = targetFor(item.posted); return noToolsReception({ posted: item.posted, record: recordFor(item.posted), receipt: await receiptFor(item.posted), seen: target.observe(), session: target.meta.parent_session, runtime: target.spool.read().runtime }) })) : []
     return result(scope, mode === 'none' ? 'no_tools_or_explicit_rearm' : 'no_external_tools', 'harness_transcript', { tools: used, native_registrations: nativeRegistrations, runtime: spool.read().runtime, no_tools_states: noTools.map(item => item.state) })
   }
@@ -342,7 +352,7 @@ export async function createScenarioContext(options) {
       const records = posted.map(item => recordFor(item)).filter(Boolean)
       return records.find(item => item.state === 'sending' && item.claim.offset > 0 && item.claim.offset < item.event.body.length && item.receipt === null)
     }, 120000, 50)
-    const pages = nativeReadPages(meta.harness, file, sample.delivery_id)
+    const pages = ['cursor', 'grok'].includes(meta.harness) ? (observe().pages ?? []).filter(item => item.page.delivery_id === sample.delivery_id) : nativeReadPages(meta.harness, file, sample.delivery_id)
     if (!pages.length || pages.at(-1).page.complete) fail('ACCEPTANCE_BURST_INTERMEDIATE_PAGE_MISSING', '未読状態に相関する実tool途中pageがありません')
     return result(scope, 'unread_until_last_page', 'harness_transcript', { delivery_id: sample.delivery_id, offset: sample.claim.offset, receipt: sample.receipt, native_page_count: pages.length })
   }

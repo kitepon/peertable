@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { scenarios as inventory } from '../../scripts/parent-delivery-acceptance.mjs'
 import { scenarioNames, scenarioPlan, runScenario, validateBoundary, validateNativeCheck } from './scenarios.mjs'
-import { createScenarioProxy, nativeReadPages, assembleNativePages, noToolsReception, codexTurns, assertCodexBusy, nativeReceiveToolAllowed } from './scenarios-context.mjs'
+import { createScenarioProxy, nativeReadPages, assembleNativePages, noToolsReception, codexTurns, assertCodexBusy, nativeReceiveToolAllowed, nativeReceiveReaderAllowed } from './scenarios-context.mjs'
 
 const check = () => ({ run_id: 'run', scenario: 'package', status: 'passed', body_equal: true, count: 1, nonce: 'unique', harness: 'claude', original: { room: 'room', from: 'probe', to: 'bell', seq: 1, body: '日本語 & 字面&gt;' }, received: { room: 'room', from: 'probe', to: 'bell', seq: 1, body: '日本語 & 字面&gt;' }, delivery: { session: 'session', turn_id: 'turn', order: 2 }, reply: { session: 'session', turn_id: 'turn2', order: 3, text: 'unique' }, receipt: { result: 'delivered', receipt_revision: 1 } })
 const checkScope = { runId: 'run', scenario: 'package', session: 'session' }
@@ -138,4 +138,18 @@ test('受信維持Shellは完成済み入力・実task ID・PID・所有相関�
   assert.equal(nativeReceiveToolAllowed({ ...use, output: { shell_id: 'other-task', pid: 20 } }, [registration], 's'), false)
   assert.equal(nativeReceiveToolAllowed({ ...use, session: 'other-session' }, [registration], 's'), false)
   assert.equal(nativeReceiveToolAllowed(use, [{ ...registration, owner_verified: false }], 's'), false)
+})
+
+test('全量readerは製品の実taskと公式Read/get出力の相関がある時だけ許可する', () => {
+  const registration = { parent_session: 's', endpoint_id: 'endpoint', owner_verified: true, waiter_owner: { pid: 10, started: 'waiter' }, native_task: { id: 'task', process_identity: { pid: 20, started: 'task' }, input: { name: 'Shell' } } }
+  const task = { id: 'task', reader_tool_use_id: 'read', session: 's', output_file: '/own/task.txt', result: { schema: 'peertable.parent-background-result.v1', endpoint_id: 'endpoint' } }
+  const read = { id: 'read', name: 'Read', session: 's', input: { path: '/own/task.txt' } }
+  assert.equal(nativeReceiveReaderAllowed(read, [registration], [task], 's'), true)
+  assert.equal(nativeReceiveReaderAllowed({ ...read, input: { path: '/other/task.txt' } }, [registration], [task], 's'), false)
+  assert.equal(nativeReceiveReaderAllowed({ ...read, input: { ...read.input, limit: 1 } }, [registration], [task], 's'), false)
+  assert.equal(nativeReceiveReaderAllowed(read, [registration], [{ ...task, id: 'foreign' }], 's'), false)
+  registration.native_task.input.name = 'run_terminal_command'
+  const get = { ...read, name: 'get_command_or_subagent_output', input: { task_ids: ['task'] } }
+  assert.equal(nativeReceiveReaderAllowed(get, [registration], [task], 's'), true)
+  assert.equal(nativeReceiveReaderAllowed({ ...get, input: { ...get.input, timeout_ms: 1 } }, [registration], [task], 's'), false)
 })

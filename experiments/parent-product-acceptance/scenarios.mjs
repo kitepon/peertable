@@ -18,7 +18,7 @@ export const receiverBoundaries = {
 }
 
 // 文字数上限は導入物のPAGE_CHARSをcontextから受け取る。上限をrunnerに複製しない。
-export function scenarioPlan(name, { pageChars } = {}) {
+export function scenarioPlan(name, { pageChars, harness = 'claude' } = {}) {
   const plans = {
     busy: [native('work_start', 'work_running'), send(), native('work_finish', 'work_continued')],
     final_race: [native('final_arm', 'final_boundary_armed'), send('終了境界'), native('final_observe', 'final_no_loss_duplicate')],
@@ -29,7 +29,7 @@ export function scenarioPlan(name, { pageChars } = {}) {
     original: [send('日本語・引用・改行', { body: `日本語😀\n「引用」 'q' "double" <tag a="1"> & 字面&gt;\n\\path\\改行\r\n末尾\n` }), send('長文全量', { long: true }), native('pages_observe', 'whole_body_recovered')],
     burst: [native('burst_start', 'burst_above_page_limit', { count: 4 }), native('burst_observe', 'unread_until_last_page'), native('burst_finish', 'burst_seq_whole_body')],
     source_reconnect: [native('source_disconnect', 'http_sse_disconnected'), send('切断中', { defer: true }), native('source_reconnect', 'http_sse_catchup'), native('pending_recover', 'native_delivery'), send('再接続後'), native('sequence_observe', 'seq_order')],
-    process_recovery: [native('receiver_suspend', 'own_receiver_suspended'), send('ready保持', { defer: true }), native('receiver_restart', 'ready_inherited'), native('pending_recover', 'native_delivery'), native('sending_interrupt', 'sending_unknown_no_resend'), native('submitted_restart', 'submitted_not_resubmitted'), send('復旧後')],
+    process_recovery: [native('receiver_suspend', harness === 'codex' ? 'own_receiver_suspension_armed' : 'own_receiver_suspended'), send('ready保持', { defer: true }), native('receiver_restart', 'ready_inherited'), native('pending_recover', 'native_delivery'), native('sending_interrupt', 'sending_unknown_no_resend'), native('submitted_restart', 'submitted_not_resubmitted'), send('復旧後')],
     claim_race: [native('claim_race_arm', 'own_claim_competitors'), send('claim競合'), native('claim_race_observe', 'single_claim_output')],
     output_interruption: [native('output_interrupt_arm', 'own_output_boundary_armed'), send('中断対象', { defer: true }), native('output_interrupt', 'claim_output_unknown_preserved'), native('output_unknown_observe', 'unknown_not_resent'), send('中断後別本文')],
     receipt_retry: [native('receipt_fail_arm', 'own_receipt_http_failure'), send('receipt失敗', { defer: true }), native('receipt_failure_observe', 'native_output_receipt_pending'), native('receipt_restore', 'receipt_only_recovered'), native('pending_recover', 'native_delivery'), native('receipt_retry_observe', 'output_once_receipt_revision')],
@@ -74,7 +74,7 @@ export function validateNativeCheck(check, { scenario, runId, session }) {
 export async function runScenario(name, context) {
   const { harness, session, pageChars, runId = randomUUID() } = context
   if (!receiverBoundaries[harness]) fail('ACCEPTANCE_HARNESS_UNSUPPORTED', harness)
-  const plan = scenarioPlan(name, { pageChars })
+  const plan = scenarioPlan(name, { pageChars, harness })
   const missing = [...new Set(plan.map(item => item.action))].filter(action => typeof context.actions?.[action] !== 'function')
   if (missing.length) fail('ACCEPTANCE_SCENARIO_ADAPTER_MISSING', `${harness}/${name}: ${missing.join(', ')}`)
   const checks = [], observations = [], trace = [], nonces = new Set()
