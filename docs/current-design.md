@@ -11,6 +11,7 @@ Peertableは単独cloneで次を所有する。
 - roomサーバー、セッションクライアント、読み取り専用Web UI
 - スキルinstall、明示projectへのsetup・resume・teardown、席・bridge・生成物のライフサイクル
 - source、schema、state、診断、着席配置snapshot
+- 親MCPと公式hookの接続、親の受信登録・購読・原文spool
 - npm release、room本番release、rollback、製品CI
 
 dotagentsは任意の工場統合とhost配線を統括するが、Peertableの製品判断や既定挙動は制御しない。LatticeとAitermも隣接製品であり、Peertableは公開入口だけを利用し、内部stateを複製・直書きしない。
@@ -46,7 +47,7 @@ claimはroomへの`[claim] task-id`投稿で成立する。append-only logの先
 
 ## 5. 配送と状態
 
-roomへの保存と席のTUIへの配達は別の事実である。message投稿は`room_saved`と宛先別`delivery`を返す。`delivered`を記録できるのは、wakeup bridgeが実際の投入成立をreceiptした時だけである。
+roomへの保存と席のTUIへの配達は別の事実である。message投稿は`room_saved`と宛先別`delivery`を返す。`delivered`を記録できるのは、通常席のwakeup bridgeまたは親の公式受信口が実際の受付・出力成立をreceiptした時だけである。
 
 member状態はroomサーバーが、登録情報、seat-status、bridge health、更新時刻から計算する。各clientや親が独自に状態を推測して第二の台帳を持たない。
 
@@ -56,15 +57,28 @@ member状態はroomサーバーが、登録情報、seat-status、bridge health�
 
 Web UIのメンバーカードは**オーナー意匠**である（裁定 2026-08-30）: 表記は名前＋状態の丸＋**役割**だけ、状態の文字ラベルは置かない、カード幅は名前行までとし下段は省略表示する。役割は「他のメンバーが誰に何を頼むかを判断する」ための静的表記であり、mission・現在作業で置き換えない（missionはクリック時の詳細面だけに出す）。missionの語義は「フェーズ・campaign全体での席の担い」であり、現在作業・待機状態を書く欄ではない（現在作業はroom発言からの機械導出が別に担う。裁定 2026-08-30）。この意匠の変更はオーナー裁定必須であり、AIの改善判断で触らない——2026-08-30にmissionチップが役割表記を無断で上書きし、オーナー設計を破壊した実被弾がこの条文の由来である。
 
+### 親の公式受信口
+
+親の`delivery.kind`は`parent_receiver`とし、通常席のwakeup bridgeから除外する。親は現在の実会話から`parent_join`で登録し、`parent_read`で原文を回収し、`parent_leave`で受信登録を閉じる。親宛DM、親を含む複数人宛、all全件を配送する。親自身の発言と他席間DMは対象外である。
+
+Peertableは原文spoolと受信cursor、Claudeの公式asyncRewake、Codexの公式queueと同期hook、Cursorの公式hookとnative背景Shell、Grokのnative背景完了と公開出力回収を所有する。ユーザー領域の`~/.peertable/parent-receivers/`は接続・実会話相関・共有slotを、projectの`.team/parent-delivery/`は配送本文と進行を持つ。room台帳は宛先別receiptと親のhealthの正本である。
+
+耳疎通の`verified`と現在の受信継続は別に確認する。runtimeは`armed`、`rearm_pending`、`stopped`、`failed`を区別し、Cursor/Grokはreceiptの完成済みnative tool入力を登録して次の受信を維持する。故障は宛先別receipt、health、診断へ原因code付きで出す。旧parent_watchは移行診断の対象である。
+
+受付不明は`unknown`として原文と受付証拠を保持し、自動再送しない。Codexのqueue受付ID・時刻は後続receiptでも保持する。長文は同じ配送ID・digestへ束縛した継続tokenで最後まで読み、最後の出力完了までackしない。
+
+このcampaignの製品実機受入・公開は未完了。[親配送計画](plan_parent-native-delivery.md)と[実機受入目録](../rag/parent-delivery/product-acceptance.json)の全必須面が成立するまで公開判定を行わない。
+
 ## 6. ライフサイクルと実行基盤
 
 setup、resume、teardownはそれぞれ一回の製品入口で必要な順序を完結させる。利用AIへbridge停止、更新、再起動、ready確認の順序選択を委ねない。
 
 - global npm installは検出したAIのスキル配置を更新する。再実行入口は`peertable install`。所有するPeertableリンクだけを管理し、共有AI設定本文や他製品の設定を変更しない。installからprojectの再構築を行わない。
+- 親の接続は`peertable connect --target claude|codex|grok|cursor`が所有する。Peertable専用MCP・公式hookだけを管理し、他製品の設定・承認・順序を保持する。設定追加だけで実会話への受信成立としない。
 - setupは明示projectの生成物、接続、bridge起動、ready確認までを持つ。再実行時は既存roomと議題を保ってresumeへ進む。席の追加は`peertable launch`がroom登録と実ターン開始まで確認する。
 - 着任指示の成立まで、その席への通常通知はpendingに保持する。初回指示と参加通知の配達順序はPeertableが所有し、起動中断の記録は再着席前の退席処理で解除する。
 - resumeはPeertable所有の生成物とroom MCPを現行treeへ同期してから席を復帰する。
-- teardownはwakeup、seat-status、alarmの3 bridgeを停止してから生成物を片付ける。既定は席と足場だけを畳み、room履歴とLattice storeを残す。痕跡ゼロは明示した`--purge`だけで行う。
+- teardownは親の購読・背景受信とwakeup、seat-status、alarmの3 bridgeを停止してから生成物を片付ける。親のharness processは終了せず、親の配送履歴と受付不明の本文を保持する。既定は席と足場だけを畳み、room履歴とLattice storeを残す。痕跡ゼロは明示した`--purge`だけで行う。
 
 roomは解散状態（archive）を持つ。teardownがroomをarchiveし、公開一覧（`/api/rooms`のrooms欄とトップページ主一覧）から外す。個別ページとログAPIは読めるまま残る。次のsetupのmember登録が同じroomを自動で現役へ戻す。公開面に並ぶのは現役の卓だけである。
 
@@ -84,14 +98,10 @@ root MCPはblock単位の所有を記録し、既存の他のblockを保つ。Cu
 
 npm releaseとroom本番のrelease/rollbackはPeertable自身が所有する。公開対象commitは既定ブランチの祖先に限り、npmは公開済み版を書き換えずfix-forwardする。npmの緊急退避は既知正常versionを明示installし、復旧後に最新へ戻す。room本番の手順とrollbackは[deploy/README.md](../deploy/README.md)を正とする。
 
+親配送のrelease gateは`npm run verify:parent-delivery`で実機受入目録を照合する。OS・harness・実行面・scenarioの期待項目は`scripts/parent-delivery-acceptance.mjs`が生成し、未実施・fixtureによる代替・検証後のsource変更・digest/version不一致を拒否する。最終sourceと配布packageを実測してからtagを作り、公開後にregistry版の導入と配送を再確認する。
+
 CIはこのリポジトリ内の再利用workflowを製品正本とする。外部dotagentsリポジトリのworkflowを製品CIの実行本体にしない。
 
 ## 9. 文書寿命
 
 現行の入口は[文書地図](00_overview.md)である。`docs/`直下には現行契約と状態照合中のcampaignだけを置く。完了・supersededした計画と累積decision logは`docs/archive/`へ移し、通常の読書順から外す。固定consumerが実在する時だけ、旧pathへ短い互換案内を残す。
-
-## 親の公式受信口
-
-親のdelivery.kindはparent_receiverとし、通常席bridgeから除外する。Peertableは原文spoolと3親MCP tool、Claude asyncRewake、Codex公式queueと同期hook、Cursor公式hookとnative背景受信、Grok native背景完了と本文回収を所有する。allは親にも全件配送し、他席間DMと自発言は対象外。旧parent_watchは移行診断の対象。受付不明はunknownを保持し、queue受付ID・時刻を消さず本文を自動再送しない。
-
-このcampaignの製品実機受入・公開は未完了。[親配送計画](plan_parent-native-delivery.md)の12組合せと全必須実行面を受入するまで公開判定を行わない。
