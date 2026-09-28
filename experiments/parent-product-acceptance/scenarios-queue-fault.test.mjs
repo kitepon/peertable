@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync, renameSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { queueFaultRpcRows, queueProbeReceiverProof, queueProbeTimeoutProof, watchQueueProbeState, installQueueProbeFault, codexProbeJoinBoundary } from './scenarios-queue-fault.mjs'
+import { queueFaultRpcRows, queueProbeReceiverProof, queueProbeTimeoutProof, watchQueueProbeState, installQueueProbeFault, codexProbeJoinBoundary, observedQueueConnections } from './scenarios-queue-fault.mjs'
 import { codexFixtureEnvironmentArgs } from './scenarios-fixtures.mjs'
 
 const at = ms => new Date(ms).toISOString()
@@ -82,4 +82,16 @@ test('専用OS observerは起動前だけ、既存MCP環境参照を保持する
   assert.equal(argv[1], 'mcp_servers.peertable_parent.env_vars=["EXISTING","PEERTABLE_TOKEN_SOURCE_FILE","NODE_OPTIONS","PEERTABLE_ACCEPTANCE_QUEUE_PROBE"]')
   assert.throws(() => codexFixtureEnvironmentArgs('不明形式'), { code: 'ACCEPTANCE_CODEX_ENV_VARS_SCHEMA' })
   await assert.rejects(installQueueProbeFault({ harness: 'codex', pty: 'already' }, {}), { code: 'ACCEPTANCE_QUEUE_FAULT_PREPARATION_ORDER' })
+})
+
+test('短命queue接続はspawn時本人/claim/RPC応答/closeを直接相関する', () => {
+  const owner = { pid: 21, started: 'child-start' }, watcher = { pid: 20, started: 'watcher-start' }
+  const start = { ...connection, pid: watcher.pid, child_pid: owner.pid, child_owner: owner, queue_owner: watcher, owned_queue: true, endpoint_id: 'own', session: 'CID', queue_record: { delivery_id: 'delivery' } }
+  const events = [start, rpc('rpc_write_raw', { id: 2, method: 'thread/queue/add', params: { threadId: 'CID', clientUserMessageId: 'delivery' } }, watcher.pid, owner.pid), rpc('rpc_read_raw', { id: 2, result: { queuedSubmission: { id: 'queue-accepted' } } }, watcher.pid, owner.pid), { kind: 'official_connection_closed', at: at(151), pid: watcher.pid, child_pid: owner.pid, child_owner: owner, child_identity_alive: false }]
+  const query = { events, watcher, endpointId: 'own', session: 'CID' }
+  const found = observedQueueConnections(query)
+  assert.equal(found.length, 1); assert.equal(found[0].closed_at, at(151)); assert.equal(found[0].accepted[0].queued_submission_id, 'queue-accepted')
+  assert.equal(observedQueueConnections({ ...query, session: 'foreign' }).length, 0)
+  assert.equal(observedQueueConnections({ ...query, watcher: { ...watcher, started: 'reused' } }).length, 0)
+  events[3].child_owner = { ...owner, started: 'reused' }; assert.equal(observedQueueConnections(query)[0].closed_at, null)
 })

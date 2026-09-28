@@ -9,7 +9,7 @@ import { createScenarioContext, completedNativeInput, completedNativeInputProof 
 import { createNativeFixtureFactory, waitOwnedFixtureExit } from './scenarios-fixtures.mjs'
 import { sha256 } from './evidence.mjs'
 import { createBackgroundSurfaceAdapters, nativeInvocation } from './scenarios-surfaces.mjs'
-import { installQueueProbeFault, queueProbeReceiverProof, watchQueueProbeState, queueProbeTimeoutProof, codexProbeJoinBoundary } from './scenarios-queue-fault.mjs'
+import { installQueueProbeFault, queueProbeReceiverProof, watchQueueProbeState, queueProbeTimeoutProof, codexProbeJoinBoundary, installQueueConnectionObserver, observedQueueConnections } from './scenarios-queue-fault.mjs'
 
 const fail = (code, message, detail) => { throw Object.assign(new Error(message), { code, detail }) }
 const rows = file => existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)) : []
@@ -62,6 +62,18 @@ export function queueConnectionProof(connections, checks) {
     return { seq: check.original.seq, queued_submission_id: check.receipt.queued_submission_id, accepted_at: check.receipt.accepted_at, connection: candidates[0] }
   })
   if (bound.length < 2 || new Set(bound.map(item => `${item.connection.owner.pid}:${item.connection.owner.started}`)).size < 2) fail('ACCEPTANCE_QUEUE_CONNECTION_NOT_UPDATED', '複数配送で新しい公式接続を確認できません')
+  return bound
+}
+
+// 正式leaseは原queue/add応答と同じcloseを要求し、短命接続のsamplingへ戻らない。
+export function observedQueueConnectionProof(connections, checks) {
+  const bound = checks.map(check => {
+    const at = Date.parse(check.receipt.accepted_at)
+    const candidates = connections.filter(connection => connection.source === 'official_spawn_rpc_close' && connection.close_identity_alive === false && Date.parse(connection.first_seen_at) <= at && Date.parse(connection.closed_at) >= at && connection.delivery_id === check.delivery.delivery_id && connection.accepted.some(item => item.queued_submission_id === check.receipt.queued_submission_id))
+    if (candidates.length !== 1) fail('ACCEPTANCE_QUEUE_CONNECTION_UNBOUND', '公式queue受付/配送ID/close/本人消失が同じ接続1個へ確定しません')
+    return { seq: check.original.seq, queued_submission_id: check.receipt.queued_submission_id, accepted_at: check.receipt.accepted_at, connection: candidates[0] }
+  })
+  if (bound.length >= 2 && new Set(bound.map(item => `${item.connection.owner.pid}:${item.connection.owner.started}`)).size < 2) fail('ACCEPTANCE_QUEUE_CONNECTION_NOT_UPDATED', '複数配送で新しい公式接続を確認できません')
   return bound
 }
 
@@ -496,8 +508,9 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     const target = self(s), fixture = fixtureFor(target)
     let before = target.spool.read()
     if (s.harness === 'codex') {
-      const artifact = s.artifactFor(s, 'queue-connections'), monitor = monitorQueueConnections({ watcher: before.watcher, executable: before.caller.owner.executable, processIdentity: s.processIdentity, sameProcess: s.sameProcess, artifact })
-      state(s).lease = { before, fixture, monitor, artifact, armed_at: new Date().toISOString() }
+      if (!fixture.queueObserver) fail('ACCEPTANCE_QUEUE_OBSERVER_NOT_PREPARED', '正式leaseの起動前spawn observerがありません')
+      const artifact = s.artifactFor(s, 'queue-connections')
+      state(s).lease = { before, fixture, observer: fixture.queueObserver, artifact, armed_at: new Date().toISOString() }
       return s.result(s, 'own_finite_lease', 'os_process', { mechanism: '公式queue接続更新', watcher: before.watcher, process_artifact: artifact, product_connection_source: join(s.pkg, 'skill/scripts/parent-receivers/codex.mjs') })
     }
     const registered = await s.until('公式受信slotの実登録と存命owner', () => nativeLeaseRegistration(target, s), 120000, 100)
@@ -512,9 +525,10 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     if (s.harness === 'codex') {
       const first = confirmOne(s)
       const closed = await s.until('queue受付後の公式接続終了', () => {
-        if (lease.monitor.error) throw lease.monitor.error
-        const at = Date.parse(first.receipt.accepted_at)
-        return lease.monitor.connections.find(connection => Date.parse(connection.first_seen_at) <= at && connection.closed_at && Date.parse(connection.closed_at) >= at)
+        const connections = observedQueueConnections({ events: lease.observer.events(), watcher: lease.before.watcher, endpointId: target.spool.id, session: target.meta.parent_session })
+        writeFileSync(lease.artifact, JSON.stringify({ connections, rpc_os_events: lease.observer.events() }, null, 2))
+        if (!connections.some(connection => connection.closed_at && connection.delivery_id === first.delivery.delivery_id)) return null
+        return observedQueueConnectionProof(connections, [first])[0].connection
       }, 30000, 100)
       if (target.spool.read().endpoint_id !== lease.before.endpoint_id || target.spool.read().cursor < lease.before.cursor) fail('ACCEPTANCE_QUEUE_LEASE_IDENTITY', '接続終了がendpoint/cursorを失いました')
       return s.result(s, 'finite_lease_control_not_body', 'official_queue', { mechanism: '公式queue接続更新', connection: closed, queued_submission_id: first.receipt.queued_submission_id, accepted_at: first.receipt.accepted_at, queue_snapshot: await lease.fixture.rpc('thread/queue/list', { threadId: target.meta.parent_session, limit: 100 }), process_artifact: lease.artifact, control_notification_required: false })
@@ -743,13 +757,13 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     for (const held of paused.values()) if (s.sameProcess(held.owner)) await pauseOwnedReceiver(held.owner, { target: held.target, fixture: held.fixture, sameProcess: s.sameProcess, processDescendsFrom: s.processDescendsFrom, paused, resume: true })
     // queue撤去はこのfixtureが公式APIで作成したIDだけ。利用者/Aiterm実設定を削除しない。
     for (const entry of current?.foreign?.queue ?? []) await current.foreign.fixture.rpc('thread/queue/delete', { threadId: self(s).meta.parent_session, queuedSubmissionId: entry.id })
-    if (current?.lease?.monitor) {
-      const monitor = current.lease.monitor
-      for (const connection of monitor.connections) if (!connection.closed_at && !s.sameProcess(connection.owner)) connection.closed_at = new Date().toISOString()
-      await monitor.close()
+    if (current?.lease?.observer) {
+      const lease = current.lease, target = self(s)
+      await lease.observer.close()
+      const connections = observedQueueConnections({ events: lease.observer.events(), watcher: lease.before.watcher, endpointId: target.spool.id, session: target.meta.parent_session })
       if (s.checks.length >= 2) {
-        const proof = queueConnectionProof(monitor.connections, s.checks)
-        writeFileSync(current.lease.artifact, JSON.stringify({ connections: monitor.connections, native_acceptance_proof: proof }, null, 2))
+        const proof = observedQueueConnectionProof(connections, s.checks)
+        writeFileSync(lease.artifact, JSON.stringify({ connections, rpc_os_events: lease.observer.events(), native_acceptance_proof: proof }, null, 2))
       }
     }
     } catch (error) { errors.push(error) }
@@ -774,6 +788,7 @@ export async function createNativeScenarioContext(name, options) {
   let primary
   try {
     primary = await factory.open({ harness: options.sourceMeta.harness, name: `scenario-${name}-${randomUUID().slice(0, 8)}`, prepare: async fixture => {
+      if (name === 'lease' && fixture.harness === 'codex') fixture.queueObserver = await installQueueConnectionObserver(fixture, { pkg: options.pkg, artifact: label => join(fixture.directory, label) })
       if (['final_race', 'session_change', 'foreign_ownership'].includes(name) && !(name === 'session_change' && ['cursor', 'grok'].includes(fixture.harness))) await fixture.addObserver({ events: fixture.harness === 'cursor' ? ['stop', 'postToolUse'] : name === 'session_change' ? ['SessionStart'] : ['Stop', 'PostToolUse'] })
       if (fixture.harness === 'cursor' && ['idle', 'consecutive', 'no_external_tools'].includes(name)) await fixture.addObserver({ events: ['stop'] })
       if (name === 'binding_deadline' && fixture.harness !== 'codex') await fixture.addObserver({ events: [fixture.harness === 'cursor' ? 'preToolUse' : 'PreToolUse'], appendToProductFile: fixture.harness === 'grok' })

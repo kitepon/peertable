@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline'
 import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver, nativeLeaseRegistration, bindingContextProof, bindingToolError } from './scenarios-native.mjs'
+import { competitorProof, queueConnectionProof, observedQueueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver, nativeLeaseRegistration, bindingContextProof, bindingToolError } from './scenarios-native.mjs'
 import { processIdentity, sameProcess, processDescendsFrom } from '../../skill/scripts/parent-platform.mjs'
 import { scenarioPlan } from './scenarios.mjs'
 import { digest } from '../../skill/scripts/parent-delivery.mjs'
@@ -211,7 +211,7 @@ test('lease armのmodule path結合はendpoint再joinを呼ばず4harnessで文�
   const dir = mkdtempSync(join(tmpdir(), 'peertable-lease-path-')); t.after(() => rmSync(dir, { recursive: true, force: true }))
   const owner = processIdentity(process.pid)
   for (const harness of ['claude', 'codex', 'cursor', 'grok']) {
-    let rejoined = 0; const fixture = { harness, adapter: {}, join: async () => { rejoined++ } }
+    let rejoined = 0; const fixture = { harness, adapter: {}, queueObserver: { events: () => [], close: async () => {} }, join: async () => { rejoined++ } }
     const nativeName = harness === 'cursor' ? 'Shell' : 'run_terminal_command', input = { command: '専用登録入力' }
     const state = { state: 'verified', runtime: 'armed', endpoint_id: 'own', watcher: owner, caller: { owner }, waiter: { owner, native_task: { id: 'task', pid: owner.pid, process_identity: owner, input: { name: nativeName, input } } } }
     const target = { fixture, meta: { harness, parent_session: 'own' }, spool: { id: 'own', read: () => state }, observe: () => ({ toolUses: [{ name: nativeName, session: 'own', input, hook_input: harness === 'cursor' ? input : undefined, id: 'tool', turn_id: 'turn' }], tasks: [{ tool_use_id: 'tool', id: 'task', pid: owner.pid }] }) }
@@ -222,4 +222,16 @@ test('lease armのmodule path結合はendpoint再joinを呼ばず4harnessで文�
     assert.equal(result.product_connection_source ?? result.lease_source, join(process.cwd(), 'skill/scripts/parent-receivers', harness === 'codex' ? 'codex.mjs' : harness === 'claude' ? 'claude.mjs' : 'background.mjs'))
     await native.finalize(scope)
   }
+})
+
+// 原RPC/OS ledgerの照合単体。公式CLI配送とleaseの成立は実機で別に測る。
+test('lease接続証拠は公式queue応答と本人消失を要求し、sampling記録を合格へ使わない', () => {
+  const connection = (pid, delivery, queue, start, close) => ({ source: 'official_spawn_rpc_close', owner: { pid, started: String(pid) }, delivery_id: delivery, first_seen_at: new Date(start).toISOString(), closed_at: new Date(close).toISOString(), close_identity_alive: false, accepted: [{ queued_submission_id: queue }] })
+  const check = (seq, time) => ({ original: { seq }, delivery: { delivery_id: 'delivery-' + seq }, receipt: { queued_submission_id: 'queue-' + seq, accepted_at: new Date(time).toISOString() } })
+  const one = connection(1, 'delivery-1', 'queue-1', 100, 200), two = connection(2, 'delivery-2', 'queue-2', 250, 350)
+  assert.equal(observedQueueConnectionProof([one, two], [check(1, 150), check(2, 300)]).length, 2)
+  assert.throws(() => observedQueueConnectionProof([{ ...one, accepted: [] }], [check(1, 150)]), { code: 'ACCEPTANCE_QUEUE_CONNECTION_UNBOUND' })
+  assert.throws(() => observedQueueConnectionProof([{ ...one, source: 'os_process' }], [check(1, 150)]), { code: 'ACCEPTANCE_QUEUE_CONNECTION_UNBOUND' })
+  assert.throws(() => observedQueueConnectionProof([{ ...one, close_identity_alive: true }], [check(1, 150)]), { code: 'ACCEPTANCE_QUEUE_CONNECTION_UNBOUND' })
+  assert.throws(() => observedQueueConnectionProof([one, { ...two, owner: one.owner }], [check(1, 150), check(2, 300)]), { code: 'ACCEPTANCE_QUEUE_CONNECTION_NOT_UPDATED' })
 })

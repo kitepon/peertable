@@ -94,11 +94,14 @@ export function queueProbeTimeoutProof({ pause, observations, health }) {
   return measurement
 }
 
-export async function installQueueProbeFault(fixture, { pkg, artifact, holdMs = 35000 }) {
+export async function installQueueProbeFault(fixture, options) { return installQueueObserver(fixture, { ...options, pauseProbe: true }) }
+export async function installQueueConnectionObserver(fixture, options) { return installQueueObserver(fixture, { ...options, pauseProbe: false }) }
+
+async function installQueueObserver(fixture, { pkg, artifact, holdMs = 35000, pauseProbe }) {
   if (fixture.harness !== 'codex' || fixture.pty) fail('ACCEPTANCE_QUEUE_FAULT_PREPARATION_ORDER', '専用Codex起動前だけにOS故障observerを準備します')
-  if (process.platform === 'win32') fail('ACCEPTANCE_QUEUE_FAULT_OS_API_UNCONFIRMED', 'Windowsの所有childを停止/再開する公式OS APIはまだ実測していません')
+  if (pauseProbe && process.platform === 'win32') fail('ACCEPTANCE_QUEUE_FAULT_OS_API_UNCONFIRMED', 'Windowsの所有childを停止/再開する公式OS APIはまだ実測していません')
   const configFile = artifact('probe-fault-config'), logFile = artifact('probe-rpc-os.jsonl'), pauseFile = artifact('probe-suspended'), terminalFile = artifact('probe-terminal'), disarmedFile = artifact('probe-fault-disarmed')
-  const config = { pkg, project: fixture.project, hold_ms: holdMs, log_file: logFile, pause_file: pauseFile, terminal_file: terminalFile, disarmed_file: disarmedFile }
+  const config = { pkg, project: fixture.project, hold_ms: holdMs, pause_probe: pauseProbe, log_file: logFile, pause_file: pauseFile, terminal_file: terminalFile, disarmed_file: disarmedFile }
   writeFileSync(configFile, JSON.stringify(config, null, 2), { mode: 0o600 })
   fixture.processEnvironment = { NODE_OPTIONS: [process.env.NODE_OPTIONS, `--import=${pathToFileURL(fileURLToPath(import.meta.url)).href}`].filter(Boolean).join(' '), PEERTABLE_ACCEPTANCE_QUEUE_PROBE: configFile }
   const platform = await import(pathToFileURL(join(pkg, 'skill/scripts/parent-platform.mjs')).href)
@@ -120,6 +123,17 @@ export async function installQueueProbeFault(fixture, { pkg, artifact, holdMs = 
   }
 }
 
+// samplingを使わず、実spawn/queue応答/closeを同じ接続とspool claimへ結ぶ。
+export function observedQueueConnections({ events, watcher, endpointId, session }) {
+  const rpc = queueFaultRpcRows(events)
+  return events.filter(event => event.kind === 'official_connection_spawn' && event.owned_queue && sameIdentity(event.queue_owner, watcher) && event.endpoint_id === endpointId && event.session === session && event.child_owner?.started).map(event => {
+    const closed = events.find(row => row.kind === 'official_connection_closed' && row.pid === event.pid && sameIdentity(row.child_owner, event.child_owner) && row.at >= event.at)
+    const requests = rpc.filter(row => row.pid === event.pid && row.child_pid === event.child_pid && row.kind === 'rpc_write_raw' && row.row.method === 'thread/queue/add' && row.row.params?.threadId === session && row.row.params.clientUserMessageId === event.queue_record.delivery_id)
+    const accepted = requests.flatMap(request => rpc.filter(row => row.pid === event.pid && row.child_pid === event.child_pid && row.kind === 'rpc_read_raw' && row.row.id === request.row.id && row.row.result?.queuedSubmission?.id).map(response => ({ request, response, queued_submission_id: response.row.result.queuedSubmission.id })))
+    return { owner: event.child_owner, watcher: event.queue_owner, endpoint_id: endpointId, session, delivery_id: event.queue_record.delivery_id, first_seen_at: event.at, closed_at: closed?.at ?? null, close_identity_alive: closed?.child_identity_alive ?? null, accepted, source: 'official_spawn_rpc_close', raw_spawn: event, raw_close: closed ?? null }
+  })
+}
+
 // --importは自己projectの子だけに継承する。spawn/RPCの引数・戻り値・callbackは一切変更しない。
 const configPath = process.env.PEERTABLE_ACCEPTANCE_QUEUE_PROBE
 if (configPath && existsSync(configPath)) {
@@ -132,19 +146,23 @@ if (configPath && existsSync(configPath)) {
     cp.spawn = function (...args) {
       const [executable, argv, options] = args
       const official = options?.cwd === config.project && Array.isArray(argv) && JSON.stringify(argv) === JSON.stringify(['app-server', '--listen', 'stdio://'])
-      let proof = null
-      if (official && !suspended && !existsSync(config.disarmed_file) && process.argv[1] === join(config.pkg, 'skill/scripts/parent-watch.mjs')) {
+      let proof = null, queueProof = null
+      if (official && process.argv[1] === join(config.pkg, 'skill/scripts/parent-watch.mjs')) {
         const spool = projectEndpoints(config.project).find(item => item.id === process.argv.at(-1)), saved = spool?.read(), watcher = platform.processIdentity(process.pid)
-        const probe = saved?.records.find(record => record.event.type === 'parent_probe' && record.state === 'sending' && sameIdentity(record.claim?.owner, watcher))
-        if (saved?.harness === 'codex' && sameIdentity(saved.watcher, watcher) && platform.sameProcess(saved.caller.owner) && saved.state !== 'verified' && probe && realpathSync(executable) === realpathSync(saved.caller.owner.executable)) proof = { endpoint_id: spool.id, project: config.project, watcher: saved.watcher, caller: saved.caller, probe: probe, spool_before: saved, executable, spawn_argv: argv }
+        const record = saved?.records.find(record => record.state === 'sending' && record.claim?.channel === 'codex_queue' && sameIdentity(record.claim.owner, watcher))
+        if (saved?.harness === 'codex' && sameIdentity(saved.watcher, watcher) && platform.sameProcess(saved.caller.owner) && record && realpathSync(executable) === realpathSync(saved.caller.owner.executable)) {
+          queueProof = { endpoint_id: spool.id, session: saved.caller.conversation, queue_owner: watcher, queue_record: record }
+          if (config.pause_probe && !suspended && !existsSync(config.disarmed_file) && saved.state !== 'verified' && record.event.type === 'parent_probe') proof = { endpoint_id: spool.id, project: config.project, watcher: saved.watcher, caller: saved.caller, probe: record, spool_before: saved, executable, spawn_argv: argv }
+        }
       }
       const child = Reflect.apply(original, this, args)
       if (!official) return child
-      log('official_connection_spawn', { child_pid: child.pid, executable, spawn_argv: argv, owned_fault: Boolean(proof) })
+      const childOwner = config.pause_probe ? null : platform.processIdentity(child.pid)
+      log('official_connection_spawn', { child_pid: child.pid, child_owner: childOwner, executable, spawn_argv: argv, owned_fault: Boolean(proof), owned_queue: Boolean(queueProof), ...queueProof })
       const write = child.stdin.write
       child.stdin.write = function (...writeArgs) { log('rpc_write_raw', { child_pid: child.pid, raw: Buffer.isBuffer(writeArgs[0]) ? writeArgs[0].toString('utf8') : writeArgs[0] }); return Reflect.apply(write, this, writeArgs) }
       child.stdout.on('data', chunk => log('rpc_read_raw', { child_pid: child.pid, raw: chunk.toString('utf8') }))
-      child.on('close', (code, signal) => log('official_connection_closed', { child_pid: child.pid, code, signal }))
+      child.on('close', (code, signal) => log('official_connection_closed', { child_pid: child.pid, child_owner: childOwner, code, signal, child_identity_alive: childOwner ? Boolean(platform.sameProcess(childOwner)) : null }))
       if (proof) {
         process.kill(child.pid, 'SIGSTOP'); suspended = true
         const owner = platform.processIdentity(child.pid)
