@@ -1,0 +1,40 @@
+{
+  "schema": "peertable.parent-release-checkpoint.v1",
+  "source_commit": "a07630d2feae01945cc1a34dcd2247676c95ecd0",
+  "runtime_digest": "661241c94f40e184eb0c7d9af295d50cc7ff4e143ecd1d0661703316517e904f",
+  "package_version": "0.8.63",
+  "product_ci": {
+    "url": "https://github.com/kitepon/peertable/actions/runs/36452495551",
+    "head_commit": "a07630d2feae01945cc1a34dcd2247676c95ecd0",
+    "native_os": { "darwin": "passed", "linux": "passed", "win32": "passed" }
+  },
+  "documentation_tests": { "passed": 6, "failed": 0, "skipped": 0 },
+  "package": {
+    "filename": "peertable-0.8.63.tgz",
+    "sha256": "fcf17b36fc9522d5c9b72637f1a20803c1e1ba677e209848a8c5ddf918084300",
+    "pack_dry_run_files": 128,
+    "install_source": "npm_pack_tarball",
+    "install_scope": "fixture_local_prefix",
+    "diagnostics": "ready",
+    "registry_install": false
+  },
+  "product_acceptance": {
+    "manifest": "rag/parent-delivery/product-acceptance.json",
+    "status": "failed",
+    "expected": 525,
+    "records": 0,
+    "errors": { "PARENT_ACCEPTANCE_MISSING": 525 },
+    "checkpoint_counts_as_live_acceptance": false
+  },
+  "cursor_desktop_observation": {
+    "status": "blocked",
+    "message_sent": false,
+    "tool": "jev-desktop",
+    "observation_errors": ["ACTION_NOT_SUPPORTED", "AMBIGUOUS_TARGET", "CoreGraphics window inventory timed out"],
+    "permission_checks": { "accessibility": "granted", "screen_recording": "granted" },
+    "test_window_closed": true,
+    "test_server_alive_after_cleanup": false
+  },
+  "published": false,
+  "production_deployed": false
+}

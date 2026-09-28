@@ -360,7 +360,7 @@ fixtureは実process境界・競合・障害を速く再現する。実機は親
 
 ## 11. 外部観測待ちからの再開
 
-配布候補のsource・版・CI・package確認と、GUI観測の停止位置は[チェックポイント](../rag/parent-delivery/release-candidate-checkpoint.json)を参照する。 このチェックポイントの候補`a07630d`は、その後に親終了時の索引撤去を修理したため最終候補ではない。実装文書と配布候補はcommit・push済みだが、実機受入manifestが未達のため、mainへの着地・tag・npm公開・registry導入・本番反映は残る。
+配布候補のsource・版・CI・package確認と、GUI観測の停止位置は[チェックポイント](../rag/parent-delivery/release-candidate-checkpoint.json)を参照する。 旧候補`a07630d`の[過去チェックポイント](../rag/parent-delivery/snapshots/a07630d-release-checkpoint.json)は保存済みで、後続の修理後候補とは分ける。実装文書と配布候補はcommit・push済みだが、実機受入manifestが未達のため、mainへの着地・tag・npm公開・registry導入・本番反映は残る。
 
 GUI試験はJevによる画面取得で停止した。必要なOS権限は確認済みで、専用Cursor projectへの試験メッセージは未送信である。オーナーへGUI試験に限る操作ツール変更を確認中。許可前に代替操作へ進まず、専用の試験ウィンドウとサーバーは閉じている。
 
@@ -385,3 +385,5 @@ Codexの公式hook本文はXMLのtextとして記録される。[一次仕様の
 24 scenarioの手順と実操作moduleをCLI runnerへ接続した。既存contextの11 scenarioに加え、残る13 scenarioには新しい専用project・公式session・spoolを持つnative fixtureを接続する。各操作の実境界が未確認ならtyped errorで止まり、合格を作らない。Cursor/Grokのtask取消・idle・会話切替の観測は仕上げ中である。長時間leaseは通常の製品期限を実際に跨ぎ、期限短縮や時刻書換えで代用しない。修理後の最終sourceを固定してから正式試験を開始する。
 
 試験controllerは製品sourceとは別のcommitと全実行moduleのSHA-256を記録し、実行fileを指定commitのGit blobへ照合する。Windowsの試験起動もPowerShell 7へ統一した。設定解除のJSON比較で空eventを除く補正を廃止し、Codexの信頼entryは専用project配下だけを解除する。自己停止は親終了からの実時間を記録し、30秒を超えた停止やrunnerによる止血を合格にしない。
+
+修理後の配布候補は[最新チェックポイント](../rag/parent-delivery/release-candidate-checkpoint.json)に固定した。macOS・Linux・Windows nativeの製品CIは全て合格し、131 fileのpackに新しい起動adapterが含まれ、試験・RAG・ツールの一時状態は含まれないことを確認した。packをmacOSの専用local prefixへnpmで導入し、版・runtime digestと診断readyを確認した。正式受入は修理後の再測定中で、旧候補の6件を新しいmanifestに数えない。registry版のglobal installと本番反映はまだ実施していない。

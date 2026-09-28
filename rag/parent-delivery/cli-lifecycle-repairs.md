@@ -16,7 +16,7 @@ Codex 0.158.0の通常CLIで、`/quit`時にMCP Jobとその子watcherが一緒�
 
 `parent-process.mjs`はWindowsでPowerShell 7のstdinから起動specを渡し、WMI bootstrapが同じwatcherを起動する。env値をargvへ載せない。stdin、cwd、log、watcherの状態遷移は他OSと共通。壊れた外部応答と起動失敗はtyped errorにし、別経路で起動しない。
 
-Windows実診断ではCodex/MCP終了後もwatcherが存命で、`/quit`から12.6秒で自分で終了し索引を撤去した。診断は`startEndpoint`を呼ぶ専用MCPとCursor種別のspoolを使い、Codex queue配送を避けた。正式`parent_join`試験でも525件の合格でもない。生timeline/eventsは診断scratchpadへ保存し、私物processは終了した。起動契約と失敗経路の3 focused試験はmacOS・Linux・Windowsで合格した。LinuxはNode 24.14.1で実行し、専用の一時fileとprocessを回収した。
+Windows実診断ではCodex/MCP終了後もwatcherが存命で、終了要求の送信開始から12.6秒で自分で終了し索引を撤去した。診断は`startEndpoint`を呼ぶ専用MCPとCursor種別のspoolを使い、Codex queue配送を避けた。正式`parent_join`試験でも525件の合格でもない。生timeline/eventsは診断scratchpadへ保存し、私物processは終了した。起動契約と失敗経路の3 focused試験はmacOS・Linux・Windowsで合格した。LinuxはNode 24.14.1で実行し、専用の一時fileとprocessを回収した。
 
 ## 設定解除
 
@@ -31,3 +31,5 @@ runnerの空eventを除く意味比較は廃止した。Codexの試験dir信頼�
 Claude/Cursor/Grokの事前hookはharness・名前・入力digest・PID開始identityを照合する。照合記録の30秒期限切れは`PARENT_BIND_TIMEOUT`として本人不一致と区別し、endpoint作成前に失敗する。Codexは公式thread metadataと実processを直接照合する。
 
 旧候補`43348b8`の6 audienceと18本文の独立監査は、元のsource・本文・判定を保った[snapshot](snapshots/43348b8/rag/parent-delivery/product-acceptance.json)へ保存した。現行manifestに算入しない。修理後の配布sourceと試験controllerをcommitへ固定し、Git blob・digest・版を照合して全必須面の正式試験を行う。main着地、npm公開、registry導入、本番反映はまだ行っていない。
+
+Cursorのidle確認には[公式stop仕様](https://cursor.com/docs/hooks#stop)のcompletedと、同じconversation/generationを持つ専用observerを使う。公式資料とCLI実装の確認は、実機発火の合格と分ける。observerの起動時PID・開始identityを保存し、その本人の終了を照合する。親が先に終了した故障試験でも、停止時の所有証拠で私物receiverを再開・回収する。
