@@ -17,8 +17,7 @@ const waitFor = async condition => {
 }
 test('SSEが正常で新seqが無くてもreceipt retry/孤児回収/probe期限/healthが進む', async t => {
   const project = mkdtempSync(join(tmpdir(), 'peertable-source-runtime-'))
-  t.after(() => rmSync(project, { recursive: true, force: true }))
-  let spool, eventsConnected = false, receiptFailures = 0
+  let spool, watcher, eventsConnected = false, receiptFailures = 0
   const receipts = [], health = [], streams = new Set()
   const server = createServer(async (req, res) => {
     let raw = ''; for await (const chunk of req) raw += chunk
@@ -39,17 +38,26 @@ test('SSEが正常で新seqが無くてもreceipt retry/孤児回収/probe期限
     }
     res.statusCode = 404; json({ error: 'fixture_path_unknown' })
   })
+  t.after(async () => {
+    // 購読processを先に止める。SSEを先に閉じると再接続がserver.closeと競合する。
+    if (watcher?.exitCode === null) { watcher.kill(); await once(watcher, 'exit') }
+    for (const stream of streams) stream.destroy()
+    await new Promise(resolve => server.close(resolve))
+    rmSync(project, { recursive: true, force: true })
+  })
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
-  t.after(async () => { for (const stream of streams) stream.destroy(); await new Promise(resolve => server.close(resolve)) })
   const base = `http://127.0.0.1:${server.address().port}`, credential = join(project, 'credential')
   writeFileSync(credential, 'fixture', { mode: 0o600 })
   spool = ParentSpool.create(project, { name: 'parent', room: 'fixture', server_url: base, credential, start_seq: 0, harness: 'cursor', caller: { conversation: 'fixture', owner: processIdentity(process.pid) } })
   atomicJson(join(project, '.team', 'setup-state.json'), { room: 'fixture', server_url: base })
-  spool.update({ state: 'verified', runtime: 'armed' })
-  const watcher = spawn(process.execPath, [fileURLToPath(new URL('./parent-watch.mjs', import.meta.url)), project, 'parent', '--deliver', spool.id], { stdio: ['ignore', 'ignore', 'pipe'] })
+  spool.update({ state: 'receiving', runtime: 'rearm_pending', created_at: '2000-01-01T00:00:00.000Z' })
+  watcher = spawn(process.execPath, [fileURLToPath(new URL('./parent-watch.mjs', import.meta.url)), project, 'parent', '--deliver', spool.id], { stdio: ['ignore', 'ignore', 'pipe'] })
   let stderr = ''; watcher.stderr.on('data', chunk => { stderr += chunk })
-  t.after(async () => { if (watcher.exitCode === null) { watcher.kill(); await once(watcher, 'exit') } })
   await waitFor(() => eventsConnected && health.length > 0)
+  assert.equal(spool.read().state, 'receiving')
+  assert.equal(spool.read().error_code, undefined)
+  assert.ok(health.some(item => item.state === 'rearm_pending'))
+  spool.update({ state: 'verified', runtime: 'armed' })
   const sent = spool.saveEvent({ type: 'parent_dm', seq: 1, body: '出力済み本文' }), claimed = spool.claim('fixture', sent.delivery_id)
   spool.finish(claimed)
   receiptFailures = 1

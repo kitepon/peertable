@@ -1,6 +1,6 @@
 # 親セッションへの配送設計
 
-状態: 実装着手。allは親にも全件配送する。12組合せの実機受入は未実施。
+状態: 実装・CLI実測中。allは親にも全件配送する。12組合せの全条件の実機受入は未達。
 
 ## 1. 依頼と完了条件
 
@@ -94,7 +94,7 @@ MCP requestと公式hookから実際の親を識別する。AIにthread IDやcon
 
 `parent_join`のreceiptは`schema: peertable.parent-join-result.v1`、`endpoint_id`、`state: binding_pending | receiving | verified | failed`、`harness`、`wait_process`、`error_code`を持つ。Cursor/Grokの結果返却後にhookで束縛する場合、最初のreceiptは`binding_pending`であり、成功やreadyと書かない。hookが返却結果の`endpoint_id`を実会話へ束縛した時点で`receiving`へ進み、購読とprobe配送を開始する。probeがその会話の受信経路を通った後に`verified`へ進める。`verified`を配送開始の条件にしてprobeを止める循環を作らない。進行は製品が続け、オーナーに手順の再実行を求めない。
 
-事前hookで実会話を照合できたjoinは、返却時点で`receiving`にできる。事後hookで初めて束縛するjoinだけが`binding_pending`を返す。旧watcherからの移行中は、束縛とreceiver準備が済んでも旧本文出力の停止が確認されるまで新watchとprobeを開始しない。束縛待ち・probe待ちはそれぞれ30秒を初期の明示期限とし、前者は`PARENT_BIND_TIMEOUT`、後者は`PARENT_PROBE_TIMEOUT`で失敗を残す。実機の開始時間を第1工程で測り、必要なら根拠を残して期限を調整する。無期限のpendingにしない。
+事前hookで実会話を照合できたjoinは、返却時点で`receiving`にできる。事後hookで初めて束縛するjoinだけが`binding_pending`を返す。旧watcherからの移行中は、束縛とreceiver準備が済んでも旧本文出力の停止が確認されるまで新watchとprobeを開始しない。束縛待ち・probe待ちはそれぞれ30秒を初期の明示期限とし、前者は`PARENT_BIND_TIMEOUT`、後者は`PARENT_PROBE_TIMEOUT`で失敗を残す。probe期限はnative receiverの準備確認後から計る。背景toolの登録前は、必要な登録入力を伴う`rearm_pending`として表示する。Windows Grokの実測ではモデルが登録toolを呼ぶまで数分かかり、join時点から計る旧実装の期限とは目的が異なった。遅れて確認された現在のprobeは、そのprobeの期限エラーだけを解除する。実機の開始時間を第1工程で測り、必要なら根拠を残して期限を調整する。無期限のpendingにしない。
 
 登録の疎通実績と現在の受信継続は別に記録する。runtimeの受信状態は`armed | rearm_pending | stopped | failed`とし、背景taskが終わって次の待機が登録されるまでを`rearm_pending`として診断へ出す。Cursor/Grokではnative背景toolの呼出しと結果を公式hookで相関し、task ID・受信process identity・endpointを保存する。receiptを生成しただけでは`armed`にしない。再登録までに届いた本文は配送記録へ保持し、次の待機が拾う。永久に再登録されない状態を健康と表示しない。
 

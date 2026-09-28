@@ -9,6 +9,13 @@ import { randomUUID } from 'node:crypto'
 export const parentHome = () => join(homedir(), '.peertable', 'parent-receivers')
 export const failure = (code, detail = code) => Object.assign(new Error(detail), { code })
 export const readJson = file => JSON.parse(readFileSync(file, 'utf8'))
+export async function readHookEvent(stream) {
+  // Windows CursorはBOMを付ける。stream decoderでUTF-8の文字途中の分割も扱う。
+  stream.setEncoding('utf8')
+  let raw = ''; for await (const chunk of stream) raw += chunk
+  try { return JSON.parse(raw.replace(/^\uFEFF/u, '')) }
+  catch { throw failure('PARENT_HOOK_INPUT_INVALID', '公式hookのJSON入力を解析できません') }
+}
 export function atomicJson(file, value) {
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
   const temp = `${file}.${process.pid}.${randomUUID()}.tmp`
@@ -91,19 +98,36 @@ export function processHarness(identity) {
   const executable = basename(identity.executable ?? '').toLowerCase()
   const native = { 'claude': 'claude', 'claude.exe': 'claude', 'codex': 'codex', 'codex.exe': 'codex', 'grok': 'grok', 'grok.exe': 'grok', 'cursor-agent': 'cursor', 'cursor.exe': 'cursor', 'cursor': 'cursor' }
   if (native[executable]) return native[executable]
+  if (/^grok-(?:macos|linux)-(?:aarch64|x86_64)$/u.test(executable)) return 'grok'
   if (executable !== 'node' && executable !== 'node.exe') return null
   // Node直下の実entryだけを読む。shell -cや後続引数に含まれる名前は本人の根拠にしない。
   const tokens = (identity.command ?? '').match(/"[^"]*"|'[^']*'|[^\s]+/gu) ?? []
-  const script = tokens[1]?.replace(/^['"]|['"]$/gu, '') ?? ''
+  let index = 1
+  // 公式CursorはNodeの--use-system-caをentryの前に置く。評価式やpreloadはmain scriptとして扱わない。
+  const flags = new Set(['--use-system-ca', '--no-warnings', '--no-deprecation', '--enable-source-maps'])
+  const valued = new Set(['--require', '-r', '--import', '--conditions', '-C'])
+  for (; index < tokens.length; index++) {
+    const token = tokens[index]
+    if (token === '--') { index++; break }
+    if (flags.has(token)) continue
+    if (valued.has(token)) { index++; continue }
+    if ([...valued].some(flag => token.startsWith(`${flag}=`))) continue
+    if (token.startsWith('-')) return null
+    break
+  }
+  const script = tokens[index]?.replace(/^['"]|['"]$/gu, '') ?? ''
   if (/@anthropic-ai[/\\]claude-code[/\\](?:cli\.js|bin[/\\]claude)/u.test(script)) return 'claude'
   if (/@openai[/\\]codex[/\\]bin[/\\]codex\.js$/u.test(script)) return 'codex'
   if (/cursor-agent[/\\]versions[/\\][^/\\]+[/\\](?:index\.js|cursor-agent)$/u.test(script)) return 'cursor'
   if (/grok-cli[/\\](?:dist[/\\])?(?:index|cli)\.js$/u.test(script)) return 'grok'
   return null
 }
-export function harnessProcess(harness, start = process.ppid) {
-  for (let pid = start, depth = 0; pid > 0 && depth < 24; depth++) {
-    const identity = processIdentity(pid)
+export function harnessProcess(harness, start = process.ppid, { identify = processIdentity } = {}) {
+  for (let pid = start, depth = 0; pid > 1 && depth < 24; depth++) {
+    // system/initの親を本人候補にしない。Windowsのsystem processにExecutablePathが無くても所有者探索は終了できる。
+    const ancestry = identify(pid, { includeExecutable: false })
+    if (!ancestry || ancestry.parent <= 0 || ancestry.parent === pid) return null
+    const identity = identify(pid)
     if (!identity) return null
     const detected = processHarness(identity)
     if (detected) return detected === harness ? identity : null

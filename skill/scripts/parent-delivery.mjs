@@ -13,6 +13,10 @@ const canonical = value => value === null || typeof value !== 'object' ? JSON.st
 export const digest = value => createHash('sha256').update(typeof value === 'string' ? value : canonical(value)).digest('hex')
 export const PAGE_CHARS = 12000
 export const eventKinds = ['parent_dm', 'parent_room_update', 'parent_lattice_error', 'parent_lattice_update', 'parent_table_stalled', 'parent_watch_snapshot', 'watch_error', 'parent_probe']
+export function armParentState(state) {
+  state.runtime = 'armed'
+  if (state.state !== 'verified' && state.probe_deadline == null) state.probe_deadline = Date.now() + 30000
+}
 
 export function withParentLock(root, fn) {
     const owner = processIdentity(process.pid)
@@ -190,7 +194,13 @@ export class ParentSpool {
       if (queued_submission_id) saved.queued_submission_id = queued_submission_id
       if (accepted_at) saved.accepted_at = accepted_at
       saved.receipt = this.receiptFor(state, saved, saved.state === 'submitted' ? 'delivered' : saved.state, saved.state === 'unknown' && outcome === 'submitted' ? saved.receipt?.reason ?? reason : reason)
-      if (saved.event.type === 'parent_probe' && saved.state === 'submitted') state.state = 'verified'
+      if (saved.event.type === 'parent_probe' && saved.state === 'submitted') {
+        state.state = 'verified'
+        if (state.error_code === 'PARENT_PROBE_TIMEOUT') {
+          state.error_code = null
+          if (state.runtime === 'failed') state.runtime = state.harness === 'codex' || sameProcess(state.waiter?.owner) ? 'armed' : 'rearm_pending'
+        }
+      }
       return saved
   }
   token(record, offset) {
@@ -280,7 +290,8 @@ export class ParentSpool {
       const waiter = { waiter_id: receipt?.waiter_id ?? randomUUID(), generation: receipt?.generation ?? randomUUID(), channel, owner: processIdentity(process.pid), started_at: now(), native_task: null }
       if (receipt && (state.wait_receipt?.waiter_id !== receipt.waiter_id || state.wait_receipt?.generation !== receipt.generation)) throw failure('PARENT_WAITER_MISMATCH')
       state.waiter = waiter
-      state.runtime = channel === 'claude_asyncRewake' ? 'armed' : 'rearm_pending'
+      if (channel === 'claude_asyncRewake') armParentState(state)
+      else state.runtime = 'rearm_pending'
       return waiter
     })
   }

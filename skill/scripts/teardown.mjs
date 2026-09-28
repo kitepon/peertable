@@ -91,7 +91,8 @@ export async function teardownProject(options, dependencies = {}) {
         cpSync(join(team, 'parent-delivery'), archive, { recursive: true })
         return archive
       })
-      for (const harness of new Set(parentEndpoints.map(endpoint => endpoint.read().harness))) {
+      // project用hookだけで参加した親はglobal接続を所有しない。共通設定の解除は自身のconnect記録がある親だけ。
+      for (const harness of new Set(parentEndpoints.filter(endpoint => endpoint.read().global_connection === true).map(endpoint => endpoint.read().harness))) {
         const shared = endpointsFor().some(endpoint => endpoint.project !== project && endpoint.read().harness === harness && endpoint.read().runtime !== 'stopped')
         if (!shared) await step(`親接続 ${harness} の解除`, () => connectParent(harness, { remove: true }))
       }

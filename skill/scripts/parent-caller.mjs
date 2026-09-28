@@ -1,5 +1,5 @@
 // 公式hookとMCP要求を一度だけ消費する相関。時刻やcwdでは本人を選ばない。
-import { existsSync, renameSync, readdirSync } from 'node:fs'
+import { existsSync, renameSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { realpathSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
@@ -63,6 +63,27 @@ export function consumeCaller(harness, request, requestId) {
 export function registerEndpoint(spool) {
   atomicJson(join(parentHome(), 'endpoints', `${spool.id}.json`), { endpoint_id: spool.id, project: realpathSync(spool.project) })
 }
+export function forgetEndpoint(spool, { home = parentHome(), activeEndpoints = endpointsFor } = {}) {
+  const state = spool.read(), file = join(home, 'endpoints', `${spool.id}.json`)
+  if (existsSync(file)) {
+    const index = readJson(file)
+    if (index.endpoint_id !== spool.id || realpathSync(index.project) !== realpathSync(spool.project)) throw failure('PARENT_ENDPOINT_INDEX_MISMATCH')
+    rmSync(file)
+  }
+  const sameCaller = caller => caller?.harness === state.caller.harness && caller.conversation === state.caller.conversation && caller.owner?.pid === state.caller.owner.pid && caller.owner?.started === state.caller.owner.started
+  if (activeEndpoints({ caller: state.caller }).some(other => other.read().runtime !== 'stopped' && sameCaller(other.read().caller))) return
+  for (const kind of ['contexts', 'join-results']) {
+    const dir = join(home, kind)
+    if (!existsSync(dir)) continue
+    for (const name of readdirSync(dir).filter(name => /\.json(?:\.consumed-[0-9a-f-]{36})?$/u.test(name))) {
+      const entry = readJson(join(dir, name)), caller = kind === 'contexts' ? entry : entry.caller
+      if (!sameCaller(caller)) continue
+      // 生きた親の未消費要求は別roomのjoinかもしれない。消費済みか終了した親の相関だけを撤去する。
+      if (kind === 'contexts' && !name.includes('.consumed-') && sameProcess(caller.owner)) continue
+      rmSync(join(dir, name))
+    }
+  }
+}
 export function endpointById(id) {
   if (!UUID.test(id ?? '')) throw failure('PARENT_ENDPOINT_INVALID')
   const file = join(parentHome(), 'endpoints', `${id}.json`)
@@ -83,16 +104,12 @@ export function verifyCaller(spool, caller) {
 export function saveJoinResult(caller, result) {
   atomicJson(join(parentHome(), 'join-results', `${digest([caller.harness, caller.conversation, caller.use])}.json`), { caller, result })
 }
-export function verifyJoinHook(harness, event, owner) {
+export function verifyJoinHook(harness, event, owner, { resolveEndpoint = endpointById } = {}) {
   const fullName = harness === 'grok' ? event.toolName : event.tool_name
   if (!/parent_join$/u.test(fullName ?? '')) return null
   if (harness === 'cursor' && event.hook_event_name === 'afterMCPExecution' && event.mcp_server_name !== 'peertable_parent') return null
   const conversation = harness === 'grok' ? event.sessionId : harness === 'cursor' ? event.conversation_id : event.session_id
-  const use = harness === 'grok' ? event.toolUseId : event.tool_use_id
-  if (!conversation || !use) throw failure('PARENT_CALLER_UNBOUND')
-  const file = join(parentHome(), 'join-results', `${digest([harness, conversation, use])}.json`)
-  if (!existsSync(file)) throw failure('PARENT_JOIN_RESULT_UNBOUND')
-  const saved = readJson(file)
+  if (!conversation) throw failure('PARENT_CALLER_UNBOUND')
   const find = value => {
     if (typeof value === 'string') { try { return find(JSON.parse(value)) } catch { return null } }
     if (!value || typeof value !== 'object') return null
@@ -101,6 +118,17 @@ export function verifyJoinHook(harness, event, owner) {
     return null
   }
   const result = find(harness === 'grok' ? event.toolResult : event.tool_output ?? event.tool_response ?? event.result_json)
+  // CursorのafterMCPExecutionにはtool_use_idがない。MCPが返したendpointと実会話・PID開始identityで照合する。
+  if (harness === 'cursor' && event.hook_event_name === 'afterMCPExecution') {
+    if (!result) throw failure('PARENT_JOIN_RESULT_MISMATCH')
+    verifyCaller(resolveEndpoint(result.endpoint_id), { harness, conversation, owner })
+    return result
+  }
+  const use = harness === 'grok' ? event.toolUseId : event.tool_use_id
+  if (!use) throw failure('PARENT_CALLER_UNBOUND')
+  const file = join(parentHome(), 'join-results', `${digest([harness, conversation, use])}.json`)
+  if (!existsSync(file)) throw failure('PARENT_JOIN_RESULT_UNBOUND')
+  const saved = readJson(file)
   if (!result || result.endpoint_id !== saved.result.endpoint_id || owner.pid !== saved.caller.owner.pid || owner.started !== saved.caller.owner.started) throw failure('PARENT_JOIN_RESULT_MISMATCH')
   return result
 }

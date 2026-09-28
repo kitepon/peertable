@@ -32,6 +32,13 @@ export function hookEntries(target) {
   return Object.fromEntries(['PreToolUse', 'PostToolUse', 'SessionEnd'].map(name => [name, [{ hooks: [{ ...native, timeout: 20 }] }]]))
 }
 const commandIdentity = entry => JSON.stringify([entry.command, entry.args ?? []])
+export function ownsParentConnection(target, { home = parentHome() } = {}) {
+  const file = join(home, 'connections', `${target}.json`)
+  if (!existsSync(file)) return false
+  const record = readJson(file)
+  const commands = Object.values(hookEntries(target)).flatMap(groups => groups.flatMap(group => group.hooks ?? [group])).map(commandIdentity)
+  return record.status === 'registered' && commands.every(command => record.commands.includes(command))
+}
 export function mergeOwnedHooks(current, additions, ownedCommands) {
   const next = { ...current, hooks: { ...(current.hooks ?? {}) } }
   for (const name of new Set([...Object.keys(next.hooks), ...Object.keys(additions)])) {

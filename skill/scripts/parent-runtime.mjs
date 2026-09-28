@@ -7,7 +7,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { randomUUID } from 'node:crypto'
 import { ParentSpool } from './parent-delivery.mjs'
 import { atomicJson, readJson, processIdentity, sameProcess, failure, posixQuote, psQuote } from './parent-platform.mjs'
-import { registerEndpoint, endpointsFor } from './parent-caller.mjs'
+import { registerEndpoint, endpointsFor, forgetEndpoint } from './parent-caller.mjs'
+import { ownsParentConnection } from './parent-connect.mjs'
 import { RoomApi } from './room-api.mjs'
 import { runtimeDigest } from './runtime-digest.mjs'
 
@@ -58,6 +59,7 @@ export async function stopEndpoint(spool) {
       record.state = 'failed'; record.error_code = 'PARENT_SESSION_CLOSED'; record.receipt = spool.receiptFor(saved, record, 'failed', record.error_code)
     }
   })
+  forgetEndpoint(spool)
 }
 export async function migrateLegacy(spool, api) {
   const file = join(spool.project, '.team', 'parent-watch.json')
@@ -125,16 +127,19 @@ export async function joinEndpoint(projectArg, name, caller, display = {}) {
   const previous = projectEndpoints(project).find(spool => { const saved = spool.read(); return saved.name === name && saved.caller.harness === caller.harness && saved.caller.conversation === caller.conversation })
   let spool = previous
   if (spool) {
-    if (!Number.isSafeInteger(spool.read().cursor)) throw failure('PARENT_CURSOR_MISSING')
-    spool.update({ caller, runtime: spool.read().waiter && sameProcess(spool.read().waiter.owner) ? spool.read().runtime : 'rearm_pending', state: spool.read().state === 'verified' ? 'verified' : 'receiving', probe_deadline: Date.now() + 30000, error_code: null })
+    const saved = spool.read()
+    if (!Number.isSafeInteger(saved.cursor)) throw failure('PARENT_CURSOR_MISSING')
+    const runtime = caller.harness === 'codex' ? 'armed' : saved.waiter && sameProcess(saved.waiter.owner) ? saved.runtime : 'rearm_pending'
+    spool.update({ caller, runtime, state: saved.state === 'verified' ? 'verified' : 'receiving', probe_deadline: runtime === 'armed' && saved.state !== 'verified' ? Date.now() + 30000 : null, error_code: null })
   } else {
     for (const old of projectEndpoints(project).filter(item => item.read().name === name && item.read().runtime !== 'stopped')) await stopEndpoint(old)
     const summary = await api.request('summary')
     if (!Number.isSafeInteger(summary.seq)) throw failure('PARENT_START_SEQ_INVALID')
     spool = ParentSpool.create(project, { name, harness: caller.harness, caller, room: setup.room, server_url: setup.server_url.replace(/\/$/u, ''), start_seq: summary.seq, credential: api.credential })
-    registerEndpoint(spool)
     if ((await api.members()).some(member => member.name === name && member.delivery?.kind === 'parent_watch')) await migrateLegacy(spool, api)
   }
+  registerEndpoint(spool)
+  spool.update({ global_connection: ownsParentConnection(caller.harness) })
   await api.request('members', { method: 'POST', body: parentMemberRecord(name, caller.harness, spool.id, display) })
   actorEnvironment(project, name)
   await startEndpoint(spool)

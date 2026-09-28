@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { sameProcess, processIdentity, processDescendsFrom, shellCommand, hookCommand, windowsArgumentList, failure } from '../parent-platform.mjs'
-import { PAGE_CHARS, renderDelivery } from '../parent-delivery.mjs'
+import { PAGE_CHARS, renderDelivery, armParentState } from '../parent-delivery.mjs'
 
 const entry = fileURLToPath(new URL('../parent-receive.mjs', import.meta.url))
 export function waitReceipt(spool) {
@@ -45,7 +45,7 @@ export async function bindNativeWait(spool, event, harness) {
     const taskOwner = processIdentity(pid)
     if (!taskOwner || !processDescendsFrom(waiter.owner, taskOwner)) throw failure('PARENT_NATIVE_WAIT_PROCESS_MISMATCH')
     waiter.native_task = { id: String(task), pid, process_identity: taskOwner, input: expected, at: new Date().toISOString() }
-    saved.runtime = 'armed'
+    armParentState(saved)
   })
   await spool.publishHealth()
   return true

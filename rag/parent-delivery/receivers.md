@@ -1,6 +1,6 @@
 # 親セッションの公式受信口
 
-取得日: 2026-09-28。確度: Aitermのsource確認、公式仕様と配布資料の確認。Peertable新方式の実機成立は未検証。
+取得日: 2026-09-28。確度: Aitermのsource確認、公式仕様と配布資料の確認、固定snapshotのCLI実測。Peertable全対応の製品受入は未達。
 
 この文書は調査記録である。実装要求は[配送設計](../../docs/plan_parent-native-delivery.md)を正本とする。Aitermの内部state・hook・moduleは参照資料だけであり、Peertableの実行時依存にしない。
 
@@ -36,7 +36,11 @@
 
 親の独立probeではClaude Stop継続とlease更新、Codex BUSY/STOP/IDLEが3 OSで成立した。sourceは[Claude Stop](../../experiments/parent-claude-stop-native/README.md)、[Claude lease](../../experiments/parent-claude-lease-native/README.md)、[Codex queue](../../experiments/parent-codex-queue-native/README.md)へ保存した。各`phase1-*.json`はprivate HOMEや認証設定を除いた投影である。Stop macOSとlease Linux/Windowsの投影はnative hook全文の原本回収が未完了であり、`native_hook_evidence_complete:false`を保持する。親の実測成立と、公開投影の完全性を同じ判定にしない。
 
-親の実製品snapshotではClaude 3 OSとCodex macOSのALL/DM/MULTIが同じ会話へ届き、room deliveredまで観測された。必要fieldだけを`product-snapshot-*.json`へ保存した。各runtime_digestは試験時の固定snapshotであり、最新実装と異なる。525件の最終受入へ算入しない。Cursor/Grokの6 CLIは親の別QAが継続中。GUI Cursorはactivation失敗でprompt未送信のため配送合否を出さない。Codex Desktop/IDE等のlive受入も残る。
+親の実製品snapshotではClaude 3 OSとCodex macOSのALL/DM/MULTIが同じ会話へ届き、room deliveredまで観測された。Codex Linux/Windowsではidle・queue空からALL/DM/MULTI/LONGの各新turnを確認した。40,097 UTF-16単位・104,151 UTF-8 bytesの長文は、送信本文・room応答・spool・公式queue本文をhash投影前に完全一致で照合した。長文のStop完了は新projectのLONG 1通だけで補足した。macOSのUTF-8修理後LONG 1通も原文一致と同会話の起床を確認した。必要fieldだけを`product-snapshot-*.json`へ保存した。各runtime_digestは試験時の固定snapshotであり、最新実装と異なる。525件の最終受入へ算入しない。
+
+Cursor/Grokの6 CLIは旧snapshotで5件失敗、Windows Grokの無改造試験は未実施だった。診断copyの受信は製品成功へ算入しない。実processと公式hook入力を確認し、CursorのNode起動option、Grok native名、system祖先の境界、Windows CursorのBOM/UTF-8、afterMCPExecutionのendpoint相関、native receiver準備後のprobe期限を製品へ修理した。hook以外のtoken設定差はfixtureの隔離であり、標準credentialの取得先を変更しない。修理版で6 CLIを再測する。GUI試験は送信前に中止し、専用Cursorウィンドウ・room serverを閉じた。Codex Desktop/IDEとCursor Desktopのlive受入は残る。
+
+親停止時は所有endpoint索引と終了したcallerの相関を撤去し、spool本文は保持する。共有する同会話のendpointと、生きた親の未消費要求を消さない。project用hookだけで参加した親はglobal接続を所有しない。teardownで共通hookを解除する対象は、自身のpackageのconnect記録に一致する親だけとする。
 
 親のCodex idle長文試験でroomのUTF-8断片decodeによる原文破損が再現された。`readBody`をNodeのstream decoderへ修理し、[HTTP UTF-8再現](../../experiments/http-utf8-body-repro.mjs)で40,097 UTF-16文字の日本語・emojiの途中を5箇所で分割する。POST応答、GET messages、保存logの完全一致をfocused検証する。修理前のnative idle長文試験は失敗証拠として親が保管し、成功へ変更しない。
 

@@ -1,16 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, mkdirSync, linkSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, mkdirSync, linkSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawn } from 'node:child_process'
+import { Readable } from 'node:stream'
 import { randomUUID } from 'node:crypto'
-import { ParentSpool, PAGE_CHARS, renderDelivery, digest } from './parent-delivery.mjs'
-import { processIdentity, processHarness, atomicJson } from './parent-platform.mjs'
+import { ParentSpool, PAGE_CHARS, renderDelivery, digest, armParentState } from './parent-delivery.mjs'
+import { processIdentity, processHarness, harnessProcess, readHookEvent, atomicJson } from './parent-platform.mjs'
 import { queueCodex, codexHook, checkCodexReceiver } from './parent-receivers/codex.mjs'
-import { mergeOwnedHooks, tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, hookEntries } from './parent-connect.mjs'
+import { mergeOwnedHooks, tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, hookEntries, ownsParentConnection } from './parent-connect.mjs'
 import { cursorEvent } from './parent-receivers/cursor.mjs'
-import { clientHarness, hookContext } from './parent-caller.mjs'
+import { clientHarness, hookContext, verifyJoinHook, forgetEndpoint } from './parent-caller.mjs'
 const fixture = t => {
   const project = mkdtempSync(join(tmpdir(), 'peertable spool 日本語 '))
   t.after(() => rmSync(project, { recursive: true, force: true }))
@@ -144,6 +145,101 @@ test('未知clientとshell引数内のharness名を本人へ推測割当しな�
   assert.equal(processHarness({ executable: '/bin/zsh', command: 'zsh -c "codex app-server"' }), null)
   assert.equal(processHarness({ executable: '/usr/bin/node', command: 'node script.mjs claude /Cursor.app' }), null)
   assert.equal(processHarness({ executable: '/usr/bin/node', command: 'node /global/node_modules/@openai/codex/bin/codex.js app-server' }), 'codex')
+})
+
+test('CursorのNode optionとGrok公式native名を認識し、preloadや評価式を本人にしない', () => {
+  const node = process.execPath
+  const cursor = '/home/kite/.local/share/cursor-agent/versions/2026.09.26-dd393fe/index.js'
+  assert.equal(processHarness({ executable: node, command: `node --use-system-ca ${cursor} --model auto` }), 'cursor')
+  assert.equal(processHarness({ executable: node, command: `node --require ${cursor} script.mjs` }), null)
+  assert.equal(processHarness({ executable: node, command: `node --eval "${cursor}"` }), null)
+  assert.equal(processHarness({ executable: '/home/kite/.grok/downloads/grok-linux-x86_64', command: 'grok --always-approve' }), 'grok')
+  assert.equal(processHarness({ executable: '/home/kite/.grok/downloads/grok-macos-aarch64', command: 'grok' }), 'grok')
+  assert.equal(processHarness({ executable: '/tmp/grok-unknown-name', command: 'grok' }), null)
+})
+
+test('harness探索はPID 1とexecutableのないsystem祖先を照会しない', () => {
+  const calls = []
+  assert.equal(harnessProcess('grok', 2, { identify: (pid, options) => {
+    calls.push([pid, options?.includeExecutable !== false])
+    assert.notEqual(pid, 1)
+    return { pid, parent: 1, started: 'fixture', executable: '/bin/sh', command: 'sh' }
+  } }), null)
+  assert.deepEqual(calls, [[2, false], [2, true]])
+  assert.equal(harnessProcess('cursor', 4, { identify: (pid, options) => {
+    assert.equal(options?.includeExecutable, false)
+    return { pid, parent: 0, started: 'system', executable: null, command: null }
+  } }), null)
+})
+
+test('公式hookのBOMとUTF-8文字途中の分割を受け、壊れたJSONは明示失敗する', async () => {
+  const expected = { hook_event_name: 'preToolUse', conversation_id: '会話😀', tool_input: { body: '日本語\n「引用」😀' } }
+  const bytes = Buffer.from(`\uFEFF${JSON.stringify(expected)}`)
+  assert.deepEqual(await readHookEvent(Readable.from([...bytes].map(byte => Buffer.from([byte])))), expected)
+  await assert.rejects(readHookEvent(Readable.from([Buffer.from('{破損')])) , { code: 'PARENT_HOOK_INPUT_INVALID' })
+})
+
+test('Cursor afterMCPExecutionはtool_use_idなしでもendpointと実会話・開始identityを照合する', t => {
+  const spool = fixture(t), owner = processIdentity(process.pid)
+  spool.update({ caller: { harness: 'cursor', conversation: 'この会話', owner } })
+  const result = { schema: 'peertable.parent-join-result.v1', endpoint_id: spool.id }
+  const event = { hook_event_name: 'afterMCPExecution', conversation_id: 'この会話', mcp_server_name: 'peertable_parent', tool_name: 'parent_join', result_json: JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(result) }] }) }
+  const options = { resolveEndpoint: id => { assert.equal(id, spool.id); return spool } }
+  assert.deepEqual(verifyJoinHook('cursor', event, owner, options), result)
+  assert.throws(() => verifyJoinHook('cursor', { ...event, conversation_id: '別会話' }, owner, options), { code: 'PARENT_CALLER_MISMATCH' })
+  assert.throws(() => verifyJoinHook('cursor', event, { ...owner, started: '別開始' }, options), { code: 'PARENT_CALLER_MISMATCH' })
+  assert.equal(verifyJoinHook('cursor', { ...event, mcp_server_name: 'other' }, owner, options), null)
+})
+
+test('probe期限は受信準備から始め、確認済みprobeだけが自身の期限エラーを解除する', t => {
+  const spool = fixture(t)
+  spool.update({ created_at: '2000-01-01T00:00:00.000Z' })
+  spool.slot('grok_background')
+  assert.equal(spool.read().probe_deadline, undefined)
+  const before = Date.now()
+  spool.transact(armParentState)
+  assert.ok(spool.read().probe_deadline >= before + 30000)
+  const probe = spool.saveEvent({ type: 'parent_probe', event_id: 'probe', body: '疎通確認' })
+  const claimed = spool.claim('grok_background', probe.delivery_id)
+  spool.update({ state: 'failed', runtime: 'failed', error_code: 'PARENT_PROBE_TIMEOUT' })
+  spool.finish(claimed)
+  assert.equal(spool.read().state, 'verified')
+  assert.equal(spool.read().runtime, 'armed')
+  assert.equal(spool.read().error_code, null)
+  const other = spool.saveEvent(event(9)), record = spool.claim('grok_background', other.delivery_id)
+  spool.update({ error_code: 'PARENT_PROCESS_API_FAILED' }); spool.finish(record)
+  assert.equal(spool.read().error_code, 'PARENT_PROCESS_API_FAILED')
+})
+
+test('project hookの親は別packageのglobal接続を所有せず、解除済み接続も撤去しない', t => {
+  const spool = fixture(t), home = join(spool.project, 'receiver-home'), file = join(home, 'connections', 'cursor.json')
+  assert.equal(ownsParentConnection('cursor', { home }), false)
+  atomicJson(file, { status: 'registered', commands: ['他packageのhook'] })
+  assert.equal(ownsParentConnection('cursor', { home }), false)
+  const commands = Object.values(hookEntries('cursor')).flatMap(groups => groups.map(group => JSON.stringify([group.command, []])))
+  atomicJson(file, { status: 'registered', commands })
+  assert.equal(ownsParentConnection('cursor', { home }), true)
+  atomicJson(file, { status: 'removed', commands })
+  assert.equal(ownsParentConnection('cursor', { home }), false)
+})
+
+test('親の撤去は本文を保持し、共有会話・未消費要求・別の開始identityを消さない', t => {
+  const spool = fixture(t), home = join(spool.project, 'receiver-home'), index = join(home, 'endpoints', `${spool.id}.json`)
+  spool.saveEvent(event(1)); spool.update({ runtime: 'stopped' })
+  const caller = spool.read().caller, consumed = join(home, 'contexts', `own.json.consumed-${randomUUID()}`)
+  const pending = join(home, 'contexts', 'pending.json'), foreign = join(home, 'contexts', 'foreign.json'), joined = join(home, 'join-results', 'own.json')
+  atomicJson(index, { endpoint_id: spool.id, project: spool.project })
+  atomicJson(consumed, caller); atomicJson(pending, caller); atomicJson(foreign, { ...caller, owner: { ...caller.owner, started: '別の開始' } }); atomicJson(joined, { caller })
+  forgetEndpoint(spool, { home, activeEndpoints: () => [{ read: () => ({ runtime: 'armed', caller }) }] })
+  assert.equal(existsSync(index), false); assert.equal(existsSync(consumed), true)
+  forgetEndpoint(spool, { home, activeEndpoints: () => [] })
+  assert.equal(existsSync(consumed), false); assert.equal(existsSync(joined), false)
+  assert.equal(existsSync(pending), true); assert.equal(existsSync(foreign), true)
+  assert.equal(spool.read().records[0].event.body, event(1).body)
+  const stoppedCaller = { ...caller, owner: { ...caller.owner, started: '終了した開始' } }
+  spool.update({ caller: stoppedCaller }); atomicJson(pending, stoppedCaller)
+  forgetEndpoint(spool, { home, activeEndpoints: () => [] })
+  assert.equal(existsSync(pending), false); assert.equal(existsSync(foreign), true)
 })
 
 test('Claude agent_id付き会話は相関保存前に明示拒否する', () => {

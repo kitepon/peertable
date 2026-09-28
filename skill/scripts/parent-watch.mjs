@@ -371,7 +371,7 @@ async function maintainReceiver() {
     catch (error) { process.stderr.write(`${error.code}: ${error.message}\n`) }
     if (spool.read().harness === 'codex') while (await queueCodex(spool)) {}
     const status = spool.read()
-    if (status.state !== 'verified' && Date.now() > (status.probe_deadline ?? Date.parse(status.created_at) + 30000)) spool.update({ state: 'failed', runtime: 'failed', error_code: 'PARENT_PROBE_TIMEOUT' })
+    if (status.state !== 'verified' && status.probe_deadline != null && Date.now() > status.probe_deadline) spool.update({ state: 'failed', runtime: 'failed', error_code: 'PARENT_PROBE_TIMEOUT' })
     await spool.publishHealth()
   }
 }

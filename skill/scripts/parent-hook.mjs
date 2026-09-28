@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Peertable所有hook。互換読込みも実processのハーネスと照合して1 adapterだけ動かす。
 import { hookContext, endpointsFor, verifyJoinHook, assertClaudeParent } from './parent-caller.mjs'
-import { harnessProcess, failure } from './parent-platform.mjs'
+import { harnessProcess, failure, readHookEvent } from './parent-platform.mjs'
 import { claudeRewake } from './parent-receivers/claude.mjs'
 import { cursorEvent } from './parent-receivers/cursor.mjs'
 import { bindNativeWait } from './parent-receivers/background.mjs'
@@ -12,8 +12,7 @@ const harness = process.argv[2]
 const writeJson = value => new Promise((resolve, reject) => process.stdout.write(`${JSON.stringify(value)}\n`, error => error ? reject(error) : resolve()))
 const writeError = value => new Promise((resolve, reject) => process.stderr.write(`${value}\n`, error => error ? reject(error) : resolve()))
 try {
-  let raw = ''; for await (const chunk of process.stdin) raw += chunk
-  const event = JSON.parse(raw)
+  const event = await readHookEvent(process.stdin)
   if (harness === 'claude') assertClaudeParent(event)
   const eventName = harness === 'grok' ? event.hook_event_name : event.hook_event_name
   const pre = eventName === (harness === 'cursor' ? 'preToolUse' : 'PreToolUse')
