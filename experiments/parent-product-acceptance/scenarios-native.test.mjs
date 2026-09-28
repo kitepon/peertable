@@ -3,12 +3,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, execFileSync } from 'node:child_process'
 import { createInterface } from 'node:readline'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver, nativeLeaseRegistration } from './scenarios-native.mjs'
+import { competitorProof, queueConnectionProof, monitorQueueConnections, createNativeActions, productToolError, assertOwnedReceiver, assertOwnedResume, pauseOwnedReceiver, nativeLeaseRegistration, bindingContextProof } from './scenarios-native.mjs'
 import { processIdentity, sameProcess, processDescendsFrom } from '../../skill/scripts/parent-platform.mjs'
 import { scenarioPlan } from './scenarios.mjs'
+import { digest } from '../../skill/scripts/parent-delivery.mjs'
 
 const event = { session_id: 'own', turn_id: 'turn', hook_event_name: 'PostToolUse', tool_use_id: 'tool' }
 const pair = (pid, value = event, stdout = '{}', code = 0) => [{ phase: 'started', pid, event: value }, { phase: 'completed', pid, event: value, stdout, code }]
@@ -139,4 +140,41 @@ test('lease開始はverified後の未登録期間を待ち、公式tool/task登�
   use.session = 'own'; task.pid = 999; assert.equal(nativeLeaseRegistration(target, options), null)
   current.state = 'failed'; current.error_code = '実製品error'
   assert.throws(() => nativeLeaseRegistration(target, options), { code: current.error_code })
+})
+
+
+test('束縛contextは実file原bytesと同会話/tool入力/PID開始identityで照合する', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'peertable-binding-context-')); t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const file = join(dir, 'context.json'), owner = processIdentity(process.pid), input = { name: '専用親', project: '/専用 project' }, event = { tool_use_id: 'official-use', tool_input: input }
+  const value = { harness: 'claude', conversation: 'own-CID', use: event.tool_use_id, name: 'parent_join', input_digest: digest(input), owner, created_at: Date.now() }
+  const raw = Buffer.from(JSON.stringify(value, null, 2) + '\n'); writeFileSync(file, raw)
+  const options = { file, harness: 'claude', parentSession: value.conversation, parentProcess: owner, event, digest, sameProcess }
+  const proof = bindingContextProof(options)
+  assert.deepEqual(proof.value, value); assert.match(proof.sha256, /^[0-9a-f]{64}$/u); assert.deepEqual(readFileSync(file), raw)
+  for (const changed of [{ conversation: 'other-CID' }, { use: 'other-use' }, { input_digest: digest({ ...input, name: '別親' }) }, { owner: { ...owner, started: 'PID再利用' } }, { created_at: null }]) {
+    writeFileSync(file, JSON.stringify({ ...value, ...changed })); assert.throws(() => bindingContextProof(options), { code: 'ACCEPTANCE_BIND_CONTEXT_OWNER' })
+  }
+  const grok = { ...value, harness: 'grok' }; writeFileSync(file, JSON.stringify(grok))
+  assert.deepEqual(bindingContextProof({ ...options, harness: 'grok', event: { toolUseId: value.use, toolInput: { tool_input: input } } }).value, grok)
+  assert.throws(() => bindingContextProof({ ...options, harness: 'grok', event: { toolUseId: value.use, toolInput: input } }))
+  rmSync(file); assert.equal(bindingContextProof(options), null)
+})
+
+test('Grokの公式MCP包装だけから束縛期限errorを読み、説明文や別toolを拒否する', () => {
+  const error = { schema: 'peertable.parent-error.v1', state: 'failed', error_code: 'PARENT_BIND_TIMEOUT' }
+  const wrapped = { type: 'MCP', tool_name: 'parent_join', output: { OkayOutput: { structuredContent: error } } }
+  assert.deepEqual(productToolError(wrapped, error.error_code), error)
+  assert.equal(productToolError({ ...wrapped, tool_name: '無関係tool' }, error.error_code), null)
+  assert.equal(productToolError({ ...wrapped, output: { OkayOutput: 'PARENT_BIND_TIMEOUTと説明する自由文' } }, error.error_code), null)
+})
+
+test('束縛armが実event待ちで失敗しても私物holdを解除してfactoryを閉じる', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'peertable-binding-cleanup-')); t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const release = join(dir, 'release'), fixture = { project: '/専用project', name: '専用親', observer: { controls: join(dir, 'controls'), observations: join(dir, 'events') }, submit: async () => {} }
+  const target = { fixture, meta: { parent_session: 'own' } }; let closed = false
+  const native = createNativeActions({ factory: { close: async () => { closed = true } }, primary: fixture })
+  const scope = { harness: 'claude', runId: 'binding-run', context: { endpoint: () => target }, artifactFor: () => release, until: async () => { throw Object.assign(new Error('実event待ち失敗'), { code: 'TEST_BIND_EVENT_TIMEOUT' }) }, sameProcess: () => false }
+  await assert.rejects(native.actions.binding_timeout_arm({}, scope), { code: 'TEST_BIND_EVENT_TIMEOUT' })
+  assert.equal(existsSync(release), false); await native.finalize(scope)
+  assert.equal(readFileSync(release, 'utf8'), '{}'); assert.equal(closed, true)
 })

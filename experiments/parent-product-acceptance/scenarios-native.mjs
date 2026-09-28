@@ -69,9 +69,19 @@ export function productToolError(value, expected) {
   if (typeof value === 'string') { try { return productToolError(JSON.parse(value), expected) } catch (error) { if (error instanceof SyntaxError) return null; throw error } }
   if (!value || typeof value !== 'object') return null
   if (value.schema === 'peertable.parent-error.v1') return value.state === 'failed' && value.error_code === expected ? value : null
+  if (value.type === 'MCP' && value.tool_name === 'parent_join') return productToolError(value.output?.OkayOutput, expected)
   if (value.structuredContent) return productToolError(value.structuredContent, expected)
   for (const part of value.content ?? []) if (part.type === 'text') { const found = productToolError(part.text, expected); if (found) return found }
   return null
+}
+
+// 実prehookが作った原bytesと相関を読む。期限や所有者をfixtureで補正しない。
+export function bindingContextProof({ file, harness, parentSession, parentProcess, event, digest, sameProcess }) {
+  if (!existsSync(file)) return null
+  const raw = readFileSync(file), value = JSON.parse(raw.toString('utf8'))
+  const use = event.tool_use_id ?? event.toolUseId, input = harness === 'grok' ? event.toolInput?.tool_input : event.tool_input
+  if (value.harness !== harness || value.conversation !== parentSession || value.use !== use || value.name !== 'parent_join' || value.input_digest !== digest(input) || value.owner?.pid !== parentProcess.pid || value.owner?.started !== parentProcess.started || !Number.isFinite(value.created_at) || !sameProcess(value.owner)) fail('ACCEPTANCE_BIND_CONTEXT_OWNER', '未消費contextが同じtool入力/会話/親本人と一致しません')
+  return { path: file, value, sha256: sha256(raw) }
 }
 
 // callbackで判定を置換しない。実hookの同eventを実process 2個以上が受け、本文出力が1個であることを照合する。
@@ -532,9 +542,61 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
   }
   actions.hook_restore = async (_, s) => { fixtureFor(self(s)).configuration.assertHooksUnchanged(); return s.result(s, 'normal_launch_intact', 'official_hook', { configuration_unchanged: true }) }
 
-  // 期限は製品の実bind/probe境界で待つ。保存stateへ時刻を代入するfixtureは受入へ使わない。
-  for (const action of ['binding_timeout_arm', 'binding_timeout_observe', 'probe_timeout_arm', 'probe_timeout_observe', 'deadline_restore']) {
-    actions[action] = async (_, s) => { sourceUnconfirmed(s.harness, '公式MCP相関を保持した専用binding/probe遮断', { source: join(s.pkg, 'skill/scripts/parent-caller.mjs'), probe_source: join(s.pkg, 'skill/scripts/parent-watch.mjs'), parent_session: self(s).meta.parent_session }) }
+  // bind期限は製品が作ったcontextを読取り、同期hookとMCPの間を実時間で跨がせる。
+  actions.binding_timeout_arm = async (_, s) => {
+    if (s.harness === 'codex') sourceUnconfirmed(s.harness, '同期official metadataの束縛とhook期限の条件付き契約', { source: join(s.pkg, 'skill/scripts/parent-caller.mjs'), binding_pending_exists: false })
+    const target = self(s), fixture = fixtureFor(target), before = observerRows(fixture).length
+    if (!fixture.observer) sourceUnconfirmed(s.harness, '同期PreToolUseの専用observer')
+    const release = s.artifactFor(s, 'binding-hook-release'), eventName = s.harness === 'cursor' ? 'preToolUse' : 'PreToolUse'
+    state(s).deadline = { releases: [release], fixture, target, before, release }
+    writeFileSync(fixture.observer.controls, JSON.stringify({ hold: true, onlyTool: 'parent_join', onlyEvent: eventName, release }))
+    await fixture.submit(`Peertable parent_joinをproject=${fixture.project} name=${fixture.name}で1回だけ呼んでください。今回は公式hookとMCPの束縛期限を実測しています。終了結果のerror_codeをそのまま報告し、自動再試行しないでください。`)
+    const event = await s.until('実parent_joinの同期PreToolUse待機', () => observerRows(fixture).slice(before).find(row => row.held === true && row.control_release === release && row.event.hook_event_name === eventName && nativeSession(row.event) === target.meta.parent_session && /parent_join$/u.test(row.event.tool_name ?? row.event.toolName ?? '')), 120000, 100)
+    if (!event.owner?.started || !s.sameProcess(event.owner)) fail('ACCEPTANCE_BIND_OBSERVER_NOT_LIVE', '同期observerの実processがありません')
+    const { parentHome } = await import(pathToFileURL(join(s.pkg, 'skill/scripts/parent-platform.mjs')).href)
+    const { digest } = await import(pathToFileURL(join(s.pkg, 'skill/scripts/parent-delivery.mjs')).href)
+    const use = event.event.tool_use_id ?? event.event.toolUseId
+    const context = await s.until('実製品prehookによる未消費context作成', () => {
+      let key
+      if (s.harness === 'claude') key = digest(['claude', use])
+      else {
+        const entry = fixture.adapter.hookEvents().find(row => row.event.hook_event_name === eventName && nativeSession(row.event) === target.meta.parent_session && (row.event.tool_use_id ?? row.event.toolUseId) === use)
+        if (!entry) return null
+        const output = JSON.parse(entry.stdout)
+        key = s.harness === 'cursor' ? output.updated_input?.hook_context_id : output.hookSpecificOutput?.updatedInput?.tool_input?.hook_context_id
+        if (!key) fail('ACCEPTANCE_BIND_CONTEXT_RESULT_MISSING', '実製品prehookのcontext IDがありません')
+      }
+      if (!/^(?:[0-9a-f]{64}|[0-9a-f-]{36})$/u.test(key)) fail('ACCEPTANCE_BIND_CONTEXT_KEY_INVALID', '製品prehookのcontext ID形式が不一致です')
+      return bindingContextProof({ file: join(parentHome(), 'contexts', `${key}.json`), harness: s.harness, parentSession: target.meta.parent_session, parentProcess: target.meta.parent_process, event: event.event, digest, sameProcess: s.sameProcess })
+    }, 15000, 50)
+    Object.assign(state(s).deadline, { event, context })
+    return s.result(s, 'own_binding_pending', 'official_hook', { phase: '製品prehook context生成後、公式MCP呼出し前', existing_endpoint_state: target.spool.read().state, context: context.value, context_sha256: context.sha256, observer_owner: event.owner, observer_artifact: fixture.observer.observations, context_modified: false })
+  }
+  actions.binding_timeout_observe = async (_, s) => {
+    const pending = state(s).deadline
+    if (!pending?.context) fail('ACCEPTANCE_BIND_CONTEXT_MISSING', '実束縛contextがありません')
+    await s.until('製品contextの実時間35秒経過', () => {
+      if (!s.sameProcess(pending.event.owner) || !existsSync(pending.context.path) || sha256(readFileSync(pending.context.path)) !== pending.context.sha256) fail('ACCEPTANCE_BIND_CONTEXT_CHANGED', '待機中のown observer/contextが変化しました')
+      return Date.now() - pending.context.value.created_at >= 35000
+    }, 45000, 100)
+    const releasedAt = new Date().toISOString(); writeFileSync(pending.release, '{}')
+    const observed = await s.until('実MCPのPARENT_BIND_TIMEOUT', () => {
+      const seen = pending.target.observe()
+      for (const use of seen.toolUses.filter(use => use.name === 'parent_join' && use.id === pending.context.value.use)) {
+        const output = use.output ?? seen.toolUses.find(row => row.name === 'output' && row.id === use.id && row.order > use.order)?.output
+        const error = productToolError(output, 'PARENT_BIND_TIMEOUT')
+        if (error) return { use, output, error }
+      }
+      return null
+    }, 120000, 100)
+    return s.result(s, 'binding_timeout_typed_failed', 'harness_transcript', { tool_use_id: observed.use.id, error_code: observed.error.error_code, official_tool_output: observed.output, context_created_at: pending.context.value.created_at, released_at: releasedAt, elapsed_before_mcp_ms: Date.parse(releasedAt) - pending.context.value.created_at, observer_owner: pending.event.owner, endpoint_state_after_prejoin_failure: pending.target.spool.read().state, context_modified: false })
+  }
+  for (const action of ['probe_timeout_arm', 'probe_timeout_observe']) actions[action] = async (_, s) => sourceUnconfirmed(s.harness, '専用probe未消費を製品の実期限まで保持する操作', { source: join(s.pkg, 'skill/scripts/parent-watch.mjs'), parent_session: self(s).meta.parent_session })
+  actions.deadline_restore = async (_, s) => {
+    const pending = state(s).deadline
+    if (pending) for (const release of pending.releases) writeFileSync(release, '{}')
+    const target = await join(s)
+    return s.result(s, 'new_join_verified', 'harness_transcript', { parent_session: target.meta.parent_session, endpoint_id: target.spool.id, state: target.spool.read().state })
   }
 
   const lifecycleOperation = async (s, mode) => {
@@ -587,6 +649,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     const errors = []
     try {
     const current = saved.get(s.runId)
+    for (const release of current?.deadline?.releases ?? []) writeFileSync(release, '{}')
     if (current?.work) { writeFileSync(current.work.release, '{}'); if (current.work.owner) await waitOwnedFixtureExit({ readEndpoints: () => [], knownOwners: [current.work.owner], indexExists: () => false, sameProcess: s.sameProcess, timeout: 30000 }) }
     if (current?.final) { writeFileSync(current.final.release, '{}'); if (current.final.monitor) { current.final.monitor.canceled = true; await current.final.monitor.promise } }
     if (current?.recovery?.monitor) { current.recovery.monitor.canceled = true; await current.recovery.monitor.promise }
@@ -617,6 +680,7 @@ export async function createNativeScenarioContext(name, options) {
     primary = await factory.open({ harness: options.sourceMeta.harness, name: `scenario-${name}-${randomUUID().slice(0, 8)}`, prepare: async fixture => {
       if (['final_race', 'session_change', 'foreign_ownership'].includes(name) && !(name === 'session_change' && ['cursor', 'grok'].includes(fixture.harness))) await fixture.addObserver({ events: fixture.harness === 'cursor' ? ['stop', 'postToolUse'] : name === 'session_change' ? ['SessionStart'] : ['Stop', 'PostToolUse'] })
       if (fixture.harness === 'cursor' && ['idle', 'consecutive', 'no_external_tools'].includes(name)) await fixture.addObserver({ events: ['stop'] })
+      if (name === 'binding_deadline' && fixture.harness !== 'codex') await fixture.addObserver({ events: [fixture.harness === 'cursor' ? 'preToolUse' : 'PreToolUse'], appendToProductFile: fixture.harness === 'grok' })
       if (['claim_race', 'slot_race'].includes(name)) await fixture.addProductCompetitors({ count: 2 })
       if (name === 'compatibility_hooks') await fixture.addProductCompetitors({ count: 1, compatibilityHarness: options.sourceMeta.harness === 'claude' ? 'codex' : 'claude' })
     } })

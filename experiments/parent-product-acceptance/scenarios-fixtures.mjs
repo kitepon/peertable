@@ -19,7 +19,14 @@ const writeJson = (file, value) => { mkdirSync(dirname(file), { recursive: true,
 
 // observer本人が起動時identityを保存する。終了後にPIDだけから本人を取り直さない。
 export function nativeHookObserverSource(platformEntry) {
-  return `import {processIdentity} from ${JSON.stringify(platformEntry)};import {readFileSync,appendFileSync,existsSync} from 'node:fs';const owner=processIdentity(process.pid);let raw='';for await(const chunk of process.stdin)raw+=chunk;const event=JSON.parse(raw.replace(/^\\uFEFF/u,''));appendFileSync(process.argv[2],JSON.stringify({at:new Date().toISOString(),pid:process.pid,owner,event})+'\\n');if(existsSync(process.argv[3])){const control=JSON.parse(readFileSync(process.argv[3],'utf8'));if(control.hold){while(!existsSync(control.release))await new Promise(r=>setTimeout(r,25));}}process.stdout.write('{}\\n');\n`
+  return `import {processIdentity} from ${JSON.stringify(platformEntry)};import {readFileSync,appendFileSync,existsSync} from 'node:fs';const owner=processIdentity(process.pid);let raw='';for await(const chunk of process.stdin)raw+=chunk;const event=JSON.parse(raw.replace(/^\\uFEFF/u,''));const control=existsSync(process.argv[3])?JSON.parse(readFileSync(process.argv[3],'utf8')):null;const name=event.tool_name??event.toolName??'';const operation=/parent_(join|read|leave)$/.exec(name)?.[0];const held=Boolean(control?.hold&&(!control.onlyTool||operation===control.onlyTool)&&(!control.onlyEvent||event.hook_event_name===control.onlyEvent));appendFileSync(process.argv[2],JSON.stringify({at:new Date().toISOString(),pid:process.pid,owner,event,held,control_release:held?control.release:null})+'\\n');if(held)while(!existsSync(control.release))await new Promise(r=>setTimeout(r,25));process.stdout.write('{}\\n');\n`
+}
+
+// Grokの直列gateで製品prehookの完了後にだけ待つ。共有global hookには触れない。
+export function appendGrokProductObserver(value, event, observer) {
+  if (value.hooks[event]?.length !== 1 || value.hooks[event][0].hooks?.length !== 1) fail('ACCEPTANCE_PROJECT_PREHOOK_ORDER_UNCONFIRMED', '専用Grok製品handler 1個の直後へobserverを追加できません')
+  value.hooks[event][0].hooks.push(observer)
+  return value
 }
 
 export function hookConfigurationSnapshot(hooks) {
@@ -182,16 +189,22 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         configuration.assertHooksUnchanged()
         return { fault, local_config: local, before: owned, after: affected, official_method: 'hooks/list', global_sourcePath: configuration.hooks, normal_hook_bytes_equal: true }
       }
-      fixture.addObserver = async ({ events, additionalArgs = [] } = {}) => {
+      fixture.addObserver = async ({ events, additionalArgs = [], appendToProductFile = false } = {}) => {
         const observer = join(project, 'acceptance-hook.mjs'), observations = join(directory, 'official-hook-events.jsonl'), controls = join(directory, 'hook-controls.json')
         writeFileSync(observer, nativeHookObserverSource(pathToFileURL(join(pkg, 'skill/scripts/parent-platform.mjs')).href), { mode: 0o600 })
         const command = platform.hookCommand(process.execPath, [observer, observations, controls, ...additionalArgs])
         if (!['claude', 'codex'].includes(harness) && !adapter.projectHookFile) fail('ACCEPTANCE_PROJECT_HOOK_PATH_UNCONFIRMED', `${harness}: 公式のproject hook配置が実測されていません`)
-        const file = harness === 'claude' ? join(project, '.claude/settings.local.json') : harness === 'codex' ? join(project, '.codex/hooks.json') : adapter.projectHookFile(project)
+        const file = harness === 'claude' ? join(project, '.claude/settings.local.json') : harness === 'codex' ? join(project, '.codex/hooks.json') : appendToProductFile && harness === 'grok' ? join(project, '.grok/hooks/peertable-parent.json') : adapter.projectHookFile(project)
         const nativeEvents = events ?? (harness === 'cursor' ? ['preToolUse', 'postToolUse', 'afterMCPExecution'] : ['PreToolUse', 'PostToolUse', 'Stop'])
         fixture.modify(file, before => {
           const value = before ? JSON.parse(before.toString('utf8').replace(/^\uFEFF/u, '')) : { ...(harness === 'cursor' ? { version: 1 } : {}), hooks: {} }
-          for (const event of nativeEvents) { const entry = harness === 'cursor' ? { command, timeout: 86400 } : { hooks: [{ type: 'command', command, timeout: 86400 }] }; value.hooks[event] = [...(value.hooks[event] ?? []), entry] }
+          for (const event of nativeEvents) {
+            const entry = harness === 'cursor' ? { command, timeout: 86400 } : { hooks: [{ type: 'command', command, timeout: 86400 }] }
+            if (appendToProductFile) {
+              if (harness !== 'grok') fail('ACCEPTANCE_PROJECT_PREHOOK_ORDER_UNCONFIRMED', '直列製品handlerへの追記は専用Grokだけです')
+              appendGrokProductObserver(value, event, entry.hooks[0])
+            } else value.hooks[event] = [...(value.hooks[event] ?? []), entry]
+          }
           return Buffer.from(JSON.stringify(value, null, 2) + '\n')
         })
         if (harness === 'codex') await fixture.trustProjectHooks()

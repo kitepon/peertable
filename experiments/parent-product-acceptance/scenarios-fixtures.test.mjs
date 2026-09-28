@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { processIdentity, sameProcess } from '../../skill/scripts/parent-platform.mjs'
-import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit, nativeHookObserverSource } from './scenarios-fixtures.mjs'
+import { assertOnlyProjectTrustChanged, hookConfigurationSnapshot, waitOwnedFixtureExit, nativeHookObserverSource, appendGrokProductObserver } from './scenarios-fixtures.mjs'
 
 test('fixture終了は実child消失の後も製品自己停止と索引撤去を待つ', async t => {
   const child = spawn(process.execPath, ['-e', 'setTimeout(()=>process.exit(0),150)'], { stdio: 'ignore' })
@@ -71,4 +71,34 @@ test('公式hook observerは起動時PID/startを保存し、解除後の本人�
   assert.deepEqual(row.event, event); assert.equal(row.pid, child.pid); assert.equal(row.owner.pid, child.pid); assert.equal(row.owner.started, processIdentity(child.pid).started)
   assert.equal(sameProcess(row.owner), true); assert.equal(sameProcess({ ...row.owner, started: '同PIDの別起動' }), false)
   writeFileSync(release, '{}'); assert.equal(await ended, 0); assert.equal(sameProcess(row.owner), false)
+})
+
+
+test('専用Grokの直列prehookは製品handler直後へ追加し、他eventの原形を保つ', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'peertable-grok-hook-order-')); t.after(() => rmSync(directory, { recursive: true, force: true }))
+  const file = join(directory, 'peertable-parent.json'), product = { type: 'command', command: 'own product prehook' }, observer = { type: 'command', command: 'own observer', timeout: 86400 }, other = [{ hooks: [{ type: 'command', command: 'own product posthook' }] }]
+  writeFileSync(file, JSON.stringify({ hooks: { PreToolUse: [{ matcher: 'mcp__peertable_parent__parent_join', hooks: [product] }], PostToolUse: other } }))
+  const value = appendGrokProductObserver(JSON.parse(readFileSync(file, 'utf8')), 'PreToolUse', observer); writeFileSync(file, JSON.stringify(value))
+  const actual = JSON.parse(readFileSync(file, 'utf8'))
+  assert.deepEqual(actual.hooks.PreToolUse[0].hooks, [product, observer]); assert.deepEqual(actual.hooks.PostToolUse, other)
+  assert.throws(() => appendGrokProductObserver(actual, 'PreToolUse', observer), { code: 'ACCEPTANCE_PROJECT_PREHOOK_ORDER_UNCONFIRMED' })
+})
+
+test('束縛observerは同eventのparent_joinだけを実processでholdする', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'peertable-binding-observer-')); t.after(() => rmSync(directory, { recursive: true, force: true }))
+  const script = join(directory, 'observer.mjs'), observed = join(directory, 'events.jsonl'), controls = join(directory, 'controls.json'), release = join(directory, 'release.json')
+  writeFileSync(script, nativeHookObserverSource(pathToFileURL(join(process.cwd(), 'skill/scripts/parent-platform.mjs')).href))
+  writeFileSync(controls, JSON.stringify({ hold: true, onlyTool: 'parent_join', onlyEvent: 'PreToolUse', release }))
+  async function invoke(event) {
+    const child = spawn(process.execPath, [script, observed, controls], { stdio: ['pipe', 'pipe', 'inherit'] })
+    t.after(() => { if (child.exitCode === null) child.kill('SIGKILL') }); const ended = new Promise((resolve, reject) => { child.once('exit', resolve); child.once('error', reject) }); child.stdin.end(JSON.stringify(event)); return { child, ended }
+  }
+  for (const event of [{ hook_event_name: 'PreToolUse', tool_name: 'mcp__peertable_parent__parent_read' }, { hook_event_name: 'PostToolUse', tool_name: 'mcp__peertable_parent__parent_join' }]) {
+    const call = await invoke(event); assert.equal(await call.ended, 0)
+  }
+  const call = await invoke({ hook_event_name: 'PreToolUse', toolName: 'mcp__peertable_parent__parent_join' })
+  let entries = []; const deadline = Date.now() + 3000
+  while (entries.length < 3) { try { entries = readFileSync(observed, 'utf8').trim().split('\n').map(JSON.parse) } catch (error) { if (error.code !== 'ENOENT') throw error }; assert.ok(Date.now() < deadline); if (entries.length < 3) await new Promise(resolve => setTimeout(resolve, 20)) }
+  assert.deepEqual(entries.map(row => row.held), [false, false, true]); assert.equal(call.child.exitCode, null); assert.equal(entries[2].control_release, release); assert.equal(sameProcess(entries[2].owner), true)
+  writeFileSync(release, '{}'); assert.equal(await call.ended, 0); assert.equal(sameProcess(entries[2].owner), false)
 })
