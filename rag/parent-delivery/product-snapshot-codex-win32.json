@@ -1,0 +1,1361 @@
+{
+  "schema": "peertable.parent-product-native-snapshot-projection.v1",
+  "source_status": "固定snapshotのnative観測。525件の最終製品受入へ算入しない。長文本文は原本のhash投影。",
+  "platform": "win32",
+  "surface": "codex-cli-app-server",
+  "room": "parent-codex-830a17b1-d636-47fc-80b4-ca96403dbfb4",
+  "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+  "endpoint": "a5a380d1-949d-4f10-bd20-c31021e1dc03",
+  "runtime_digest": "3fc3484d597bd326539f4b102e346c8386562d35c2cdbfe7e5dbce0b46863161",
+  "snapshot": {
+    "source_path": "/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable",
+    "source_digest_before": "3fc3484d597bd326539f4b102e346c8386562d35c2cdbfe7e5dbce0b46863161",
+    "source_digest_after": "3fc3484d597bd326539f4b102e346c8386562d35c2cdbfe7e5dbce0b46863161",
+    "snapshot_runtime_digest": "3fc3484d597bd326539f4b102e346c8386562d35c2cdbfe7e5dbce0b46863161",
+    "source_stable": true,
+    "source_commit": "7642b697cabb95c3fb9ca1b4cb323eae02973445",
+    "package_version": "0.8.62",
+    "room_utf8_decoder_present": true
+  },
+  "cli_version": "codex-cli 0.157.1",
+  "node_version": "v24.19.0",
+  "idle_checks": [
+    {
+      "label": "beforeALL",
+      "at": "2026-09-28T15:35:53.793Z",
+      "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+      "status": {
+        "type": "idle"
+      }
+    },
+    {
+      "label": "beforeALL",
+      "at": "2026-09-28T15:35:55.297Z",
+      "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+      "status": {
+        "type": "idle"
+      }
+    },
+    {
+      "label": "beforeDM",
+      "at": "2026-09-28T15:36:18.652Z",
+      "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+      "status": {
+        "type": "idle"
+      }
+    },
+    {
+      "label": "beforeMULTI",
+      "at": "2026-09-28T15:36:45.855Z",
+      "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+      "status": {
+        "type": "idle"
+      }
+    },
+    {
+      "label": "beforeLONG",
+      "at": "2026-09-28T15:37:10.156Z",
+      "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+      "status": {
+        "type": "idle"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "label": "ALL",
+      "seq": 3,
+      "nonce": "PEERTABLE_PRODUCT_CODEX_ALL_68d0d09d-c981-4409-9473-121e872f7cdd",
+      "from": "probe",
+      "audience": "all",
+      "raw_equal": true,
+      "body_sha256": "c46175f3ce74c1b18f30cdf0b810673bd52a887bb8290afa261c833be050c4d7",
+      "queue_body_sha256": "c46175f3ce74c1b18f30cdf0b810673bd52a887bb8290afa261c833be050c4d7",
+      "unicode_codepoints": 90,
+      "utf16_code_units": 91,
+      "utf8_bytes": 135,
+      "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_ALL_68d0d09d-c981-4409-9473-121e872f7cdd です。",
+      "queued_submission_id": "01a0e8a8-8e95-7c02-97eb-5bb0fb70832d",
+      "accepted_at": "2026-09-28T15:35:55.802Z",
+      "receipt": {
+        "state": "delivered",
+        "reason": "codex_queue_accepted",
+        "at": "2026-09-28T15:35:55.826Z",
+        "queued_submission_id": "01a0e8a8-8e95-7c02-97eb-5bb0fb70832d",
+        "accepted_at": "2026-09-28T15:35:55.802Z",
+        "receipt_revision": 1
+      },
+      "reply": {
+        "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+        "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+        "text": "配送確認の符号：`PEERTABLE_PRODUCT_CODEX_ALL_68d0d09d-c981-4409-9473-121e872f7cdd`\n\n- 送信者：`probe`\n- 宛先：`all`\n- seq：`3`"
+      },
+      "same_cid_new_turn": true,
+      "native_hooks": [
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609760,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609760,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609760,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609760,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609760,
+          "completed_at": 1790609761,
+          "duration_ms": 233
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609760,
+          "completed_at": 1790609761,
+          "duration_ms": 790
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609760,
+          "completed_at": 1790609766,
+          "duration_ms": 5726
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609760,
+          "completed_at": 1790609762,
+          "duration_ms": 1088
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609773,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609773,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609773,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609773,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609773,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609773,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609773,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609773,
+          "completed_at": 1790609774,
+          "duration_ms": 249
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609773,
+          "completed_at": 1790609774,
+          "duration_ms": 296
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609773,
+          "completed_at": 1790609774,
+          "duration_ms": 263
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609773,
+          "completed_at": 1790609774,
+          "duration_ms": 652
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609773,
+          "completed_at": 1790609774,
+          "duration_ms": 727
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609773,
+          "completed_at": 1790609774,
+          "duration_ms": 776
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-a233-7df1-9f2c-d6ebf57a0752",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609773,
+          "completed_at": 1790609777,
+          "duration_ms": 3080
+        }
+      ]
+    },
+    {
+      "label": "DM",
+      "seq": 4,
+      "nonce": "PEERTABLE_PRODUCT_CODEX_DM_ccf3ef0f-84c1-4a9b-9f3b-fe68ce1a33b1",
+      "from": "probe",
+      "audience": "bell",
+      "raw_equal": true,
+      "body_sha256": "5d8a2e5c2e65382feb73df55edebaeadecb1e824a20dc4c9127aa913716c5824",
+      "queue_body_sha256": "5d8a2e5c2e65382feb73df55edebaeadecb1e824a20dc4c9127aa913716c5824",
+      "unicode_codepoints": 89,
+      "utf16_code_units": 90,
+      "utf8_bytes": 134,
+      "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_DM_ccf3ef0f-84c1-4a9b-9f3b-fe68ce1a33b1 です。",
+      "queued_submission_id": "01a0e8a8-ea20-7c60-a5af-b7813da88fb5",
+      "accepted_at": "2026-09-28T15:36:19.238Z",
+      "receipt": {
+        "state": "delivered",
+        "reason": "codex_queue_accepted",
+        "at": "2026-09-28T15:36:19.260Z",
+        "queued_submission_id": "01a0e8a8-ea20-7c60-a5af-b7813da88fb5",
+        "accepted_at": "2026-09-28T15:36:19.238Z",
+        "receipt_revision": 1
+      },
+      "reply": {
+        "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+        "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+        "text": "配送確認の符号：`PEERTABLE_PRODUCT_CODEX_DM_ccf3ef0f-84c1-4a9b-9f3b-fe68ce1a33b1`\n\n- 送信者：`probe`\n- 宛先：`bell`\n- seq：`4`"
+      },
+      "same_cid_new_turn": true,
+      "native_hooks": [
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609780,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609780,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609780,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609780,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609780,
+          "completed_at": 1790609781,
+          "duration_ms": 240
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609780,
+          "completed_at": 1790609781,
+          "duration_ms": 797
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609780,
+          "completed_at": 1790609786,
+          "duration_ms": 5710
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609780,
+          "completed_at": 1790609781,
+          "duration_ms": 1063
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609801,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609801,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609801,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609801,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609801,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609801,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609801,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609801,
+          "completed_at": 1790609801,
+          "duration_ms": 260
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609801,
+          "completed_at": 1790609801,
+          "duration_ms": 304
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609801,
+          "completed_at": 1790609801,
+          "duration_ms": 253
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609801,
+          "completed_at": 1790609801,
+          "duration_ms": 629
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609801,
+          "completed_at": 1790609801,
+          "duration_ms": 721
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609801,
+          "completed_at": 1790609801,
+          "duration_ms": 738
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a8-f04b-76e2-a28b-76ef63e52797",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609801,
+          "completed_at": 1790609804,
+          "duration_ms": 3043
+        }
+      ]
+    },
+    {
+      "label": "MULTI",
+      "seq": 5,
+      "nonce": "PEERTABLE_PRODUCT_CODEX_MULTI_f9512890-fa91-4bc4-8fa1-444318b07104",
+      "from": "probe",
+      "audience": [
+        "bell",
+        "rui"
+      ],
+      "raw_equal": true,
+      "body_sha256": "f1186392a4dcc22fcebc6a77c5ef41e48b9513f976a9ef832cf9440ccf06b718",
+      "queue_body_sha256": "f1186392a4dcc22fcebc6a77c5ef41e48b9513f976a9ef832cf9440ccf06b718",
+      "unicode_codepoints": 92,
+      "utf16_code_units": 93,
+      "utf8_bytes": 137,
+      "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CODEX_MULTI_f9512890-fa91-4bc4-8fa1-444318b07104 です。",
+      "queued_submission_id": "01a0e8a9-5425-7251-859d-6b171b81daeb",
+      "accepted_at": "2026-09-28T15:36:46.378Z",
+      "receipt": {
+        "state": "delivered",
+        "reason": "codex_queue_accepted",
+        "at": "2026-09-28T15:36:46.400Z",
+        "queued_submission_id": "01a0e8a9-5425-7251-859d-6b171b81daeb",
+        "accepted_at": "2026-09-28T15:36:46.378Z",
+        "receipt_revision": 1
+      },
+      "reply": {
+        "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+        "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+        "text": "配送確認の符号：`PEERTABLE_PRODUCT_CODEX_MULTI_f9512890-fa91-4bc4-8fa1-444318b07104`\n\n- 送信者：`probe`\n- 宛先：`[\"bell\",\"rui\"]`\n- seq：`5`"
+      },
+      "same_cid_new_turn": true,
+      "native_hooks": [
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609810,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609810,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609810,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609810,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609810,
+          "completed_at": 1790609811,
+          "duration_ms": 239
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609810,
+          "completed_at": 1790609812,
+          "duration_ms": 1996
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609810,
+          "completed_at": 1790609816,
+          "duration_ms": 5850
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609810,
+          "completed_at": 1790609812,
+          "duration_ms": 1095
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609822,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609822,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609822,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609822,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609822,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609822,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609822,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609822,
+          "completed_at": 1790609822,
+          "duration_ms": 285
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609822,
+          "completed_at": 1790609822,
+          "duration_ms": 338
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609822,
+          "completed_at": 1790609828,
+          "duration_ms": 6238
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609822,
+          "completed_at": 1790609823,
+          "duration_ms": 677
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609822,
+          "completed_at": 1790609823,
+          "duration_ms": 759
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609822,
+          "completed_at": 1790609823,
+          "duration_ms": 815
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-6580-72f3-bb48-b56852f6f5b6",
+          "event_name": "stop",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609822,
+          "completed_at": 1790609825,
+          "duration_ms": 3221
+        }
+      ]
+    },
+    {
+      "label": "LONG",
+      "seq": 6,
+      "nonce": "PEERTABLE_PRODUCT_CODEX_LONG_0a4f1a95-4970-45a6-a78b-8f2e2db6bdad",
+      "from": "probe",
+      "audience": "all",
+      "raw_equal": true,
+      "body_sha256": "386708a1735f11473f14cda3b4e690c47ec84a9c96ed4da8d0b49a8c8b81c7ce",
+      "queue_body_sha256": "386708a1735f11473f14cda3b4e690c47ec84a9c96ed4da8d0b49a8c8b81c7ce",
+      "unicode_codepoints": 36096,
+      "utf16_code_units": 40097,
+      "utf8_bytes": 104151,
+      "body": null,
+      "queued_submission_id": "01a0e8a9-b31a-7410-ba92-7896b6c5a8c7",
+      "accepted_at": "2026-09-28T15:37:10.691Z",
+      "receipt": {
+        "state": "delivered",
+        "reason": "codex_queue_accepted",
+        "at": "2026-09-28T15:37:10.724Z",
+        "queued_submission_id": "01a0e8a9-b31a-7410-ba92-7896b6c5a8c7",
+        "accepted_at": "2026-09-28T15:37:10.691Z",
+        "receipt_revision": 1
+      },
+      "reply": {
+        "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+        "turn": "01a0e8a9-b39f-7973-960a-7878a090cb7a",
+        "text": "配送確認の符号：`PEERTABLE_PRODUCT_CODEX_LONG_0a4f1a95-4970-45a6-a78b-8f2e2db6bdad`\n\n- 送信者：`probe`\n- 宛先：`all`\n- seq：`6`"
+      },
+      "same_cid_new_turn": true,
+      "native_hooks": [
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-b39f-7973-960a-7878a090cb7a",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609830,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-b39f-7973-960a-7878a090cb7a",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609830,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-b39f-7973-960a-7878a090cb7a",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609830,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/started",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-b39f-7973-960a-7878a090cb7a",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "running",
+          "started_at": 1790609830,
+          "completed_at": null,
+          "duration_ms": null
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-b39f-7973-960a-7878a090cb7a",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609830,
+          "completed_at": 1790609831,
+          "duration_ms": 241
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-b39f-7973-960a-7878a090cb7a",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609830,
+          "completed_at": 1790609832,
+          "duration_ms": 1981
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-b39f-7973-960a-7878a090cb7a",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609830,
+          "completed_at": 1790609837,
+          "duration_ms": 6525
+        },
+        {
+          "method": "hook/completed",
+          "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+          "turn": "01a0e8a9-b39f-7973-960a-7878a090cb7a",
+          "event_name": "userPromptSubmit",
+          "execution_mode": "sync",
+          "status": "completed",
+          "started_at": 1790609830,
+          "completed_at": 1790609832,
+          "duration_ms": 1145
+        }
+      ]
+    }
+  ],
+  "long_stop_supplement": {
+    "schema": "peertable.parent-product-native-snapshot-projection.v1",
+    "source_status": "固定snapshotのnative観測。525件の最終製品受入へ算入しない。長文本文は原本のhash投影。",
+    "platform": "win32",
+    "surface": "codex-cli-app-server",
+    "room": "parent-codex-3de366eb-1d3e-48d7-9435-bae9730cd37f",
+    "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+    "endpoint": "80b8bb6b-fe3a-449f-84f6-53ad9b17010f",
+    "runtime_digest": "3fc3484d597bd326539f4b102e346c8386562d35c2cdbfe7e5dbce0b46863161",
+    "snapshot": {
+      "source_path": "/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable",
+      "source_digest_before": "3fc3484d597bd326539f4b102e346c8386562d35c2cdbfe7e5dbce0b46863161",
+      "source_digest_after": "3fc3484d597bd326539f4b102e346c8386562d35c2cdbfe7e5dbce0b46863161",
+      "snapshot_runtime_digest": "3fc3484d597bd326539f4b102e346c8386562d35c2cdbfe7e5dbce0b46863161",
+      "source_stable": true,
+      "source_commit": "7642b697cabb95c3fb9ca1b4cb323eae02973445",
+      "package_version": "0.8.62",
+      "room_utf8_decoder_present": true
+    },
+    "cli_version": "codex-cli 0.157.1",
+    "node_version": "v24.19.0",
+    "idle_checks": [
+      {
+        "label": "beforeLONGAfterJoin",
+        "at": "2026-09-28T15:44:13.692Z",
+        "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+        "status": {
+          "type": "idle"
+        }
+      },
+      {
+        "label": "beforeLONG",
+        "at": "2026-09-28T15:44:15.209Z",
+        "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+        "status": {
+          "type": "idle"
+        }
+      },
+      {
+        "label": "afterLONG",
+        "at": "2026-09-28T15:44:38.714Z",
+        "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+        "status": {
+          "type": "idle"
+        }
+      }
+    ],
+    "checks": [
+      {
+        "label": "LONG",
+        "seq": 3,
+        "nonce": "PEERTABLE_PRODUCT_CODEX_LONG_d4b4417d-f529-4840-acd4-fe52311ae606",
+        "from": "probe",
+        "audience": "all",
+        "raw_equal": true,
+        "body_sha256": "cbf8bc9d66bf1ccdb2c44f7dc1becd3f940be3c43a709b7b3db50b114acc50f6",
+        "queue_body_sha256": "cbf8bc9d66bf1ccdb2c44f7dc1becd3f940be3c43a709b7b3db50b114acc50f6",
+        "unicode_codepoints": 36096,
+        "utf16_code_units": 40097,
+        "utf8_bytes": 104151,
+        "body": null,
+        "queued_submission_id": "01a0e8b0-3075-7812-88d9-fa50e8f52b5d",
+        "accepted_at": "2026-09-28T15:44:15.998Z",
+        "receipt": {
+          "state": "delivered",
+          "reason": "codex_queue_accepted",
+          "at": "2026-09-28T15:44:16.032Z",
+          "queued_submission_id": "01a0e8b0-3075-7812-88d9-fa50e8f52b5d",
+          "accepted_at": "2026-09-28T15:44:15.998Z",
+          "receipt_revision": 1
+        },
+        "reply": {
+          "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+          "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+          "text": "room観測データを受信しました。\n\n- 配送確認符号: `PEERTABLE_PRODUCT_CODEX_LONG_d4b4417d-f529-4840-acd4-fe52311ae606`\n- 送信者: `probe`\n- 宛先: `all`\n- seq: `3`"
+        },
+        "same_cid_new_turn": true,
+        "native_hooks": [
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "userPromptSubmit",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610258,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "userPromptSubmit",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610258,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "userPromptSubmit",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610258,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "userPromptSubmit",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610258,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "userPromptSubmit",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610258,
+            "completed_at": 1790610258,
+            "duration_ms": 253
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "userPromptSubmit",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610258,
+            "completed_at": 1790610258,
+            "duration_ms": 811
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "userPromptSubmit",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610258,
+            "completed_at": 1790610263,
+            "duration_ms": 5095
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "userPromptSubmit",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610258,
+            "completed_at": 1790610259,
+            "duration_ms": 1098
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610270,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610270,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610270,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610270,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610270,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610270,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/started",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "running",
+            "started_at": 1790610270,
+            "completed_at": null,
+            "duration_ms": null
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610270,
+            "completed_at": 1790610270,
+            "duration_ms": 294
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610270,
+            "completed_at": 1790610270,
+            "duration_ms": 331
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610270,
+            "completed_at": 1790610277,
+            "duration_ms": 6508
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610270,
+            "completed_at": 1790610271,
+            "duration_ms": 684
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610270,
+            "completed_at": 1790610271,
+            "duration_ms": 774
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610270,
+            "completed_at": 1790610271,
+            "duration_ms": 793
+          },
+          {
+            "method": "hook/completed",
+            "thread": "01a0e8ae-d9d2-70c2-bab2-2e9980fbb4dd",
+            "turn": "01a0e8b0-37d6-7a61-a1a3-73aa452bac80",
+            "event_name": "stop",
+            "execution_mode": "sync",
+            "status": "completed",
+            "started_at": 1790610270,
+            "completed_at": 1790610273,
+            "duration_ms": 3252
+          }
+        ]
+      }
+    ]
+  },
+  "cleanup": {
+    "thread": "01a0e8a6-8083-7192-98d9-fa9065e2648c",
+    "thread_archived": true,
+    "config_hash_before": "b33b77de617d2d7cc0b5a1aa88413c5cf7e9fc3968f4a19ed49e1556f24a41b8",
+    "config_hash_after": "b9356386f4e9db3dff434ff21a2f92c85872c224b4bafb5ed0eb3c23f6485d23",
+    "other_config_preserved": true,
+    "other_hooks_preserved": true,
+    "endpoints": [
+      {
+        "id": "a5a380d1-949d-4f10-bd20-c31021e1dc03",
+        "runtime": "stopped",
+        "watcher": null,
+        "waiter": null,
+        "caller_alive": false
+      }
+    ],
+    "config_original_hash_method": "JSON.stringify raw key order",
+    "config_canonical_hash_before": "fe0297cbcf89a929327e7f5d3f3ea431e00d12dabad29671ea48b860b5970556",
+    "config_canonical_hash_after": "fe0297cbcf89a929327e7f5d3f3ea431e00d12dabad29671ea48b860b5970556",
+    "config_semantic_diff": []
+  },
+  "supplement_cleanup": {
+    "config_preserved": true,
+    "hooks_preserved": true,
+    "processes_stopped": true
+  }
+}
