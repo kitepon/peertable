@@ -1,0 +1,1 @@
+import fs from 'node:fs';import path from 'node:path';const root=process.argv[2];fs.writeFileSync(path.join(root,'settings.json'),JSON.stringify({hooks:{Stop:[{hooks:[{type:'command',command:process.execPath,args:[path.join(root,'hook.mjs'),root],asyncRewake:true,timeout:15}]}]}}));console.log(JSON.stringify({platform:process.platform,node:process.version,root}));

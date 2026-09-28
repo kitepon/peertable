@@ -1,0 +1,58 @@
+{
+  "schema": "peertable.parent-lease-probe.v1",
+  "passed": true,
+  "platform": "linux",
+  "node": "v24.20.0",
+  "session_id": "9114a806-b897-4484-a38f-b708f837c8ad",
+  "endpoint_id": "5001b361-f622-48be-bc0f-0aa6fa8588af",
+  "calls": [
+    {
+      "session_id": "9114a806-b897-4484-a38f-b708f837c8ad",
+      "endpoint_id": "5001b361-f622-48be-bc0f-0aa6fa8588af",
+      "count": 1,
+      "tool_use_id": "toolu_01La8Dd7UyhNB7wALJQwCpZp"
+    },
+    {
+      "session_id": "9114a806-b897-4484-a38f-b708f837c8ad",
+      "endpoint_id": "5001b361-f622-48be-bc0f-0aa6fa8588af",
+      "count": 2,
+      "tool_use_id": "toolu_012aHcadxYCsHTfvrpg6Zyh7"
+    }
+  ],
+  "emitted": [
+    {
+      "session_id": "9114a806-b897-4484-a38f-b708f837c8ad",
+      "schema": "peertable.parent-control.v1",
+      "code": "PARENT_RECEIVER_EXPIRED",
+      "endpoint_id": "5001b361-f622-48be-bc0f-0aa6fa8588af"
+    },
+    {
+      "session_id": "9114a806-b897-4484-a38f-b708f837c8ad",
+      "schema": "peertable.parent-message.v1",
+      "room": "配送試験",
+      "from": "probe",
+      "to": "bell",
+      "seq": 1,
+      "body": "配送確認の符号は PEERTABLE_LEASE_RESUMED です。"
+    }
+  ],
+  "replies": [
+    {
+      "text": "Peertableの受信登録を開始します。まずparent_joinを呼び出して初期登録を行います。"
+    },
+    {
+      "text": "初期登録が完了しました。\n\n**登録したendpoint_id: `5001b361-f622-48be-bc0f-0aa6fa8588af`**\n\n次に、PARENT_RECEIVER_EXPIREDの制御通知が届くのを待っています。通知が届いたら、同じproject/nameでparent_joinを再度呼び出して登録を更新し、その後に届くroom投稿から配送確認の符号を抽出して報告します。"
+    },
+    {
+      "text": "PARENT_RECEIVER_EXPIREDの制御通知が届きました。登録を更新するため、もう一度parent_joinを呼び出します。"
+    },
+    {
+      "text": "登録を更新しました。**count: 2** で確認されました。\n\n次に、room投稿から配送確認の符号が届くのを待っています。"
+    },
+    {
+      "text": "room投稿が届きました。配送確認の符号を抽出しました。\n\n**配送確認の符号: PEERTABLE_LEASE_RESUMED**\n\n一連の処理が完了しました。Peertableの受信登録初期化 → 期限更新通知受信 → 登録更新 → 配送確認符号受信という流れで、正常に動作確認されました。"
+    }
+  ],
+  "native_hook_evidence_complete": false,
+  "hook_evidence": "親のverify.mjsがnative PostToolUse exit2×2を照合してpassed。raw hook_responseはこの投影へ未回収。"
+}

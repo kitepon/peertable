@@ -29,3 +29,15 @@
 公式仕様の記述、Aitermでの試験、Peertableの新機構の成立は別の証拠である。Aitermの成功をPeertableの12組合せの成功へ置き換えない。
 
 第1工程のmacOS実測は[caller相関と背景完了の記録](phase1-macos-caller-background.md)へ保存した。Cursor/Grokの事前hook入力書換え・別会話拒否・通常TUIの2件の背景受信を観測済み。Codex queue＋同期hookと製品版の12組合せは未合格。
+
+## 製品実装チェックポイント
+
+第1工程後、Peertable所有の共通spool、3親MCP tool、4receiver、hook/connectと所有設定、OS adapter、runtime移行とsource監視、setup/resume/doctor/teardown、通常席除外、全件all配送を実装した。Aiterm内部moduleをruntime importしない。原文・continuation・PID開始identity・hardlink claim・unknownと不変queue受付証拠を保持する。
+
+親の独立probeではClaude Stop継続とlease更新、Codex BUSY/STOP/IDLEが3 OSで成立した。sourceは[Claude Stop](../../experiments/parent-claude-stop-native/README.md)、[Claude lease](../../experiments/parent-claude-lease-native/README.md)、[Codex queue](../../experiments/parent-codex-queue-native/README.md)へ保存した。各`phase1-*.json`はprivate HOMEや認証設定を除いた投影である。Stop macOSとlease Linux/Windowsの投影はnative hook全文の原本回収が未完了であり、`native_hook_evidence_complete:false`を保持する。親の実測成立と、公開投影の完全性を同じ判定にしない。
+
+親の実製品snapshotではClaude 3 OSとCodex macOSのALL/DM/MULTIが同じ会話へ届き、room deliveredまで観測された。必要fieldだけを`product-snapshot-*.json`へ保存した。各runtime_digestは試験時の固定snapshotであり、最新実装と異なる。525件の最終受入へ算入しない。Cursor/Grokの6 CLIは親の別QAが継続中。GUI Cursorはactivation失敗でprompt未送信のため配送合否を出さない。Codex Desktop/IDE等のlive受入も残る。
+
+親のCodex idle長文試験でroomのUTF-8断片decodeによる原文破損が再現された。`readBody`をNodeのstream decoderへ修理し、[HTTP UTF-8再現](../../experiments/http-utf8-body-repro.mjs)で40,097 UTF-16文字の日本語・emojiの途中を5箇所で分割する。POST応答、GET messages、保存logの完全一致をfocused検証する。修理前のnative idle長文試験は失敗証拠として親が保管し、成功へ変更しない。
+
+公開前gateは`npm run verify:parent-delivery`で[実機manifest](product-acceptance.json)を検査する。3 OS・7実行面・25scenarioの525件を要求し、欠落/skip/fixture・証拠file欠落・source digest/version不一致を拒否する。現manifestは空で、公開gateは未達。gateは会話/原文/receipt等の共通証拠を機械照合し、scenario固有の実観測の十分性は親の受入監査でも確認する。実装チェックポイントと全製品受入完了を分ける。

@@ -1,0 +1,34 @@
+{
+  "schema": "peertable.claude-stop-transcript.v1",
+  "platform": "linux",
+  "session": "49500c17-a039-46ad-835e-92765427e896",
+  "passed": true,
+  "replies": [
+    "初回\n\nご指示をありがとうございます。理解しました。以下の手順で対応いたします：\n\n1. **room投稿を受け取ります**\n2. **本文から配送確認の符号（コード）を抽出します**\n3. **日本語で報告します**\n\nroom投稿の本文をお送りください。そこから配送確認符号を抽出して、日本語で報告いたします。",
+    "配送確認符号を抽出しました。\n\n**配送試験**（room=配送試験）から受信したデータ：\n\n- **配送確認の符号**: `PEERTABLE_STOP_WAKE_1`\n- **状態**: 待機\n\n抽出完了いたしました。追加のroom投稿をお待ちしております。",
+    "配送確認符号を抽出しました。\n\n**配送試験**（room=配送試験）から受信したデータ：\n\n- **配送確認の符号**: `PEERTABLE_STOP_WAKE_2`\n- **状態**: 待機\n\n抽出完了いたしました。追加のroom投稿をお待ちしております。"
+  ],
+  "hooks": [
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "49500c17-a039-46ad-835e-92765427e896",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[Peertable room=配送試験 from=probe to=bell seq=1] 本文: 配送確認の符号は PEERTABLE_STOP_WAKE_1 です。状態は待機です。\n",
+      "output": "[Peertable room=配送試験 from=probe to=bell seq=1] 本文: 配送確認の符号は PEERTABLE_STOP_WAKE_1 です。状態は待機です。\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "49500c17-a039-46ad-835e-92765427e896",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[Peertable room=配送試験 from=probe to=bell seq=2] 本文: 配送確認の符号は PEERTABLE_STOP_WAKE_2 です。状態は待機です。\n",
+      "output": "[Peertable room=配送試験 from=probe to=bell seq=2] 本文: 配送確認の符号は PEERTABLE_STOP_WAKE_2 です。状態は待機です。\n"
+    }
+  ],
+  "native_hook_evidence_complete": true
+}

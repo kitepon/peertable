@@ -1,0 +1,756 @@
+{
+  "schema": "peertable.parent-product-draft-smoke.v1",
+  "platform": "win32",
+  "surface": "claude-cli-stream-json",
+  "room": "parent-native-328d92a1-395d-455c-99e6-4a633265badd",
+  "session": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+  "endpoint": "1bdf547c-d47c-40c6-8868-870c20ca8c9b",
+  "sent": [
+    {
+      "label": "ALL",
+      "nonce": "PEERTABLE_PRODUCT_CLAUDE_ALL_9b182ef4-9374-4b1f-9562-7e27c2cd4ff4",
+      "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_ALL_9b182ef4-9374-4b1f-9562-7e27c2cd4ff4 です。",
+      "posted": {
+        "seq": 3,
+        "ts": "2026-09-28T15:13:10.003Z",
+        "from": "probe",
+        "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_ALL_9b182ef4-9374-4b1f-9562-7e27c2cd4ff4 です。",
+        "to": "all",
+        "room_saved": true,
+        "delivery": {
+          "bell": {
+            "state": "pending",
+            "reason": "parent_receiver経由"
+          }
+        }
+      }
+    },
+    {
+      "label": "DM",
+      "nonce": "PEERTABLE_PRODUCT_CLAUDE_DM_d05b7b6d-143d-4dff-8225-9bd977d9a16a",
+      "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_DM_d05b7b6d-143d-4dff-8225-9bd977d9a16a です。",
+      "posted": {
+        "seq": 4,
+        "ts": "2026-09-28T15:15:04.505Z",
+        "from": "probe",
+        "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_DM_d05b7b6d-143d-4dff-8225-9bd977d9a16a です。",
+        "to": "bell",
+        "room_saved": true,
+        "delivery": {
+          "bell": {
+            "state": "pending",
+            "reason": "parent_receiver経由"
+          }
+        }
+      }
+    },
+    {
+      "label": "MULTI",
+      "nonce": "PEERTABLE_PRODUCT_CLAUDE_MULTI_19f05ab6-9239-4f51-ac99-85d331d99a05",
+      "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_MULTI_19f05ab6-9239-4f51-ac99-85d331d99a05 です。",
+      "posted": {
+        "seq": 5,
+        "ts": "2026-09-28T15:15:27.074Z",
+        "from": "probe",
+        "body": "日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_MULTI_19f05ab6-9239-4f51-ac99-85d331d99a05 です。",
+        "to_names": [
+          "bell",
+          "rui"
+        ],
+        "room_saved": true,
+        "delivery": {
+          "bell": {
+            "state": "pending",
+            "reason": "parent_receiver経由"
+          },
+          "rui": {
+            "state": "seat_unavailable",
+            "reason": "member_not_found"
+          }
+        }
+      }
+    }
+  ],
+  "replies": [
+    {
+      "session": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "text": "初回です。\n\nPeertable親会話に参加しました。\n- **endpoint_id**: `1bdf547c-d47c-40c6-8868-870c20ca8c9b`\n- **state**: receiving\n- **harness**: claude\n\n受信待機中です。観測データの到着を待ちます。"
+    },
+    {
+      "session": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "text": "**Peertableルーム観測データ到着**\n\n配送確認の符号: `dafea4e4-e188-4783-9596-a29e2f2136f9`\n- 送信者: `peertable`\n- 宛先: `bell`\n- seq: `probe:dafea4e4-e188-4783-9596-a29e2f2136f9`\n- delivery_id: `2c3afced-70f8-4bcd-b7c0-e7730cebec5f`\n\n本文を全量回収します。"
+    },
+    {
+      "session": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "text": "配送確認済み。本文ページは空。継続tokenなし。\n\n親会話受信を維持中です。"
+    },
+    {
+      "session": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "text": "**Peertableルーム観測データ到着**\n\n配送確認の符号: `6411567a-7ab6-4e43-98cf-61d5d565dbc4`\n- 送信者: `system`\n- 宛先: `bell`\n- seq: `2`\n\n本文: `bell が参加した`\n\n親会話受信を維持中です。"
+    },
+    {
+      "session": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "text": "**Peertableルーム観測データ到着**\n\n配送確認の符号: `8f23cb29-504a-407c-9868-c39f97476062`\n- 送信者: `peertable`\n- 宛先: `bell`\n- seq: `e69e2cf953ea73d1238b193cbaf8e9e1cd2f44a427ff7c2509d15d1bbc22fafc`\n\n本文: `親番犬を張り直した。room の親宛と工程件数を追従する。`\n\n親会話受信を維持中です。"
+    },
+    {
+      "session": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "text": "**Peertableルーム観測データ到着**\n\n配送確認の符号: `0ac8a09e-88bf-44dd-8918-7a059be40850`\n- 送信者: `probe`\n- 宛先: `all`\n- seq: `3`\n\n本文:\n```\n日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_ALL_9b182ef4-9374-4b1f-9562-7e27c2cd4ff4 です。\n```\n\n親会話受信を維持中です。"
+    },
+    {
+      "session": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "text": "**Peertableルーム観測データ到着**\n\n配送確認の符号: `297ff17c-f4e8-4a0a-922a-ec9fed923505`\n- 送信者: `probe`\n- 宛先: `bell`\n- seq: `4`\n\n本文:\n```\n日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_DM_d05b7b6d-143d-4dff-8225-9bd977d9a16a です。\n```\n\n親会話受信を維持中です。"
+    },
+    {
+      "session": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "text": "**Peertableルーム観測データ到着**\n\n配送確認の符号: `2e300240-3afe-4e63-91f8-e5c53abfc402`\n- 送信者: `probe`\n- 宛先: `bell`, `rui`\n- seq: `5`\n\n本文:\n```\n日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_MULTI_19f05ab6-9239-4f51-ac99-85d331d99a05 です。\n```\n\n親会話受信を維持中です。"
+    }
+  ],
+  "delivery": [
+    {
+      "schema": "peertable.delivery.v1",
+      "seq": 3,
+      "room_saved": true,
+      "delivery": {
+        "bell": {
+          "state": "delivered",
+          "reason": "claude_asyncRewake_output",
+          "at": "2026-09-28T15:14:43.203Z",
+          "receipt_revision": 1
+        }
+      }
+    },
+    {
+      "schema": "peertable.delivery.v1",
+      "seq": 4,
+      "room_saved": true,
+      "delivery": {
+        "bell": {
+          "state": "delivered",
+          "reason": "claude_asyncRewake_output",
+          "at": "2026-09-28T15:15:12.404Z",
+          "receipt_revision": 1
+        }
+      }
+    },
+    {
+      "schema": "peertable.delivery.v1",
+      "seq": 5,
+      "room_saved": true,
+      "delivery": {
+        "bell": {
+          "state": "delivered",
+          "reason": "claude_asyncRewake_output",
+          "at": "2026-09-28T15:15:35.140Z",
+          "receipt_revision": 1
+        },
+        "rui": {
+          "state": "seat_unavailable",
+          "reason": "member_not_found"
+        }
+      }
+    }
+  ],
+  "package_version": "0.8.62",
+  "cli_version": "2.1.283 (Claude Code)",
+  "node_version": "v24.19.0",
+  "harness": "claude",
+  "passed": true,
+  "runtime_digest": "1b24c1a855afb1b572f2d5a4d98515c327b43690f0bfeeec7dbca1687c1826d9",
+  "source_status": "未commit固定snapshotの実製品smoke。最終版とdigestが異なるため525件の受入manifestへ算入しない。",
+  "hook_events": [
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "SessionStart",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "SessionStart",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PreToolUse",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PreToolUse",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "{}\n",
+      "stderr": "",
+      "output": "{}\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PostToolUse",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PostToolUse",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 2,
+      "outcome": "error",
+      "stdout": "",
+      "stderr": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=peertable to=\"bell\" seq=probe:dafea4e4-e188-4783-9596-a29e2f2136f9]\n本文: 配送確認の符号は dafea4e4-e188-4783-9596-a29e2f2136f9。\n[配送ID=2c3afced-70f8-4bcd-b7c0-e7730cebec5f digest=8574c2fd3b775919ac90fa9dc845cda069efc2596a77205c3bf51cd59516592b]\n",
+      "output": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=peertable to=\"bell\" seq=probe:dafea4e4-e188-4783-9596-a29e2f2136f9]\n本文: 配送確認の符号は dafea4e4-e188-4783-9596-a29e2f2136f9。\n[配送ID=2c3afced-70f8-4bcd-b7c0-e7730cebec5f digest=8574c2fd3b775919ac90fa9dc845cda069efc2596a77205c3bf51cd59516592b]\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PreToolUse",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PreToolUse",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "{}\n",
+      "stderr": "",
+      "output": "{}\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "PostToolUse",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 2,
+      "outcome": "error",
+      "stdout": "",
+      "stderr": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=system to=\"bell\" seq=2]\n本文: bell が参加した\n[配送ID=6411567a-7ab6-4e43-98cf-61d5d565dbc4 digest=c0a9609259560d3613832072d62f8c4c2a10b5182eeb853cfef7a8ae75bca28e]\n",
+      "output": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=system to=\"bell\" seq=2]\n本文: bell が参加した\n[配送ID=6411567a-7ab6-4e43-98cf-61d5d565dbc4 digest=c0a9609259560d3613832072d62f8c4c2a10b5182eeb853cfef7a8ae75bca28e]\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 2,
+      "outcome": "error",
+      "stdout": "",
+      "stderr": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=peertable to=\"bell\" seq=e69e2cf953ea73d1238b193cbaf8e9e1cd2f44a427ff7c2509d15d1bbc22fafc]\n本文: 親番犬を張り直した。room の親宛と工程件数を追従する。\n[配送ID=8f23cb29-504a-407c-9868-c39f97476062 digest=4e794bd28d32e7032e2d9bae8f6cede7a7db0991c613569133e48b299ca4f294]\n",
+      "output": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=peertable to=\"bell\" seq=e69e2cf953ea73d1238b193cbaf8e9e1cd2f44a427ff7c2509d15d1bbc22fafc]\n本文: 親番犬を張り直した。room の親宛と工程件数を追従する。\n[配送ID=8f23cb29-504a-407c-9868-c39f97476062 digest=4e794bd28d32e7032e2d9bae8f6cede7a7db0991c613569133e48b299ca4f294]\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 2,
+      "outcome": "error",
+      "stdout": "",
+      "stderr": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=probe to=\"all\" seq=3]\n本文: 日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_ALL_9b182ef4-9374-4b1f-9562-7e27c2cd4ff4 です。\n[配送ID=0ac8a09e-88bf-44dd-8918-7a059be40850 digest=285ae988db5447f60a6513c46d0bacd0612799c4269c5c6c8673f678d19bcc02]\n",
+      "output": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=probe to=\"all\" seq=3]\n本文: 日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_ALL_9b182ef4-9374-4b1f-9562-7e27c2cd4ff4 です。\n[配送ID=0ac8a09e-88bf-44dd-8918-7a059be40850 digest=285ae988db5447f60a6513c46d0bacd0612799c4269c5c6c8673f678d19bcc02]\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "[caveat:hook] Jev判定に失敗: The operation was aborted due to timeout\n",
+      "output": "[caveat:hook] Jev判定に失敗: The operation was aborted due to timeout\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 2,
+      "outcome": "error",
+      "stdout": "",
+      "stderr": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=probe to=\"bell\" seq=4]\n本文: 日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_DM_d05b7b6d-143d-4dff-8225-9bd977d9a16a です。\n[配送ID=297ff17c-f4e8-4a0a-922a-ec9fed923505 digest=b2ccc57a814ab28b0001294e0c985cc409ec2cd1e377ac1fb5aa3719fb161405]\n",
+      "output": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=probe to=\"bell\" seq=4]\n本文: 日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_DM_d05b7b6d-143d-4dff-8225-9bd977d9a16a です。\n[配送ID=297ff17c-f4e8-4a0a-922a-ec9fed923505 digest=b2ccc57a814ab28b0001294e0c985cc409ec2cd1e377ac1fb5aa3719fb161405]\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "[caveat:hook] Jev判定に失敗: The operation was aborted due to timeout\n",
+      "output": "[caveat:hook] Jev判定に失敗: The operation was aborted due to timeout\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 2,
+      "outcome": "error",
+      "stdout": "",
+      "stderr": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=probe to=[\"bell\",\"rui\"] seq=5]\n本文: 日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_MULTI_19f05ab6-9239-4f51-ac99-85d331d99a05 です。\n[配送ID=2e300240-3afe-4e63-91f8-e5c53abfc402 digest=15c9d734fc9f9eaa1dea55e6d6c8273b4f7d6a165025c7f9124b6d66f2a5f1f7]\n",
+      "output": "[Peertable room=parent-native-328d92a1-395d-455c-99e6-4a633265badd from=probe to=[\"bell\",\"rui\"] seq=5]\n本文: 日本語の観測\n「引用」😀\n配送確認の符号は PEERTABLE_PRODUCT_CLAUDE_MULTI_19f05ab6-9239-4f51-ac99-85d331d99a05 です。\n[配送ID=2e300240-3afe-4e63-91f8-e5c53abfc402 digest=15c9d734fc9f9eaa1dea55e6d6c8273b4f7d6a165025c7f9124b6d66f2a5f1f7]\n"
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "UserPromptSubmit",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    },
+    {
+      "type": "system",
+      "subtype": "hook_response",
+      "hook_event": "Stop",
+      "session_id": "8e18be0b-9d70-4eac-9f54-c8b51bbaf4ad",
+      "exit_code": 0,
+      "outcome": "success",
+      "stdout": "",
+      "stderr": "",
+      "output": ""
+    }
+  ]
+}
