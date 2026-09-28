@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { spawn } from 'node:child_process'
 import { Readable } from 'node:stream'
 import { randomUUID } from 'node:crypto'
-import { ParentSpool, PAGE_CHARS, renderDelivery, digest, armParentState } from './parent-delivery.mjs'
+import { ParentSpool, PAGE_CHARS, renderDelivery, digest, armParentState, PARENT_PROBE_TIMEOUT_MS } from './parent-delivery.mjs'
 import { processIdentity, processHarness, harnessProcess, readHookEvent, atomicJson } from './parent-platform.mjs'
 import { queueCodex, codexHook, checkCodexReceiver } from './parent-receivers/codex.mjs'
 import { mergeOwnedHooks, tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, hookEntries, ownsParentConnection, grokMcpBlock } from './parent-connect.mjs'
@@ -212,7 +212,7 @@ test('probe期限は受信準備から始め、確認済みprobeだけが自身�
   assert.equal(spool.read().probe_deadline, undefined)
   const before = Date.now()
   spool.transact(armParentState)
-  assert.ok(spool.read().probe_deadline >= before + 30000)
+  assert.ok(spool.read().probe_deadline >= before + PARENT_PROBE_TIMEOUT_MS)
   const probe = spool.saveEvent({ type: 'parent_probe', event_id: 'probe', body: '疎通確認' })
   const claimed = spool.claim('grok_background', probe.delivery_id)
   spool.update({ state: 'failed', runtime: 'failed', error_code: 'PARENT_PROBE_TIMEOUT' })

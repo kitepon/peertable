@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { atomicJson, processIdentity } from './parent-platform.mjs'
 import { joinEndpoint, stopEndpoint, projectEndpoints } from './parent-runtime.mjs'
-import { failedParentRecords } from './parent-delivery.mjs'
+import { failedParentRecords, PARENT_PROBE_TIMEOUT_MS } from './parent-delivery.mjs'
 
 test('初回Codex joinはwatcher起動前にprobe期限を開始し、背景登録待ちのCursorは開始しない', async t => {
   const project = realpathSync(mkdtempSync(join(tmpdir(), 'peertable-join-probe-')))
@@ -50,7 +50,7 @@ test('初回Codex joinはwatcher起動前にprobe期限を開始し、背景登�
     assert.equal(state.state, 'receiving')
     if (harness === 'codex') {
       assert.equal(state.runtime, 'armed')
-      assert.ok(state.probe_deadline >= before + 30000 && state.probe_deadline <= after + 30000)
+      assert.ok(state.probe_deadline >= before + PARENT_PROBE_TIMEOUT_MS && state.probe_deadline <= after + PARENT_PROBE_TIMEOUT_MS)
     } else {
       assert.equal(state.runtime, 'rearm_pending')
       assert.equal(state.probe_deadline, undefined)

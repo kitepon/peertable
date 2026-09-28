@@ -11,11 +11,273 @@
   "operation": "Bakery ticketのchoosing更新をatomicJsonで置換",
   "source_file": "skill/scripts/parent-platform.mjs",
   "observed_failure": true,
-  "cause": "未解明",
+  "cause": "置換先の読取りhandleが存命中、libuvのMoveFileExW(REPLACE_EXISTING)がERROR_ACCESS_DENIEDとなる。共有DELETE付きでも再現し、FileRenameInfoExのPOSIX_SEMANTICSで同じ保持reader下の置換が成立した。",
   "product_live": false,
   "formal_acceptance_credit": 0,
   "raw_log": "/private/tmp/peertable-windows-rename-c97b431/ci-failed.log",
   "raw_log_sha256": "dbbc60e991f86efaeaf99c3008ae9057cc3e1c4d6373a60507971db5cf8272d8",
   "baseline_same_runtime_ci": "https://github.com/kitepon/peertable/actions/runs/36484812856",
-  "diagnosis_status": "Windowsのfocused実再現とOS境界の原因照合中。rerunだけで解決としない。"
+  "diagnosis_status": "rootがWin32 API対照と実Node保持readerの原記録を照合。Windows OS adapterを修理し、診断packでfocused31件合格。新Git候補の3 OS CIと正式実機受入は未完了。",
+  "limitations": [
+    "元CIでreader handleを直接追跡しておらず、元CIのhandle保持processの特定は未確認",
+    "診断packは未commit修理の原bytes。正式受入credit0",
+    "x64 Windows NTFSの実測。Windows ARM64/ia32、別filesystemの実機試験は未実施。非対応APIのerrorを返しfallbackしない",
+    "別Node fixtureのnew_path_body_okは末尾・長さ・Unicodeの部分確認。本文全量deepEqualは関連focused testで実施",
+    "Windows試験時の環境と受信pack hashは原fileなしの端末転記。今回の環境/自己process0/削除後照会は別にraw保存。正式sourceの合格へ流用しない。"
+  ],
+  "api_probe": [
+    {
+      "case": "A_no_reader__MoveFileExW_replace",
+      "move_error": 0
+    },
+    {
+      "case": "B_reader_share_RWD (libuv open share)__MoveFileExW_replace",
+      "reader_share": 7,
+      "move_error": 5,
+      "reader_handle": 2296
+    },
+    {
+      "case": "C_reader_share_RW_no_delete__MoveFileExW_replace",
+      "reader_share": 3,
+      "move_error": 5,
+      "reader_handle": 2296
+    },
+    {
+      "case": "D_reader_share_R_only__MoveFileExW_replace",
+      "reader_share": 1,
+      "move_error": 5,
+      "reader_handle": 2296
+    },
+    {
+      "case": "E_reader_share_RWD__POSIX_rename(FileRenameInfoEx)",
+      "posix_error": 0,
+      "reader_handle": 2296
+    },
+    {
+      "case": "F_node_fs.openSync_reader__replace",
+      "holder_pid": 47672,
+      "error": 5
+    },
+    {
+      "case": "F_node_fs.openSync_reader__posix",
+      "holder_pid": 10604,
+      "error": 0
+    }
+  ],
+  "repair": {
+    "owner": "skill/scripts/parent-platform.mjs / parent-windows-files.mjs",
+    "api": "SetFileInformationByHandle(FileRenameInfoEx,REPLACE_IF_EXISTS|POSIX_SEMANTICS)",
+    "dependency": "koffi@3.3.2",
+    "pack_sha256": "a37a3c10f23c83a1141ba78d99a699f954e83e246f2c5ed78eaa45b48c11e561",
+    "focused": {
+      "passed": 31,
+      "failed": 0
+    },
+    "private_raw": "/private/tmp/claude-501/-Users-kite--codex-worktrees-parent-acceptance-runner-peertable/6578ec5b-7de6-4c99-87a4-7a9b9114360b/scratchpad/atomic-repair",
+    "separate_node_reader": {
+      "fixture-normal": {
+        "mode": "normal",
+        "dest_len": 81,
+        "import_ms": 4.6,
+        "first_replace_ms": 7.9,
+        "steady_19_median_ms": 0.62,
+        "steady_19_max_ms": 0.72,
+        "steady_19_min_ms": 0.52,
+        "replacements": 20,
+        "errors": [],
+        "old_fd_kept_old_body": true,
+        "old_fd_has_new": false,
+        "new_path_generation": 20,
+        "new_path_body_ok": true,
+        "tmp_leftovers": [],
+        "holder_stderr": ""
+      },
+      "fixture-longpath": {
+        "mode": "longpath",
+        "dest_len": 370,
+        "import_ms": 4.1,
+        "first_replace_ms": 7.4,
+        "steady_19_median_ms": 0.81,
+        "steady_19_max_ms": 1.23,
+        "steady_19_min_ms": 0.75,
+        "replacements": 20,
+        "errors": [],
+        "old_fd_kept_old_body": true,
+        "old_fd_has_new": false,
+        "new_path_generation": 20,
+        "new_path_body_ok": true,
+        "tmp_leftovers": [],
+        "holder_stderr": ""
+      }
+    },
+    "root_pack_file_hashes": {
+      "package.json": "dafd96cd6e84ded12976d51553c255921e49a3809f159530d32918626bc7822b",
+      "skill/scripts/parent-platform.mjs": "45b06cf65ee6413b795fa0f00225250fc5f9b42164268b31a6b39fe4440c6d34",
+      "skill/scripts/parent-windows-files.mjs": "ad9b8d741a950ff673598c6bfaa257503883effaba23fcdbfcf368ca74a16be0",
+      "skill/scripts/parent-delivery.mjs": "390ca733e9dd1f6a36ecda01166b176821fb03962a9b65f2a8483e05199f8f9c",
+      "skill/scripts/parent-runtime.mjs": "decc27240f144753b371220dd14abca170b4d166f05abc216ee7a60246b815c9",
+      "skill/scripts/parent-runtime-probe.test.mjs": "b98a8f8fd3eb53c903a2e5cd75f79c26820406467cc7b828c026ff0d74ea36c7",
+      "skill/scripts/parent-delivery.test.mjs": "25e3ca5a50e3ebeea05e746b1755c7875063724641beb792f5cc43ebb1baac36",
+      "skill/scripts/parent-platform-atomic.test.mjs": "c39490daaa34a28b9404416aa12b44cb58e3700e2ec8c0d37969ccc869e0b1f4"
+    },
+    "test_fixture_changed_after_pack": "Mac MAXPATHLEN以内で260文字超のpathを作るため段数と部品長のみ変更。製品moduleは不変。",
+    "remote_pack_hash_evidence": "Windows受信packのhashは端末転記のみ。削除済みでraw原file・再hashは無い。保持するroot原packの全SHAとlocal 8fileはrootが照合した。",
+    "cleanup": {
+      "schema": "peertable.atomic-repair-windows-cleanup-environment.v1",
+      "queried_at": "2026-09-28T21:50:13.3702216Z",
+      "query_kind": "read-only(試験は再実行していない)",
+      "corrections": {
+        "source_pack_binding_files": "実際に照合したのは8file(報告の10fileは誤り)。packに入らない package-lock.json と scripts/run-product-ci.mjs は照合対象外。",
+        "fixture_new_path_body_ok": "別Node fixtureのnew_path_body_okは endsWith(😀)・length>100・unicodeフィールド一致だけの判定。「全量一致」の主張はこのfixtureには付けない。全量deepEqualの確認は parent-platform-atomic.test に限る。",
+        "atomic_test_file_now": "pack作成時はroot作業ツリーと8file全て一致(16桁 c39490daaa34a28b)。現在のroot作業ツリーの parent-platform-atomic.test.mjs は別SHA(root側の長path fixture修正)。試験に使ったのはpack原bytes。"
+      },
+      "test_time_environment": {
+        "source": "試験実行時のstdout(端末表示)。fileには保存していない=原file無し。下記の値は端末出力の転記。",
+        "recorded_in_file": false,
+        "node": "v24.20.0",
+        "os": "Microsoft Windows NT 10.0.26200.0",
+        "arch": "X64",
+        "koffi": "3.3.2",
+        "npm_install_exit": 0,
+        "npm_install_ms": 2774,
+        "node_test_exit": 0,
+        "node_test_ms": 7255
+      },
+      "environment_now_readonly": {
+        "node": "v24.20.0",
+        "os_caption": "Microsoft Windows 11 Pro",
+        "os_version": "10.0.26200",
+        "os_build": "26200",
+        "architecture": "X64",
+        "process_architecture": "X64",
+        "host": "FOX",
+        "user": "kite_"
+      },
+      "received_pack": {
+        "full_sha256_seen_on_fox_at_transfer": "a37a3c10f23c83a1141ba78d99a699f954e83e246f2c5ed78eaa45b48c11e561",
+        "source_of_that_value": "転送直後のfox上 Get-FileHash のstdout(端末表示)。fileには保存していない=原file無し。",
+        "fox_copy_now": "削除済みのため再ハッシュ不可",
+        "retained_original_pack_sha256_now(Mac,/private/tmp/peertable-windows-atomic-repair)": "a37a3c10f23c83a1141ba78d99a699f954e83e246f2c5ed78eaa45b48c11e561",
+        "equals_transfer_value": true
+      },
+      "source_pack_binding_full_sha256_8files": [
+        {
+          "file": "package.json",
+          "root_now": "dafd96cd6e84ded12976d51553c255921e49a3809f159530d32918626bc7822b",
+          "pack": "dafd96cd6e84ded12976d51553c255921e49a3809f159530d32918626bc7822b",
+          "status": "SAME"
+        },
+        {
+          "file": "skill/scripts/parent-delivery.mjs",
+          "root_now": "390ca733e9dd1f6a36ecda01166b176821fb03962a9b65f2a8483e05199f8f9c",
+          "pack": "390ca733e9dd1f6a36ecda01166b176821fb03962a9b65f2a8483e05199f8f9c",
+          "status": "SAME"
+        },
+        {
+          "file": "skill/scripts/parent-delivery.test.mjs",
+          "root_now": "25e3ca5a50e3ebeea05e746b1755c7875063724641beb792f5cc43ebb1baac36",
+          "pack": "25e3ca5a50e3ebeea05e746b1755c7875063724641beb792f5cc43ebb1baac36",
+          "status": "SAME"
+        },
+        {
+          "file": "skill/scripts/parent-platform.mjs",
+          "root_now": "45b06cf65ee6413b795fa0f00225250fc5f9b42164268b31a6b39fe4440c6d34",
+          "pack": "45b06cf65ee6413b795fa0f00225250fc5f9b42164268b31a6b39fe4440c6d34",
+          "status": "SAME"
+        },
+        {
+          "file": "skill/scripts/parent-runtime.mjs",
+          "root_now": "decc27240f144753b371220dd14abca170b4d166f05abc216ee7a60246b815c9",
+          "pack": "decc27240f144753b371220dd14abca170b4d166f05abc216ee7a60246b815c9",
+          "status": "SAME"
+        },
+        {
+          "file": "skill/scripts/parent-runtime-probe.test.mjs",
+          "root_now": "b98a8f8fd3eb53c903a2e5cd75f79c26820406467cc7b828c026ff0d74ea36c7",
+          "pack": "b98a8f8fd3eb53c903a2e5cd75f79c26820406467cc7b828c026ff0d74ea36c7",
+          "status": "SAME"
+        },
+        {
+          "file": "skill/scripts/parent-platform-atomic.test.mjs",
+          "root_now": "ae21f7898c62e7b47535f55154c03797b596d0e51798f7d9e2f6df41ff2125ff",
+          "pack": "c39490daaa34a28b9404416aa12b44cb58e3700e2ec8c0d37969ccc869e0b1f4",
+          "status": "DIFF"
+        },
+        {
+          "file": "skill/scripts/parent-windows-files.mjs",
+          "root_now": "ad9b8d741a950ff673598c6bfaa257503883effaba23fcdbfcf368ca74a16be0",
+          "pack": "ad9b8d741a950ff673598c6bfaa257503883effaba23fcdbfcf368ca74a16be0",
+          "status": "SAME"
+        }
+      ],
+      "cleanup_readonly": {
+        "base_path_recorded": "C:\\Users\\kite_\\AppData\\Local\\Temp\\peertable-atomic-1790631828",
+        "base_exists": false,
+        "prefix_exists": false,
+        "fixtures_exist": false,
+        "pack_copy_exists": false,
+        "self_fixture_processes": 0
+      },
+      "fox_out_files_sha256": [
+        {
+          "name": "base-path.txt",
+          "bytes": 63,
+          "sha256": "5ed7891eada5788d796b68085cf8e8985eed971232372a1c5144b145a7758e05"
+        },
+        {
+          "name": "claim-race-x40.json.txt",
+          "bytes": 122,
+          "sha256": "24c32d3f6388056be3672452c156d626929129e8c2f4b40507b4bcd9ad56dfab"
+        },
+        {
+          "name": "fixture-control-before.json.txt",
+          "bytes": 9504,
+          "sha256": "0e7b80ab45dd60473544a1bddb106091b2b5cffe14426fa676b33ce8efaa398b"
+        },
+        {
+          "name": "fixture-longpath.json.txt",
+          "bytes": 318,
+          "sha256": "a067d7f16029c2d883fc078f32d577057cc277962a50ea36304672d74e242d29"
+        },
+        {
+          "name": "fixture-normal.json.txt",
+          "bytes": 315,
+          "sha256": "017eccb54e2c84b4581c9b7ba4461464c3963be0f14dc255b4fa1d7be34bac64"
+        },
+        {
+          "name": "node-test.stderr.txt",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "node-test.stdout.txt",
+          "bytes": 3321,
+          "sha256": "4b76ccae584595726559858554a89b2bcd0a37e11021478f799b8d39647122b2"
+        },
+        {
+          "name": "npm-install.stderr.txt",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "npm-install.stdout.txt",
+          "bytes": 27,
+          "sha256": "686a3a193dcbf6186618eff5e50dae3074b29c324b32be2d34470e5a8d9f1fc6"
+        }
+      ]
+    },
+    "cleanup_environment_raw_sha256": "1b368634d21a35fac3108a59a4cf17d44512467380eec5487d99ab92e0dba252",
+    "remote_readonly_environment_raw_sha256": "201c5eb8a017497f489e1681f25972560be8b3d0c6317bcfcae09e252d2344e3"
+  },
+  "raw_fingerprints": {
+    "ci-win-eperm/move-replace-probe.ps1": "cd2385a3ecef71be6308bf8ba4ffc8edc05c2f347d7ba38a8c91ee66c7a0e7b8",
+    "ci-win-eperm/move-replace-probe-results.jsonl": "2b59e6924b9a50299eacb8188e8a67e67164d2c3c6dd1091b4d26fe23a1ea29f",
+    "atomic-repair/source-pack-binding.txt": "64fbfa0b7ee464d82d391d2cf943eb04d77f07015e22fd575aec24b26b70ad79",
+    "atomic-repair/atomic-fixture.mjs": "132c4dc0f872a12b1d0115db42c69b7ab974d0eb7c3cffce72e0d30692cc2c4d",
+    "atomic-repair/raw/node-test.stdout.txt": "4b76ccae584595726559858554a89b2bcd0a37e11021478f799b8d39647122b2",
+    "atomic-repair/raw/fixture-normal.json.txt": "017eccb54e2c84b4581c9b7ba4461464c3963be0f14dc255b4fa1d7be34bac64",
+    "atomic-repair/raw/fixture-longpath.json.txt": "a067d7f16029c2d883fc078f32d577057cc277962a50ea36304672d74e242d29",
+    "atomic-repair/raw/fixture-control-before.json.txt": "0e7b80ab45dd60473544a1bddb106091b2b5cffe14426fa676b33ce8efaa398b",
+    "atomic-repair/raw/claim-race-x40.json.txt": "24c32d3f6388056be3672452c156d626929129e8c2f4b40507b4bcd9ad56dfab"
+  }
 }

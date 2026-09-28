@@ -52,7 +52,8 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "koffi": "3.3.2"
   },
   "devDependencies": {
     "parse-srcset": "1.0.2",

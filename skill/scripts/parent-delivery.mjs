@@ -12,10 +12,12 @@ const canonical = value => value === null || typeof value !== 'object' ? JSON.st
     : `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`
 export const digest = value => createHash('sha256').update(typeof value === 'string' ? value : canonical(value)).digest('hex')
 export const PAGE_CHARS = 12000
+// 正規背景通知の受取、reader、parent_readまでを含む初回確認の期限。
+export const PARENT_PROBE_TIMEOUT_MS = 120000
 export const eventKinds = ['parent_dm', 'parent_room_update', 'parent_lattice_error', 'parent_lattice_update', 'parent_table_stalled', 'parent_watch_snapshot', 'watch_error', 'parent_probe']
 export function armParentState(state) {
   state.runtime = 'armed'
-  if (state.state !== 'verified' && state.probe_deadline == null) state.probe_deadline = Date.now() + 30000
+  if (state.state !== 'verified' && state.probe_deadline == null) state.probe_deadline = Date.now() + PARENT_PROBE_TIMEOUT_MS
 }
 // 明示再登録で新しいprobeが届いた場合だけ、既知の失敗probeを解決済みにする。
 export const failedParentRecords = state => state.records.filter(record => record.state === 'failed' && !(record.event.type === 'parent_probe' && record.resolved_by))

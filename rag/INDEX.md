@@ -13,5 +13,8 @@
 - [Codex probe timer修理後の実診断](parent-delivery/codex-probe-timer-repair-diagnosis.json) — 同じOS障害で実期限10ms後のroom failedを観測し、生timeline・PID・Git blobを独立照合。正式受入への算入は0件。
 - [Codex同会話での再登録失敗](parent-delivery/codex-probe-rejoin-diagnosis.json) — 自然timeout後の正規再登録でもfailed probeが不変となる実再現。開始時controller bytesと製品Git blobを照合し、正式合格へ算入しない。
 
-- [Windows競合CIのrename失敗](parent-delivery/windows-rename-ci-diagnosis.json) — transaction ticketの実EPERMを保存し、原因をfocused再現で調査中。[実Node版のlibuv一次原文](parent-delivery/sources/node-v24.20.0-libuv-win-fs.metadata.json)は原因を断定する証拠と分ける。
+- [Windows競合CIのrename失敗](parent-delivery/windows-rename-ci-diagnosis.json) — transaction ticketの実EPERMと保持readerのAPI対照を保存し、Windows標準APIで修理。[実Node版のlibuv一次原文](parent-delivery/sources/node-v24.20.0-libuv-win-fs.metadata.json)は原因を断定する証拠と分ける。
 - [Claude同会話のhook無効化・復帰](parent-delivery/claude-own-session-hook-diagnosis.json) — 公式session settingsと同CIDの3 MCP結果を原transcriptへ独立照合。復帰後の本文配送はこの準備診断では検証していない。
+
+- [正常なLinux Grokのprobe遅延](parent-delivery/linux-grok-probe-latency-diagnosis.json) — 正規本文回収53.198秒と健康復旧の原記録、共通期限の調整根拠。
+- [Codex同会話再登録の修理診断](parent-delivery/codex-probe-rejoin-repair-diagnosis.json) — 新probe原文・後続DM・health復旧と旧failed保持の独立照合。正式受入へ算入しない。

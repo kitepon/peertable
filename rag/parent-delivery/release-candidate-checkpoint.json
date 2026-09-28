@@ -3,7 +3,7 @@
   "source_commit": "c97b431cbcb75e07a45cc17de6d688442b736af3",
   "runtime_digest": "ddaadee7f33139c2a7ea8d08b36d87446b3221b85c817b9a3e1afff34193186f",
   "package_version": "0.8.63",
-  "candidate_state": "held_for_windows_persistence_diagnosis",
+  "candidate_state": "held_for_probe_and_windows_repair_verification",
   "source_frozen": false,
   "previous_candidate_checkpoint": "rag/parent-delivery/snapshots/84de74a/release-candidate-checkpoint.json",
   "product_ci": {
@@ -132,5 +132,19 @@
   },
   "repair_commit": "bce891b2cbf3a77afa7ab738e19f965e7ac9808c",
   "withdrawal_evidence": "rag/parent-delivery/codex-probe-rejoin-diagnosis.json",
-  "controller_observation_limit_ms": 1500
+  "controller_observation_limit_ms": 1500,
+  "repairs": {
+    "initial_probe_timeout": {
+      "state": "implemented_focused_passed_live_pending",
+      "evidence": "rag/parent-delivery/linux-grok-probe-latency-diagnosis.json"
+    },
+    "windows_atomic_replace": {
+      "state": "diagnostic_pack_focused_passed_new_git_ci_pending",
+      "evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
+    },
+    "codex_rejoin": {
+      "state": "diagnostic_recovered_new_adapter_live_pending",
+      "evidence": "rag/parent-delivery/codex-probe-rejoin-repair-diagnosis.json"
+    }
+  }
 }

@@ -60,8 +60,16 @@ Cursorのidle確認には[公式stop仕様](https://cursor.com/docs/hooks#stop)�
 
 [実診断](codex-probe-rejoin-diagnosis.json)は初回app-serverを1回だけOS停止し、製品の自然timeoutと期限失敗の後に、同じ会話から正規`parent_join`を1回呼んだ。watcher本人とendpointは維持されたが、失敗probeのIDと記録が不変で、更新した30秒の期限でも再度failedになった。製品state・時計・RPC応答を変更していない。rootは[開始時bytesと製品Git blob](codex-probe-rejoin-fingerprints.json)を照合した。実装継続で変更されたcontrollerについては、診断開始時に保存したbytesを照合対象にした。
 
-`startEndpoint`の生存watcherによる早期returnより前にprobeを保存し、明示joinでは現在の既知failed probeだけを新しい符号へ更新する。新probeの実受信完了後に旧failed synthetic probeへ`resolved_by`を追加する。原文・失敗状態・cursorを保持し、結果不明のprobeやDMの失敗を解決しない。配送29件、実join内部契約1件、watcher継続3件の関連focused試験が合格した。修正版の正規MCPによる再登録・新probe受信・後続DM・healthは再測定待ちであり、正式合格を増やしていない。
+`startEndpoint`の生存watcherによる早期returnより前にprobeを保存し、明示joinでは現在の既知failed probeだけを新しい符号へ更新する。新probeの実受信完了後に旧failed synthetic probeへ`resolved_by`を追加する。原文・失敗状態・cursorを保持し、結果不明のprobeやDMの失敗を解決しない。配送29件、実join内部契約1件、watcher継続3件の関連focused試験が合格した。[修正版の実診断](codex-probe-rejoin-repair-diagnosis.json)で、正規MCPの同CID再登録、新probeの原文と後続返答、後続DMとreceipt、up/armed/verifiedのhealth復旧を確認した。rootは原transcript、spool、GETmembers、開始時factory bytesを照合した。旧spawn診断を使った準備確認であり、新正式adapterの合格を増やしていない。
 
 ## Claudeの自己会話でのhook故障
 
 [専用診断](claude-own-session-hook-diagnosis.json)は公式`--settings`の`disableAllHooks`だけで、同じ会話の自己CLIを停止・resumeした。正常joinと確認符号のモデル返答、無効化中の`PARENT_CALLER_UNBOUND`、復帰後の同endpoint・`verified`を、同CIDの公式MCP tool IDと対応するuser tool_resultへrootが独立照合した。専用controllerはglobalのbytes不変更を報告しているが、rootの独立監査は保存済み原transcriptと開始関数へ限定する。復帰後の新本文配送はこの診断では試していない。撤回候補の準備診断であり、正式受入へ算入しない。
+
+## 正常な背景通知に必要な確認期限
+
+[Linux Grokの実診断](linux-grok-probe-latency-diagnosis.json)では正規wake・reader・parent_readまで53.198秒かかり、旧30秒の実期限が先に失敗を記録した。終了時のroomもup/armed/verifiedに復旧していた。初回probe期限は共通定数で120秒へ調整し、本人束縛の30秒は維持する。修正版の実機受入は別に行う。
+
+## Windowsの保持readerとatomic置換
+
+[実APIと製品packの対照](windows-rename-ci-diagnosis.json)では、通常renameが保持reader下で失敗し、POSIX互換renameで旧fd保持と新pathの置換が成立した。製品のOS adapterはWindows標準APIを直接呼び、PowerShellの起動を更新ごとに挟まない。API非対応や権限失敗は原Windows errorを保持して返す。新候補の3 OS CIと正式実機は未完了。

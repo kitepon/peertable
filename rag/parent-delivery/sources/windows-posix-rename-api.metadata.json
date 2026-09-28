@@ -1,0 +1,38 @@
+{
+  "schema": "peertable.parent-windows-api-sources.v1",
+  "reviewed_at": "2026-09-29",
+  "sources": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-setfileinformationbyhandle",
+      "use": "FileRenameInfoExをSetFileInformationByHandleへ渡すAPI契約"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_rename_info",
+      "use": "Flags・RootDirectory・FileNameLength・UTF16名の構造"
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information",
+      "use": "POSIX_SEMANTICSは旧handle保持中の置換を認める"
+    },
+    {
+      "url": "https://koffi.dev/pointers",
+      "use": "Bufferをvoid pointer引数へ渡す公式FFI"
+    },
+    {
+      "url": "https://koffi.dev/start",
+      "use": "npmの公式インストールとWindows関数prototype"
+    },
+    {
+      "url": "https://koffi.dev/",
+      "use": "Windows/Linux/macOSのprebuiltとsupported architecture"
+    }
+  ],
+  "native_error_preservation": {
+    "package": "koffi@3.3.2",
+    "file": "src/koffi/src/interp.cc",
+    "sha256": "809a3b7e401e0446fe205257721d35060b7427720240eb04aae5f7fdb6c0b073",
+    "verified_behavior": "Windows FFI呼出し間でTEB LastErrorValueを保存・復元するWRAPを実ソースで確認。GetLastErrorを次の同期API呼出しで取得する。"
+  },
+  "implementation": "skill/scripts/parent-windows-files.mjs",
+  "runtime_evidence": "rag/parent-delivery/windows-rename-ci-diagnosis.json"
+}

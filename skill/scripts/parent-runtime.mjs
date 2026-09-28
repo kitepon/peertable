@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
 import { randomUUID } from 'node:crypto'
-import { ParentSpool, armParentState, failedParentRecords } from './parent-delivery.mjs'
+import { ParentSpool, armParentState, failedParentRecords, PARENT_PROBE_TIMEOUT_MS } from './parent-delivery.mjs'
 import { atomicJson, readJson, processIdentity, sameProcess, failure, posixQuote, psQuote } from './parent-platform.mjs'
 import { registerEndpoint, endpointsFor, forgetEndpoint } from './parent-caller.mjs'
 import { ownsParentConnection } from './parent-connect.mjs'
@@ -129,7 +129,7 @@ export async function joinEndpoint(projectArg, name, caller, display = {}) {
     const saved = spool.read()
     if (!Number.isSafeInteger(saved.cursor)) throw failure('PARENT_CURSOR_MISSING')
     const runtime = caller.harness === 'codex' ? 'armed' : saved.waiter && sameProcess(saved.waiter.owner) ? saved.runtime : 'rearm_pending'
-    spool.update({ caller, runtime, state: saved.state === 'verified' ? 'verified' : 'receiving', probe_deadline: runtime === 'armed' && saved.state !== 'verified' ? Date.now() + 30000 : null, error_code: null })
+    spool.update({ caller, runtime, state: saved.state === 'verified' ? 'verified' : 'receiving', probe_deadline: runtime === 'armed' && saved.state !== 'verified' ? Date.now() + PARENT_PROBE_TIMEOUT_MS : null, error_code: null })
   } else {
     for (const old of projectEndpoints(project).filter(item => item.read().name === name && item.read().runtime !== 'stopped')) await stopEndpoint(old)
     const summary = await api.request('summary')

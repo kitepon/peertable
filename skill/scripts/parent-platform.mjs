@@ -5,6 +5,7 @@ import { dirname, join, basename } from 'node:path'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { randomUUID } from 'node:crypto'
+import { replaceWindowsFile } from './parent-windows-files.mjs'
 
 export const parentHome = () => join(homedir(), '.peertable', 'parent-receivers')
 export const failure = (code, detail = code) => Object.assign(new Error(detail), { code })
@@ -20,7 +21,8 @@ export function atomicJson(file, value) {
   mkdirSync(dirname(file), { recursive: true, mode: 0o700 })
   const temp = `${file}.${process.pid}.${randomUUID()}.tmp`
   writeFileSync(temp, `${JSON.stringify(value)}\n`, { mode: 0o600, flag: 'wx' })
-  renameSync(temp, file)
+  if (process.platform === 'win32') replaceWindowsFile(temp, file)
+  else renameSync(temp, file)
 }
 export const psQuote = value => `'${String(value).replaceAll("'", "''")}'`
 export const posixQuote = value => `'${String(value).replaceAll("'", "'\\''")}'`

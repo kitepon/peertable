@@ -83,6 +83,8 @@ setup、resume、teardownはそれぞれ一回の製品入口で必要な順序�
 
 roomは解散状態（archive）を持つ。teardownがroomをarchiveし、公開一覧（`/api/rooms`のrooms欄とトップページ主一覧）から外す。個別ページとログAPIは読めるまま残る。次のsetupのmember登録が同じroomを自動で現役へ戻す。公開面に並ぶのは現役の卓だけである。
 
+親のspoolと排他ticketは同じatomic置換で保存する。Windowsは標準のPOSIX互換rename APIへ適合し、旧fileの読取りhandleを保ったまま新しいpathの全量を切り替える。OS APIの失敗は原errorを持つtyped errorで返す。
+
 永続PTYとharness起動はAitermの公開APIを使う。Windows native shellはPowerShell 7を正とし、OS差分は環境別adapterへ閉じ込める。
 
 session IDは公開`AITERM_SESSION_ID`とMCP応答から取得する。`pty_list`の明示envと`pty_observe`の状態・本人性・活動差分を使い、内部state・namespace・socket・画面分類をPeertableへ複製しない。起動準備は`agent_launch`の`startup.ready`、承認は公開approval API、メンバーへの入力は統合`pty_send`のreceiptで確認する。Aitermが実行中への差し込みと待機中の新規ターンを選ぶ。API不足は再現と必要契約をAitermへ渡して解消する。

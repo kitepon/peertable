@@ -94,7 +94,7 @@ MCP requestと公式hookから実際の親を識別する。AIにthread IDやcon
 
 `parent_join`のreceiptは`schema: peertable.parent-join-result.v1`、`endpoint_id`、`state: binding_pending | receiving | verified | failed`、`harness`、`wait_process`、`error_code`を持つ。Cursor/Grokの結果返却後にhookで束縛する場合、最初のreceiptは`binding_pending`であり、成功やreadyと書かない。hookが返却結果の`endpoint_id`を実会話へ束縛した時点で`receiving`へ進み、購読とprobe配送を開始する。probeがその会話の受信経路を通った後に`verified`へ進める。`verified`を配送開始の条件にしてprobeを止める循環を作らない。進行は製品が続け、オーナーに手順の再実行を求めない。
 
-現行のClaude/Cursor/Grokは事前hookで実会話と入力digestを照合し、照合記録が30秒を超えた場合はendpoint作成前に`PARENT_BIND_TIMEOUT`で失敗する。Codexは公式MCPのthread metadataと実processを直接照合する。事前hookで実会話を照合できたjoinは、返却時点で`receiving`にできる。事後hookで初めて束縛するjoinだけが`binding_pending`を返す。旧watcherからの移行中は、束縛とreceiver準備が済んでも旧本文出力の停止が確認されるまで新watchとprobeを開始しない。束縛待ち・probe待ちはそれぞれ30秒を初期の明示期限とし、前者は`PARENT_BIND_TIMEOUT`、後者は`PARENT_PROBE_TIMEOUT`で失敗を残す。probe期限はnative receiverの準備確認後から計る。Codexの初回joinも公式receiver検証後、watcher起動前に期限を設定する。watcherはspoolのatomic更新を監視し、実期限へtimerを張る。期限到達はroomの心拍や公式RPCの完了を待たず、最新状態の成功・再武装・停止を照合してからfailedとhealthを記録する。背景toolの登録前は、必要な登録入力を伴う`rearm_pending`として表示する。Windows Grokの実測ではモデルが登録toolを呼ぶまで数分かかり、join時点から計る旧実装の期限とは目的が異なった。遅れて確認された現在のprobeは、そのprobeの期限エラーだけを解除する。実機の開始時間を第1工程で測り、必要なら根拠を残して期限を調整する。無期限のpendingにしない。
+現行のClaude/Cursor/Grokは事前hookで実会話と入力digestを照合し、照合記録が30秒を超えた場合はendpoint作成前に`PARENT_BIND_TIMEOUT`で失敗する。Codexは公式MCPのthread metadataと実processを直接照合する。事前hookで実会話を照合できたjoinは、返却時点で`receiving`にできる。事後hookで初めて束縛するjoinだけが`binding_pending`を返す。旧watcherからの移行中は、束縛とreceiver準備が済んでも旧本文出力の停止が確認されるまで新watchとprobeを開始しない。束縛待ちは30秒、probe待ちは全OS・全ハーネス共通の`PARENT_PROBE_TIMEOUT_MS`（120秒）を明示期限とし、前者は`PARENT_BIND_TIMEOUT`、後者は`PARENT_PROBE_TIMEOUT`で失敗を残す。probe期限はnative receiverの準備確認後から計る。Codexの初回joinも公式receiver検証後、watcher起動前に期限を設定する。watcherはspoolのatomic更新を監視し、実期限へtimerを張る。期限到達はroomの心拍や公式RPCの完了を待たず、最新状態の成功・再武装・停止を照合してからfailedとhealthを記録する。背景toolの登録前は、必要な登録入力を伴う`rearm_pending`として表示する。Windows Grokの実測ではモデルが登録toolを呼ぶまで数分かかり、join時点から計る旧実装の期限とは目的が異なった。遅れて確認された現在のprobeは、そのprobeの期限エラーだけを解除する。実機の開始時間を第1工程で測り、必要なら根拠を残して期限を調整する。無期限のpendingにしない。
 
 登録の疎通実績と現在の受信継続は別に記録する。runtimeの受信状態は`armed | rearm_pending | stopped | failed`とし、背景taskが終わって次の待機が登録されるまでを`rearm_pending`として診断へ出す。Cursor/Grokではnative背景toolの呼出しと結果を公式hookで相関し、task ID・受信process identity・endpointを保存する。receiptを生成しただけでは`armed`にしない。再登録までに届いた本文は配送記録へ保持し、次の待機が拾う。永久に再登録されない状態を健康と表示しない。
 
@@ -398,4 +398,8 @@ controllerはCursorの公式postToolUseが確定した入力全体を照合す�
 
 正式probe期限試験のcontrollerは、製品の実30秒期限と失敗の観測時刻を分ける。全OS・全harnessに共通の観測上限は既存focused timer試験と同じ1500msとし、失敗の実lagを原値で保存する。期限前、時刻欠落、health不一致、上限超過をtyped failureにし、製品deadlineを延ばして合格へ丸めない。Windowsの所有child停止APIと各harnessの故障発火が実測されていない行は、引き続き未合格とする。
 
-再登録修理後のWindows CIでは、Bakery ticketのatomic置換で実`EPERM`が発生した。[原記録](../rag/parent-delivery/windows-rename-ci-diagnosis.json)を保持し、同runtimeの先行CI成功を今回の失敗解決へ代用しない。Linux Grokの初回probeとWindows Cursorのlock timeoutも撤回候補のrawを保ち、原因を照合する。現行候補の正式配送試験と公開は、その境界の再現調査中である。
+再登録修理後のWindows CIでは、Bakery ticketのatomic置換で実`EPERM`が発生した。[原記録とAPI対照](../rag/parent-delivery/windows-rename-ci-diagnosis.json)から読取りhandle保持中の通常renameを再現し、Windows標準のPOSIX互換APIで修理した。診断packのfocused試験は合格したが、新候補の3 OS CIは未完了。Linux Grokの初回probeは正常な本文回収時間を測って期限を調整した。Windows Cursorのlock timeoutは別に原因照合が残る。正式配送試験と公開は、新候補でその境界を確認してから進める。
+
+[Linux Grokの正規通知の実診断](../rag/parent-delivery/linux-grok-probe-latency-diagnosis.json)では、本文回収まで53.198秒、次の受信登録まで71.99秒かかった。初回probe期限を共通120秒へ調整し、束縛期限を維持する。期限失敗を成功へ数えず、新候補で正常な確認と実期限失敗の両方を再測定する。
+
+[Windowsの保持reader対照](../rag/parent-delivery/windows-rename-ci-diagnosis.json)で、libuvの通常置換APIが共有DELETE付きでもACCESS_DENIEDとなり、POSIX互換置換APIでは同じ保持reader下で成立することを確認した。Windowsのatomic更新だけを標準APIへ適合し、排他・spool・receiptの仕組みは全OS共通に保つ。診断packのfocused31件は合格したが、新Git候補の3 OS CIと正式実機は未完了。
