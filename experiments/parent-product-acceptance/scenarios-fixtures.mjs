@@ -52,6 +52,12 @@ export function fixtureJoinInstruction({ harness, project, name }) {
   return common + registration + read + 'continuation_tokenがある間は同じ配送のparent_readを完了まで続けます。その結果の次wait_processも同じ完成入力で登録してください。'
 }
 
+// 公式env_vars指定へ自己observerだけを加え、既存のMCP環境参照を保持する。
+export function codexFixtureEnvironmentArgs(existing, processEnvironment = {}) {
+  if (existing !== undefined && (!Array.isArray(existing) || existing.some(value => typeof value !== 'string'))) fail('ACCEPTANCE_CODEX_ENV_VARS_SCHEMA', '公式configのMCP env_vars形式が不一致です')
+  return ['-c', `mcp_servers.peertable_parent.env_vars=${JSON.stringify([...new Set([...(existing ?? []), 'PEERTABLE_TOKEN_SOURCE_FILE', ...Object.keys(processEnvironment)])])}`, '-c', 'check_for_update_on_startup=false']
+}
+
 // 2.1.284の実resume画面はversionヘッダを表示しない。指定CID argvの新しい自己CLI本人まで照合する。
 export function claudeResumeReady({ screen, session, executable, owners, sameProcess }) {
   if (!session || !/^[0-9a-f-]{36}$/u.test(session) || !(/· Claude Pro/u.test(screen) || /⏵⏵ auto mode on \(shift\+tab to cycle\)/u.test(screen)) || !/^[ \t]*❯[ \t\u00a0]*$/mu.test(screen)) return false
@@ -280,14 +286,16 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
       }
       fixture.launch = async ({ resume } = {}) => {
         const cli = adapter.resolveCli(), launcher = join(directory, 'launcher.mjs'), input = join(directory, 'launch.json')
-        const argv = harness === 'codex' ? ['-c', 'mcp_servers.peertable_parent.env_vars=["PEERTABLE_TOKEN_SOURCE_FILE"]', '-c', 'check_for_update_on_startup=false'] : harness === 'claude' ? [] : adapter.argv?.({ project, tokenFile }) ?? []
+        const processEnvironment = fixture.processEnvironment ?? {}
+        const existingEnvironment = harness === 'codex' && Object.keys(processEnvironment).length ? (await userConfigRpc('config/read', { includeLayers: false })).config.mcp_servers?.peertable_parent?.env_vars : undefined
+        const argv = harness === 'codex' ? codexFixtureEnvironmentArgs(existingEnvironment, processEnvironment) : harness === 'claude' ? [] : adapter.argv?.({ project, tokenFile }) ?? []
         if (fixture.sessionSettings && harness === 'claude') { const settings = join(project, 'session-settings.json'); writeJson(settings, fixture.sessionSettings); argv.push('--settings', settings) }
         if (model) argv.push(harness === 'codex' ? '-m' : '--model', model)
         if (resume) argv.unshift(...(harness === 'codex' ? ['resume', resume] : harness === 'claude' ? ['--resume', resume] : adapter.resumeArgs(resume)))
         const invocation = nativeInvocation(cli.executable, argv, { shellCommand: platform.shellCommand, interactive: true })
-        writeJson(input, { executable: cli.executable, argv, invocation, project, tokenFile })
-        // HOME・認証・model/provider設定はharnessの通常環境のまま。token参照だけを試験roomへ渡す。
-        writeFileSync(launcher, `import {readFileSync} from 'node:fs';import {spawn} from 'node:child_process';const p=JSON.parse(readFileSync(process.argv[2],'utf8'));const child=spawn(p.invocation.executable,p.invocation.argv,{cwd:p.project,stdio:'inherit',env:{...process.env,PEERTABLE_TOKEN_SOURCE_FILE:p.tokenFile}});child.on('exit',(code)=>process.exit(code??1));\n`, { mode: 0o600 })
+        writeJson(input, { executable: cli.executable, argv, invocation, project, tokenFile, processEnvironment })
+        // HOME・認証は通常のまま。専用runのtoken参照とOS observerだけを公式env_varsへ渡す。
+        writeFileSync(launcher, `import {readFileSync} from 'node:fs';import {spawn} from 'node:child_process';const p=JSON.parse(readFileSync(process.argv[2],'utf8'));const child=spawn(p.invocation.executable,p.invocation.argv,{cwd:p.project,stdio:'inherit',env:{...process.env,...p.processEnvironment,PEERTABLE_TOKEN_SOURCE_FILE:p.tokenFile}});child.on('exit',(code)=>process.exit(code??1));\n`, { mode: 0o600 })
         if (!fixture.aiterm) fixture.aiterm = await openAiterm()
         if (!fixture.pty) fixture.pty = await fixture.aiterm.open(`pt-fixture-${randomUUID().slice(0, 8)}`, process.platform === 'win32' ? 'pwsh' : undefined)
         writeJson(fixture.identityArtifact, { at: new Date().toISOString(), project, harness, pty: fixture.pty, pane: fixture.paneOwner, native: fixture.nativeOwners, receiver: fixture.receiverOwners })
@@ -299,9 +307,10 @@ export async function createNativeFixtureFactory({ pkg, out, tokenFile, serverUr
         return fixture
       }
       fixture.submit = async text => { await fixture.aiterm.send(fixture.pty, text, false); await sleep(1500); await fixture.aiterm.key(fixture.pty, 'Enter') }
-      fixture.refreshTarget = async (previousEndpoint = null) => {
+      fixture.refreshTarget = async (previousEndpoint = null, { waitForVerified = true } = {}) => {
         const spool = await until('fixture parent_join', async () => { await fixture.trackOwnProcesses(); return projectEndpoints(project).find(item => item.id !== previousEndpoint && item.read().name === name && item.read().runtime !== 'stopped') })
-        const joined = await until('fixture verified', async () => { await fixture.trackOwnProcesses(); const state = spool.read(); if (state.state === 'failed') fail(state.error_code, 'fixtureのjoinが失敗しました'); return state.state === 'verified' ? state : null })
+        // probe障害の対象も製品が作ったcallerとspoolを読む。verifiedをfixtureで作り足さない。
+        const joined = await until('fixture本人の束縛', async () => { await fixture.trackOwnProcesses(); const state = spool.read(); if (waitForVerified && state.state === 'failed') fail(state.error_code, 'fixtureのjoinが失敗しました'); return state.caller?.conversation && state.caller.owner?.started && platform.sameProcess(state.caller.owner) && (!waitForVerified || state.state === 'verified') ? state : null })
         fixture.session = joined.caller.conversation; fixture.owner = joined.caller.owner
         const file = await until('fixture公式transcript', () => adapter.transcript(fixture.session))
         const meta = { ...sourceMeta, harness, room, parent_session: fixture.session, parent_process: fixture.owner, endpoint_id: spool.id, harness_version: adapter.resolveCli().version }

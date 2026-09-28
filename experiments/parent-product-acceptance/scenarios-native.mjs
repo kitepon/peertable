@@ -1,5 +1,5 @@
 // 公式CLI・公式queue・専用project hookで追加scenarioを動かす。fixtureの記録だけでは合格にしない。
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { randomUUID } from 'node:crypto'
@@ -9,6 +9,7 @@ import { createScenarioContext, completedNativeInput, completedNativeInputProof 
 import { createNativeFixtureFactory, waitOwnedFixtureExit } from './scenarios-fixtures.mjs'
 import { sha256 } from './evidence.mjs'
 import { createBackgroundSurfaceAdapters, nativeInvocation } from './scenarios-surfaces.mjs'
+import { installQueueProbeFault, queueProbeReceiverProof, watchQueueProbeState, queueProbeTimeoutProof, codexProbeJoinBoundary } from './scenarios-queue-fault.mjs'
 
 const fail = (code, message, detail) => { throw Object.assign(new Error(message), { code, detail }) }
 const rows = file => existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)) : []
@@ -633,7 +634,50 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     }, 120000, 100)
     return s.result(s, 'binding_timeout_typed_failed', 'harness_transcript', { tool_use_id: observed.use.id, error_code: observed.error.error_code, official_tool_output: observed.output, context_created_at: pending.context.value.created_at, released_at: releasedAt, elapsed_before_mcp_ms: Date.parse(releasedAt) - pending.context.value.created_at, observer_owner: pending.event.owner, endpoint_state_after_prejoin_failure: pending.target.spool.read().state, context_modified: false })
   }
-  for (const action of ['probe_timeout_arm', 'probe_timeout_observe']) actions[action] = async (_, s) => sourceUnconfirmed(s.harness, '専用probe未消費を製品の実期限まで保持する操作', { source: join(s.pkg, 'skill/scripts/parent-watch.mjs'), parent_session: self(s).meta.parent_session })
+  actions.probe_timeout_arm = async (_, s) => {
+    if (s.harness !== 'codex') sourceUnconfirmed(s.harness, '専用probe未消費を製品の実期限まで保持する操作', { source: join(s.pkg, 'skill/scripts/parent-watch.mjs'), parent_session: self(s).meta.parent_session })
+    const runner = s.meta.runner
+    if (!/^[0-9a-f]{40}$/u.test(runner?.commit ?? '') || !runner.modules_sha256?.['scenarios-queue-fault.mjs'] || runner.modules_sha256['scenarios-queue-fault.mjs'] !== sha256(readFileSync(new URL('./scenarios-queue-fault.mjs', import.meta.url)))) fail('ACCEPTANCE_QUEUE_RUNNER_PROVENANCE_MISSING', 'OS故障moduleの正式controller commit/hashがありません')
+    const current = state(s), evidenceFile = s.artifactFor(s, 'probe-timeout-original'), cleanupFile = s.artifactFor(s, 'probe-timeout-cleanup')
+    current.probeDeadline = { evidenceFile, cleanupFile, runner }
+    const fixture = await factory.open({ harness: 'codex', initialJoin: false, prepare: async fixture => {
+      current.probeDeadline.fixture = fixture
+      ownedFixtures.add(fixture)
+      current.probeDeadline.fault = await installQueueProbeFault(fixture, { pkg: s.pkg, artifact: label => s.artifactFor(s, label) })
+    } })
+    const own = current.probeDeadline
+    await fixture.submit(`Peertable parent_joinをproject=${fixture.project} name=${fixture.name}で1回だけ呼び、結果を原文で報告してください。専用processの実probe期限を観測中です。自動再試行・設定変更はしないでください。`)
+    const pause = await s.until('専用watcher初回queue接続のOS停止', () => own.fault.pause(), 120000, 50)
+    own.pause = pause
+    const target = await fixture.refreshTarget(null, { waitForVerified: false })
+    if (target.spool.id !== pause.endpoint_id || target.meta.parent_session !== pause.caller.conversation || target.meta.parent_process.pid !== pause.caller.owner.pid || target.meta.parent_process.started !== pause.caller.owner.started) fail('ACCEPTANCE_QUEUE_FAULT_CALLER_MISMATCH', '停止境界と実MCP相関のfixture本人が一致しません')
+    own.target = target
+    s.context.registerEndpoint('probe-timeout', target)
+    own.stateObserver = watchQueueProbeState({ spool: target.spool, artifact: s.artifactFor(s, 'probe-spool-os.jsonl') })
+    const expectedSource = realpathSync(join(pause.caller.codex_home, 'hooks.json'))
+    own.receiver = queueProbeReceiverProof({ events: own.fault.events(), pause, expectedSource, expectedCommand: s.shellCommand(process.execPath, [join(s.pkg, 'skill/scripts/parent-hook.mjs'), 'codex']) })
+    own.join = await s.until('同CIDの公式MCP join結果', () => codexProbeJoinBoundary({ file: target.file, session: target.meta.parent_session, project: fixture.project, name: fixture.name, endpointId: target.spool.id }), 15000, 50)
+    writeFileSync(evidenceFile, JSON.stringify({ runner, source: target.meta, pause, receiver: own.receiver, join: own.join }, null, 2))
+    return s.result(s, 'own_probe_not_consumed', 'official_queue', { related_session: target.meta.parent_session, turn_id: own.join.turn_id, native_tool_use_id: own.join.native_tool_use_id, endpoint_id: target.spool.id, parent_owner: pause.caller.owner, watcher_owner: pause.watcher, child_owner: pause.owner, probe_deadline: pause.spool_before.probe_deadline, receiver_prepared_before_first_queue: own.receiver, original_artifact: evidenceFile, runner })
+  }
+  actions.probe_timeout_observe = async (_, s) => {
+    const own = state(s).probeDeadline
+    if (!own?.pause || !own.stateObserver) fail('ACCEPTANCE_QUEUE_PROBE_FAULT_MISSING', '初回queue接続の自己OS停止証拠がありません')
+    let health
+    await s.until('実probe期限によるown spool/health failed', async () => {
+      if (own.stateObserver.error) throw own.stateObserver.error
+      const saved = own.target.spool.read()
+      health = await own.target.api('members')
+      const endpoint = health.bridges?.parent_receiver?.endpoints?.find(item => item.endpoint_id === own.target.spool.id)
+      return saved.state === 'failed' && saved.runtime === 'failed' && saved.error_code === 'PARENT_PROBE_TIMEOUT' && endpoint?.state === 'failed'
+    }, 45000, 50)
+    await s.until('35秒OS停止の自然終了/再開記録', () => own.fault.terminal(), 40000, 100)
+    const evidence = { runner: own.runner, source: own.target.meta, related_session: own.target.meta.parent_session, pause: own.pause, receiver: own.receiver, join: own.join, state_observations: own.stateObserver.rows, health, terminal: own.fault.terminal(), rpc_os_events: own.fault.events(), transcript_raw: readFileSync(own.target.file, 'utf8'), watch_log: readFileSync(join(own.target.spool.root, 'watch.log'), 'utf8') }
+    writeFileSync(own.evidenceFile, JSON.stringify(evidence, null, 2))
+    // 正本に誤差契約が無い間は事実を保存してtyped未判定にする。独自秒数で期限合格を作らない。
+    const proof = queueProbeTimeoutProof({ pause: own.pause, observations: own.stateObserver.rows, health })
+    return s.result(s, 'probe_timeout_typed_failed', 'official_queue', { ...proof, related_session: own.target.meta.parent_session, turn_id: own.join.turn_id, original_artifact: own.evidenceFile, runner: own.runner })
+  }
   actions.deadline_restore = async (_, s) => {
     const pending = state(s).deadline
     if (pending) for (const release of pending.releases) writeFileSync(release, '{}')
@@ -691,6 +735,7 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     const errors = []
     try {
     const current = saved.get(s.runId)
+    if (current?.probeDeadline) { current.probeDeadline.stateObserver?.close(); await current.probeDeadline.fault?.close() }
     for (const release of current?.deadline?.releases ?? []) writeFileSync(release, '{}')
     if (current?.work) { writeFileSync(current.work.release, '{}'); if (current.work.owner) await waitOwnedFixtureExit({ readEndpoints: () => [], knownOwners: [current.work.owner], indexExists: () => false, sameProcess: s.sameProcess, timeout: 30000 }) }
     if (current?.final) { writeFileSync(current.final.release, '{}'); if (current.final.monitor) { current.final.monitor.canceled = true; await current.final.monitor.promise } }
@@ -709,6 +754,15 @@ export function createNativeActions({ factory, primary, lifecycle = null }) {
     }
     } catch (error) { errors.push(error) }
     try { await factory.close() } catch (error) { errors.push(error) }
+    const probe = saved.get(s.runId)?.probeDeadline
+    if (probe) {
+      try {
+        const owners = [probe.pause?.caller.owner, probe.pause?.watcher, probe.pause?.owner].filter(Boolean), live = owners.filter(owner => s.sameProcess(owner))
+        const cleanup = { at: new Date().toISOString(), runner: probe.runner, related_session: probe.target?.meta.parent_session, endpoint_id: probe.pause?.endpoint_id, known_owners: owners, live_owners: live, fixture_closed: probe.fixture?.closed === true, product_state: probe.target?.spool.read() }
+        writeFileSync(probe.cleanupFile, JSON.stringify(cleanup, null, 2))
+        if (live.length || !cleanup.fixture_closed) fail('ACCEPTANCE_QUEUE_FAULT_CLEANUP_INCOMPLETE', '自己probe fixtureの親/受信/接続processが残っています', cleanup)
+      } catch (error) { errors.push(error) }
+    }
     if (errors.length) throw Object.assign(new AggregateError(errors, '追加scenarioの所有資産を後片付けできません'), { code: 'ACCEPTANCE_NATIVE_CLEANUP_FAILED' })
   } }
 }
