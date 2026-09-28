@@ -375,3 +375,7 @@ GUI準備では3 OSのCodex App、macOSとWindowsのCursor Desktopを確認し�
 実機runnerで、終了したCodex親のwatcherがglobal索引を残す欠陥を再現した。project撤去後に別の親hookが全索引を読むと`ENOENT`で配送が止まる。停止したwatcher自身が既存の`forgetEndpoint`で所有索引を撤去する修理を行い、本文・受付済み記録と他の親の索引を保持する。修正前に失敗した実processの回帰試験は修正後に合格し、関連focused testは28件合格した。`a07630d`で取得したmacOS Claude/Codexのaudience証拠は候補観測として保管し、修理後の最終候補へ流用しない。
 
 Codexの公式hook本文はXMLのtextとして記録される。[一次仕様の確認](../rag/parent-delivery/codex-hook-body-encoding.md)に従い、公式の符号化だけを一度復号して原文と照合する。raw記録の等値判定と復号後の照合を別々に残し、任意の文字列補正を行わない。
+
+修理後のmacOS通常CLIで、Claude/CodexのDM・複数宛・ALLについて親の実会話・応答・原文・receiptを再確認し、親終了後の自動停止と共有索引の撤去、他設定の保持を確認した。[修理後の候補観測](../rag/parent-delivery/repaired-cli-candidate-observation.json)は実測commitをそのまま記録し、最終manifestへ流用しない。
+
+最終受入の製品sourceは`43348b8c3557e8abe43e0ee45d3c9b8b19e427f8`へ揃えて測定する。試験制御用の`experiments/`は配布物に含めず、実測した製品sourceとは別にrunnerのcommitを記録する。異なるcommitで得た証拠の`source_commit`を書き換えず、最終対象で実行する。実機で確認した起動dialogと終了確認のrunner修理は統合済みで、関連focused testは9件合格した。
