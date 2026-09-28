@@ -100,7 +100,9 @@ const typed = (code, message) => Object.assign(new Error(message), { code })
 export function cleanupFailure(label, result) {
   const rules = {
     harness_exit: [[result.exited !== true, 'ACCEPTANCE_HARNESS_NOT_EXITED']],
-    endpoint_stop: [[!Array.isArray(result.owned_alive_after) || result.owned_alive_after.length > 0, 'ACCEPTANCE_OWNED_PROCESS_ALIVE'], [result.runtime_after !== 'stopped', 'ACCEPTANCE_ENDPOINT_NOT_STOPPED']],
+    // runnerの停止・索引撤去は後片付けとして続けるが、製品自身の終了処理が未完了ならrun成功にしない。
+    endpoint_stop: [[!Array.isArray(result.owned_alive_after) || result.owned_alive_after.length > 0, 'ACCEPTANCE_OWNED_PROCESS_ALIVE'], [result.runtime_after !== 'stopped', 'ACCEPTANCE_ENDPOINT_NOT_STOPPED'],
+      [result.product_stopped_within_30s !== true, 'PRODUCT_ENDPOINT_NOT_SELF_STOPPED'], [result.stopped_by_runner !== false, 'PRODUCT_ENDPOINT_STOPPED_BY_RUNNER'], [result.product_index_left_after_stop !== false, 'PRODUCT_STOPPED_ENDPOINT_INDEX_LEFT']],
     codex_folder_trust_remove: [[result.remaining_trust_entries !== 0, 'ACCEPTANCE_TRUST_ENTRY_LEFT']],
     pty_close: [[result.pane_alive_after !== false, 'ACCEPTANCE_PANE_ALIVE'], [!['closed', 'already_closed'].includes(result.outcome), 'ACCEPTANCE_PTY_NOT_CLOSED']],
     room_server: [[result.alive_after !== false, 'ACCEPTANCE_ROOM_ALIVE']],

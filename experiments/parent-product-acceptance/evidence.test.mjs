@@ -75,9 +75,14 @@ test('確定行の不正JSONは止め、改行の無い末尾は未確定とし�
 test('後片付けの未完了は成功へ丸めず原因codeを返す', () => {
   assert.equal(cleanupFailure('harness_exit', { exited: true }), null)
   assert.equal(cleanupFailure('harness_exit', { exited: false }).code, 'ACCEPTANCE_HARNESS_NOT_EXITED')
-  assert.equal(cleanupFailure('endpoint_stop', { owned_alive_after: [], runtime_after: 'stopped' }), null)
-  assert.equal(cleanupFailure('endpoint_stop', { owned_alive_after: [42], runtime_after: 'stopped' }).code, 'ACCEPTANCE_OWNED_PROCESS_ALIVE')
-  assert.equal(cleanupFailure('endpoint_stop', { owned_alive_after: [], runtime_after: 'armed' }).code, 'ACCEPTANCE_ENDPOINT_NOT_STOPPED')
+  const stopped = { owned_alive_after: [], runtime_after: 'stopped', product_stopped_within_30s: true, stopped_by_runner: false, product_index_left_after_stop: false }
+  assert.equal(cleanupFailure('endpoint_stop', stopped), null)
+  assert.equal(cleanupFailure('endpoint_stop', { ...stopped, owned_alive_after: [42] }).code, 'ACCEPTANCE_OWNED_PROCESS_ALIVE')
+  assert.equal(cleanupFailure('endpoint_stop', { ...stopped, runtime_after: 'armed' }).code, 'ACCEPTANCE_ENDPOINT_NOT_STOPPED')
+  // runnerが止めた・索引を外した場合も、製品の終了処理が未完了ならrun成功にしない。
+  assert.deepEqual(cleanupFailure('endpoint_stop', { ...stopped, product_stopped_within_30s: false, stopped_by_runner: true }).codes, ['PRODUCT_ENDPOINT_NOT_SELF_STOPPED', 'PRODUCT_ENDPOINT_STOPPED_BY_RUNNER'])
+  assert.deepEqual(cleanupFailure('endpoint_stop', { ...stopped, product_index_left_after_stop: true }).codes, ['PRODUCT_STOPPED_ENDPOINT_INDEX_LEFT'])
+  assert.equal(cleanupFailure('endpoint_stop', { owned_alive_after: [], runtime_after: 'stopped' }).code, 'PRODUCT_ENDPOINT_NOT_SELF_STOPPED')
   assert.equal(cleanupFailure('pty_close', { outcome: 'closed', pane_alive_after: null }).code, 'ACCEPTANCE_PANE_ALIVE')
   assert.equal(cleanupFailure('room_server', { alive_after: true }).code, 'ACCEPTANCE_ROOM_ALIVE')
   assert.equal(cleanupFailure('codex_folder_trust_remove', { remaining_trust_entries: 1 }).code, 'ACCEPTANCE_TRUST_ENTRY_LEFT')
