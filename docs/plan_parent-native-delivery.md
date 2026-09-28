@@ -364,4 +364,10 @@ fixtureは実process境界・競合・障害を速く再現する。実機は親
 
 GUI試験はJevによる画面取得で停止した。必要なOS権限は確認済みで、専用Cursor projectへの試験メッセージは未送信である。オーナーへGUI試験に限る操作ツール変更を確認中。許可前に代替操作へ進まず、専用の試験ウィンドウとサーバーは閉じている。
 
-独立して、修理版のCursor/Grok通常CLIの再測定と、最終候補をpackしてClaude/Codex通常CLIのscenario固有証拠を取得するrunnerの準備を進める。再開時は最新sourceと配布物を照合して実機目録を完成させ、関連する最終文書を更新し、第5工程の公開・導入・本番確認を続ける。古いsnapshotの成功やCIの合格だけで実機目録を埋めない。
+修理版のCursor/Grok通常CLIの再測定は終了し、[修理版の観測](../rag/parent-delivery/cursor-grok-repair-observation.json)へ保存した。6セルのroom原文hash、保存された本文、receipt revision、親の会話/PIDと最終native task IDを照合した。macOS Grokは画面上の複数宛本文の末尾が未確認のため部分確認である。旧候補の観測を最終候補の525件へ流用しない。
+
+最終候補をpackした配布物で、Claude/Codex通常CLIのscenario固有証拠を取得するrunnerと、Cursor/Grok通常CLIのaudience条件の実測を進める。再開時は最新sourceと配布物を照合して実機目録を完成させ、関連する最終文書を更新し、第5工程の公開・導入・本番確認を続ける。古いsnapshotの成功やCIの合格だけで実機目録を埋めない。
+
+GUI準備では3 OSのCodex App、macOSとWindowsのCursor Desktopを確認し、不足していたLinuxのVS Code/Cursor Desktop、WindowsのVS Codeと各Codex拡張を公式installer・package managerで導入した。アプリと拡張の存在確認は配送の合格に数えない。公式導入方法は[環境準備の記録](../rag/parent-delivery/gui-environment-preparation.md)を参照する。
+
+本番向けLinux imageの開発機での確認は[image確認](../rag/parent-delivery/room-image-preflight.json)へ保存した。HTTP保存/読出しのUTF-8原文、読取CORS、SSE接続は合格し、試験containerは停止済みである。本番未反映であり、親のnative配送の受入を代替しない。

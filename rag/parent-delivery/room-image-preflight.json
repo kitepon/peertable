@@ -1,0 +1,15 @@
+{
+  "schema": "peertable.room-image-preflight.v1",
+  "source_commit": "a07630d2feae01945cc1a34dcd2247676c95ecd0",
+  "package_version": "0.8.63",
+  "image": "peertable-room:20260929-a07630d",
+  "image_digest": "sha256:e7453c06c5400388524cfb00ad46f46ffd62a911bbcaf76d6bd5033e1af8a9ab",
+  "platform": "linux/amd64",
+  "checks": {
+    "http_save_read_utf8": "passed",
+    "read_cors": "passed",
+    "sse_connect": "passed"
+  },
+  "parent_native_acceptance": false,
+  "production_deployed": false
+}
