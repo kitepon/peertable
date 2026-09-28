@@ -50,10 +50,12 @@ Cursor/Grokの6 CLIは旧snapshotで5件失敗、Windows Grokの無改造試験�
 
 公開前gateは`npm run verify:parent-delivery`で[実機manifest](product-acceptance.json)を検査する。3 OS・7実行面・25scenarioの525件を要求し、欠落/skip/fixture・証拠file欠落・source digest/version不一致を拒否する。完了件数と残りはmanifestから算出する。gateは会話/原文/receipt等の共通証拠を機械照合し、scenario固有の実観測の十分性は親の受入監査でも確認する。実装チェックポイントと全製品受入完了を分ける。
 
-固定した最終製品sourceで取得したCursor/Grok通常CLIの3 OS audienceは、[親の独立監査](cursor-grok-formal-review.json)でnative task出力または公式`parent_read`結果、room本文、実会話のturn、後続assistant返答を照合してmanifestへ受け入れた。他者間DMと親自身の発言は非配送だった。Linux Grokの複数宛とWindows GrokのTUI画面は取得不足であり、`tui_full_body_present:false`を残す。CLIの受信本文と返答の根拠は保存済みの公式会話記録であり、画面確認の合格とは扱わない。
+旧候補`43348b8`で取得したCursor/Grok通常CLIの3 OS audienceは、[親の独立監査](cursor-grok-formal-review.json)でnative task出力または公式`parent_read`結果、room本文、実会話のturn、後続assistant返答を照合して試験当時のmanifestへ受け入れた。他者間DMと親自身の発言は非配送だった。Linux Grokの複数宛とWindows GrokのTUI画面は取得不足であり、`tui_full_body_present:false`を残す。CLIの受信本文と返答の根拠は保存済みの公式会話記録であり、画面確認の合格とは扱わない。
 
 ## 配布候補の確認
 
 最新の固定候補のsource、version、digest、製品CI、packと導入診断、公開gateの実行結果は[配布候補のチェックポイント](release-candidate-checkpoint.json)に保存する。3 OSの製品CIと正式tarballからの導入診断は成立したが、実機受入manifestの不足は残る。tarballを専用local prefixへnpmで導入した確認を、registry版のglobal installや本番反映として報告しない。
 
 Cursorの専用Desktop projectは正式tarballから構成した。OS権限の確認は成立したが、Jevの画面取得がwindow非公開・複数windowの相関・OS inventoryのtimeoutで停止し、初回メッセージは未送信である。専用ウィンドウとroom serverは停止した。モデルの利用上限やPeertableの配送不成立と同じ原因にしない。GUI試験の操作ツール変更はオーナーへの確認中であり、CLIの正式受入runnerは独立に準備している。
+
+Linuxの実行中binary更新、Windows CodexのMCP Job終了、設定解除の差分を修理したため、旧候補のmanifestは[snapshot](snapshots/43348b8/rag/parent-delivery/product-acceptance.json)へ保存し、現行gateへ流用しない。[修理の原因と検証](cli-lifecycle-repairs.md)を参照する。修理後のsource固定と全必須面の正式再測定は未完了である。

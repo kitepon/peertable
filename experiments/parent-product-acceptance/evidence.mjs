@@ -77,6 +77,8 @@ export function buildCase({ meta, scenario, checks, observations, extra = {} }) 
     parent_session: meta.parent_session, parent_process: meta.parent_process, endpoint_id: meta.endpoint_id, room: meta.room,
     owner_input_required: false, isolation: meta.isolation,
     ...(meta.controller ? { controller: meta.controller } : {}),
+    ...(meta.runner ? { runner: meta.runner } : {}),
+    ...(meta.runner_commit ? { runner_commit: meta.runner_commit, runner_files: meta.runner_files } : {}),
     observations, receipts: checks.map(check => check.receipt).filter(Boolean),
     body_checks: checks.filter(check => check.received).map(check => ({ label: check.label, original: check.original, received: check.received })),
     checks, ...extra,

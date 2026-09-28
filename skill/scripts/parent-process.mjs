@@ -27,8 +27,9 @@ const validPid = value => Number.isSafeInteger(value) && value > 0
 export function parseWmiResult(stdout) {
   let created
   try { created = JSON.parse(stdout) } catch { throw startFailed(`WMIの応答がJSONではありません: ${String(stdout).slice(0, 200)}`) }
-  if (!Number.isSafeInteger(created?.return_value) || !validPid(created?.pid)) throw startFailed(`WMIの応答にreturn_value/pidがありません: ${String(stdout).slice(0, 200)}`)
+  if (!Number.isSafeInteger(created?.return_value)) throw startFailed(`WMIの応答にreturn_valueがありません: ${String(stdout).slice(0, 200)}`)
   if (created.return_value !== 0) throw startFailed(`Win32_Process.Createが${created.return_value}を返しました`)
+  if (!validPid(created?.pid)) throw startFailed(`WMIの成功応答にpidがありません: ${String(stdout).slice(0, 200)}`)
   return created
 }
 // bootstrapが書くhandshake(外部processの出力)。pidか、typedな起動失敗のどちらかだけを受ける。

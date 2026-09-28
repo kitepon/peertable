@@ -1,12 +1,12 @@
 # 親配送の正式受入runner
 
-`scripts/parent-delivery-acceptance.mjs`が要求する`peertable.parent-live-case.v1`の証拠を、通常CLIの実親から取得する。対象はClaude Code/Codexの対話TUIだけで、Desktop/IDE、Cursor、Grokは扱わない。fixture、stream-json、app-serverの結果は証拠にしない。
+`scripts/parent-delivery-acceptance.mjs`が要求する`peertable.parent-live-case.v1`の証拠を、通常CLIの実親から取得する。対象はClaude Code/Codexの対話TUIだけで、Desktop/IDE、Cursor、Grokは扱わない。fixture・stream-json・診断app-serverだけの結果を、実親への配送合格にしない。公式queueの受付証拠は実会話への配送・応答と合わせて照合する。
 
 ## 実行
 
 ```sh
 node experiments/parent-product-acceptance/run.mjs --harness claude|codex \
-  --source <検証対象commit 40桁> --digest <runtime digest> --version <package version> \
+  --source <検証対象commit 40桁> --digest <runtime digest> --version <package version> --runner-commit <controller commit 40桁> \
   [--scenarios audience,idle,original,...] [--out <private作業dir>] [--model <id>]
 ```
 
@@ -17,8 +17,8 @@ runnerは1回の呼出しで次を連続して行う。
 3. 対象harnessのglobal設定をtarで退避し、導入物の`peertable connect --target <harness>`でPeertable所有entryだけを登録する。
 4. 配布物の`room/server.mjs`で試験専用roomを起動する。tokenは`PEERTABLE_TOKEN_SOURCE_FILE`経由で標準のseat-credential経路へ渡す。
 5. Aitermの公開MCP（`aiterm-mcp`）でPTYを開き、通常HOME・通常認証のまま`claude`/`codex`を起動する。Aitermの結果は宣言済みschemaのstructuredContentだけを読み、人間向けtextは解釈しない。`pty_open`は出力schemaを持たないため、指定したnameのsessionを`pty_observe`のstructured結果（`session_id`一致・`exists:true`）で確かめ、確かめられなければ`ACCEPTANCE_AITERM_SESSION_ID_MISSING`で止まる。試験dirの信頼dialogだけを肯定し、未知のdialogでは止まる。
-6. 実親に`parent_join`を1回呼ばせ、`verified`を待ってからscenarioを実測する。製品sourceのcommitと、実行controller各fileのSHA-256は別々に記録する。
-7. 後片付けを逆順で行う。harness終了、製品自身のendpoint停止の観測（30秒）、Codexの試験dir信頼entry削除、PTY close、room停止、`connect --remove`、設定の意味比較。各段の結果は`cleanupFailure`が完了条件と照合する。harness未終了、所有processの残存、endpoint未停止、pane・room processの残存、信頼entryの残存、connect解除の失敗、意味比較の不一致、Codex `config.toml`本文の不一致は、それぞれ原因code付きの`failed`になり、runは失敗で終わる。退避tarは`connect_remove`の完了条件をすべて満たした時だけ消す。製品が親終了後30秒以内にendpointを止めなかった場合（runnerが止める）と、停止済みendpointの索引が残った場合（runnerが自分の試験entryだけを外す）は、後片付け自体は続けるが、`findings`へ記録し、`endpoint_stop`を`PRODUCT_ENDPOINT_NOT_SELF_STOPPED`・`PRODUCT_ENDPOINT_STOPPED_BY_RUNNER`・`PRODUCT_STOPPED_ENDPOINT_INDEX_LEFT`の`failed`にしてrunを失敗で終える。
+6. 実親に`parent_join`を1回呼ばせ、`verified`を待ってからscenarioを実測する。製品sourceのcommitと、実行controllerのcommit・各fileのSHA-256は別々に記録し、指定commitのGit blobと実行fileを照合する。
+7. 後片付けを逆順で行う。harness終了、製品自身のendpoint停止の観測（合格期限30秒、遅延測定は最大120秒）、Codexの試験dir信頼entry削除、PTY close、room停止、`connect --remove`、設定の意味比較。各段の結果は`cleanupFailure`が完了条件と照合する。harness未終了、所有processの残存、endpoint未停止、pane・room processの残存、信頼entryの残存、connect解除の失敗、意味比較の不一致、Codex `config.toml`本文の不一致は、それぞれ原因code付きの`failed`になり、runは失敗で終わる。退避tarは`connect_remove`の完了条件をすべて満たした時だけ消す。製品が親終了後30秒以内にendpointを止めなかった場合（runnerが止める）と、停止済みendpointの索引が残った場合（runnerが自分の試験entryだけを外す）は、後片付け自体は続けるが、`findings`へ記録し、`endpoint_stop`を`PRODUCT_ENDPOINT_NOT_SELF_STOPPED`・`PRODUCT_ENDPOINT_STOPPED_BY_RUNNER`・`PRODUCT_STOPPED_ENDPOINT_INDEX_LEFT`の`failed`にしてrunを失敗で終える。
 
 Codexだけ、session層の`-c`を2つ足す。MCPへtoken参照先を渡す`mcp_servers.peertable_parent.env_vars`と、無人実行で更新dialogを出さない`check_for_update_on_startup=false`である。Codexのtrust dialogは`-c`では回避できないため、起動時に受諾する。書かれた`projects.<試験dir>`は、終了後に公式`config/batchWrite`で削除する。
 
@@ -48,10 +48,12 @@ Codexは`Stop`/`PostToolUse` hookの出力を`<hook_prompt>`要素へ入れ、�
 
 ## 実装済みscenario
 
-`audience`はDM・親を含む複数宛・allを各1回送り、room/from/to/seq/本文一致と同会話の後続返答を測る。他の24 scenarioは`scenarios.mjs`に正本の全手順を持ち、`run.mjs`から`createScenarioContext`/`runScenario`を呼ぶ。contextが実装した操作だけを実行し、必要なnative adapterが揃わないscenarioは障害操作の前に`ACCEPTANCE_SCENARIO_ADAPTER_MISSING`で止まる。手順の存在と実機の合格は別に扱う。
+`audience`はDM・親を含む複数宛・allを各1回送り、room/from/to/seq/本文一致と同会話の後続返答を測る。他の24 scenarioは`scenarios.mjs`に正本の全手順を持ち、`run.mjs`から`createScenarioContext`/`runScenario`を呼ぶ。contextに操作がなければ`ACCEPTANCE_SCENARIO_ADAPTER_MISSING`で止まり、実装した操作でも公式境界が未確認なら原因code付きの失敗で止まる。手順の存在と実機の合格は別に扱う。
 
-既存contextで実行できるのは`busy`、`idle`、`consecutive`、`no_external_tools`、`no_tools`、`original`、`burst`、`source_reconnect`、`output_interruption`、`receipt_retry`、`package`。残る13 scenarioのnative adapterは実装中である。各scenarioは専用nonce、実会話・turn・後続返答、原文一致、receipt、境界artifactを照合し、観測が欠ければ成績を作らない。
+既存contextで実行できるのは`busy`、`idle`、`consecutive`、`no_external_tools`、`no_tools`、`original`、`burst`、`source_reconnect`、`output_interruption`、`receipt_retry`、`package`。残る13 scenarioは`createNativeScenarioContext`で専用project・新しい公式sessionを作る。native操作は実装・実境界の確認を進めており、未確認の操作はtyped errorで止まる。各scenarioは専用nonce、実会話・turn・後続返答、原文一致、receipt、境界artifactを照合し、観測が欠ければ成績を作らない。
 
 `source_reconnect`と`receipt_retry`では、試験親のHTTP/SSE接続だけを専用proxyへ向ける。runnerの投稿・観測APIはroomへ直接接続する。後片付けではproxyの接続を切ってlistenの終了を確認し、未終了なら`ACCEPTANCE_PROXY_NOT_CLOSED`でrunを失敗にする。
 
 focused test: `node --test experiments/parent-product-acceptance/evidence.test.mjs experiments/parent-product-acceptance/scenarios.test.mjs`
+
+lease単独runは`scenarios-lease-run.mjs`へ導入物・tarball SHA・製品source/digest/version・`--runner-commit`を渡す。短時間runとroom/processを分離し、実際の製品期限まで待つ。通常HOMEと公式認証を維持し、global設定や認証を長時間fixtureへ複製しない。実行moduleに未commit差分があればprovenance照合で止まる。

@@ -2,17 +2,14 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { resolveOfficialCli } from './scenarios-surfaces.mjs'
+import * as platform from '../../skill/scripts/parent-platform.mjs'
 
 const posixQuote = value => `'${String(value).replaceAll("'", `'\\''`)}'`
 const psQuote = value => `'${String(value).replaceAll("'", "''")}'`
 
 export function resolveCli(harness) {
-  const name = { claude: 'claude', codex: 'codex' }[harness]
-  if (!name) throw Object.assign(new Error(`未対応のharnessです: ${harness}`), { code: 'ACCEPTANCE_HARNESS_UNSUPPORTED' })
-  const found = execFileSync(process.platform === 'win32' ? 'where.exe' : 'which', [name], { encoding: 'utf8' }).trim().split(/\r?\n/u)[0]
-  const version = execFileSync(found, ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' }).trim().split(/\r?\n/u)[0]
-  return { executable: found, version }
+  return resolveOfficialCli(harness, platform)
 }
 
 // 通常起動のargvへ足すのは、試験roomのtoken参照先をMCPへ渡す指定と、無人実行でCLI更新を促さない指定だけ(session層)。
@@ -44,6 +41,14 @@ export function startupAction(harness, screen) {
   if (/Trust this folder\?/u.test(screen) && /›\s*1\. Trust and continue/u.test(screen)) return { keys: ['Enter'], reason: 'codex_directory_trust' }
   if (/OpenAI Codex \(v/u.test(screen) && /^\s*›\s/mu.test(screen) && !/Press enter to continue/u.test(screen)) return { ready: true }
   return null
+}
+
+// Windowsのpath表記差を吸収し、隣の同prefixのprojectを自分の信頼entryに混ぜない。
+export function ownTrustKeys(projects, baselineProjects, out, platform = process.platform) {
+  const norm = value => platform === 'win32' ? value.replaceAll('/', '\\').toLowerCase() : value
+  const base = norm(out).replace(/[\\/]$/u, ''), separator = platform === 'win32' ? '\\' : '/'
+  const baseline = new Set(Object.keys(baselineProjects ?? {}).map(norm))
+  return Object.keys(projects ?? {}).filter(key => (norm(key) === base || norm(key).startsWith(`${base}${separator}`)) && !baseline.has(norm(key)))
 }
 
 // 自sessionの記録fileだけを名前で特定する。他会話の中身は読まない。

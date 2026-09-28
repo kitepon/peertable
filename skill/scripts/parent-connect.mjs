@@ -1,5 +1,5 @@
 // user領域のMCP/hookはPeertableのentryだけを所有する。外部設定を読む前後で照合する。
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { execFileSync } from 'node:child_process'
@@ -12,6 +12,7 @@ export const parentServerName = 'peertable_parent'
 const hookEntry = fileURLToPath(new URL('./parent-hook.mjs', import.meta.url))
 const clientEntry = fileURLToPath(new URL('../../room/client.mjs', import.meta.url))
 export const parentRegistration = () => ({ command: process.execPath, args: [clientEntry, 'parent'] })
+export const grokMcpBlock = registration => `[mcp_servers.${parentServerName}]\ncommand = ${JSON.stringify(registration.command)}\nargs = ${JSON.stringify(registration.args)}\n`
 const pathFor = target => {
   const home = homedir()
   if (target === 'claude') return { mcp: join(process.env.CLAUDE_CONFIG_DIR ?? home, '.claude.json'), hooks: join(process.env.CLAUDE_CONFIG_DIR ?? join(home, '.claude'), 'settings.json') }
@@ -39,24 +40,36 @@ export function ownsParentConnection(target, { home = parentHome() } = {}) {
   const commands = Object.values(hookEntries(target)).flatMap(groups => groups.flatMap(group => group.hooks ?? [group])).map(commandIdentity)
   return record.status === 'registered' && commands.every(command => record.commands.includes(command))
 }
-export function mergeOwnedHooks(current, additions, ownedCommands) {
+export function mergeOwnedHooks(current, additions, ownedCommands, original = { keys: Object.keys(current), event_names: Object.keys(current.hooks ?? {}) }) {
   const next = { ...current, hooks: { ...(current.hooks ?? {}) } }
   for (const name of new Set([...Object.keys(next.hooks), ...Object.keys(additions)])) {
     if (!Array.isArray(next.hooks[name] ?? [])) throw failure('PARENT_HOOK_CONFIG_INVALID')
-    let inserted = false
+    let inserted = false, removed = false
     const groups = []
     for (const group of next.hooks[name] ?? []) {
       const hooks = group.hooks ?? [group]
       const owns = hooks.some(hook => ownedCommands.includes(commandIdentity(hook)))
       if (!owns) { groups.push(group); continue }
+      removed = true
       const foreign = hooks.filter(hook => !ownedCommands.includes(commandIdentity(hook)))
       if (foreign.length) groups.push({ ...group, hooks: foreign })
       if (!inserted && additions[name]) { groups.push(...additions[name]); inserted = true }
     }
     if (!inserted && additions[name]) groups.push(...additions[name])
-    next.hooks[name] = groups
+    if (removed && !groups.length && !original.event_names.includes(name)) delete next.hooks[name]
+    else next.hooks[name] = groups
   }
+  if (!original.keys.includes('hooks') && !Object.keys(next.hooks).length) delete next.hooks
   return next
+}
+const jsonShape = file => {
+  const value = existsSync(file) ? readJson(file) : {}
+  return { existed: existsSync(file), keys: Object.keys(value), event_names: Object.keys(value.hooks ?? {}) }
+}
+function writeOwnedJson(file, value, original) {
+  if (!original.existed && !Object.keys(value).length) rmSync(file, { force: true })
+  else atomicJson(file, value)
+  if (existsSync(file) ? digest(readJson(file)) !== digest(value) : Object.keys(value).length !== 0) throw failure('PARENT_CONFIG_READBACK_FAILED')
 }
 // TOMLのliteral/basic quoted keyを解析して自分のtableだけを置換する。
 // 他のtableの本文・順序・コメントはbyte単位で残す。
@@ -119,6 +132,14 @@ function backup(files) {
 }
 function writeText(file, text) { mkdirSync(dirname(file), { recursive: true }); const temp = `${file}.${process.pid}.tmp`; writeFileSync(temp, text, { mode: 0o600 }); renameSync(temp, file); if (readFileSync(file, 'utf8') !== text) throw failure('PARENT_CONFIG_READBACK_FAILED') }
 
+export async function removeCodexConfiguration(client, filePath, trust = []) {
+  // 追加したtableの区切りも公式APIが撤去する。手でheaderだけ消すと追加された空行が残る。
+  await client.request('config/batchWrite', { filePath, edits: [
+    { keyPath: `mcp_servers.${parentServerName}`, value: null, mergeStrategy: 'replace' },
+    ...trust.map(hook => ({ keyPath: `hooks.state.${JSON.stringify(hook.key)}`, value: null, mergeStrategy: 'replace' })),
+  ] })
+}
+
 export async function connectParent(target, { remove = false } = {}) {
   if (!['claude', 'codex', 'grok', 'cursor'].includes(target)) throw failure('PARENT_TARGET_INVALID')
   const paths = pathFor(target), recordPath = join(parentHome(), 'connections', `${target}.json`)
@@ -126,11 +147,16 @@ export async function connectParent(target, { remove = false } = {}) {
   const registration = parentRegistration(), additions = remove ? {} : hookEntries(target)
   const commands = Object.values(hookEntries(target)).flatMap(groups => groups.flatMap(group => group.hooks ?? [group])).map(commandIdentity)
   const ownedCommands = [...new Set([...(previous?.commands ?? []), ...commands])]
+  // 初回の形だけを記録する。利用者の現在値をbackup丸ごとで戻さず、自分が追加した空の容器だけを撤去する。
+  const currentShape = { hooks: jsonShape(paths.hooks), ...(['claude', 'cursor'].includes(target) ? { mcp: jsonShape(paths.mcp) } : {}) }
+  const shape = previous?.status === 'registered' ? previous.json_shape : currentShape
+  if (!shape) throw failure('PARENT_CONFIG_BASELINE_MISSING', 'この登録には導入前の設定構造の記録がありません')
   const currentHooks = existsSync(paths.hooks) ? readJson(paths.hooks) : {}
   const currentOwned = Object.fromEntries(Object.entries(currentHooks.hooks ?? {}).map(([key, groups]) => [key, groups.filter(group => (group.hooks ?? [group]).some(hook => ownedCommands.includes(commandIdentity(hook))))]).filter(([, groups]) => groups.length))
   if (previous && digest(currentOwned) !== previous.hooks_digest) throw failure('PARENT_CONFIG_OWNERSHIP_CONFLICT', 'Peertableのhookに未監査の編集があります')
-  const nextHooks = mergeOwnedHooks(currentHooks, additions, ownedCommands)
-  if (target === 'cursor') nextHooks.version = currentHooks.version ?? 1
+  const nextHooks = mergeOwnedHooks(currentHooks, additions, ownedCommands, shape.hooks)
+  if (target === 'cursor' && !remove) nextHooks.version = currentHooks.version ?? 1
+  if (target === 'cursor' && remove && !shape.hooks.keys.includes('version') && nextHooks.version === 1) delete nextHooks.version
   const archive = backup([paths.mcp, paths.hooks])
   if (target === 'claude' || target === 'cursor') {
     const current = existsSync(paths.mcp) ? readJson(paths.mcp) : {}, entry = current.mcpServers?.[parentServerName]
@@ -138,11 +164,11 @@ export async function connectParent(target, { remove = false } = {}) {
     const next = { ...current, mcpServers: { ...(current.mcpServers ?? {}) } }
     if (remove) delete next.mcpServers[parentServerName]
     else next.mcpServers[parentServerName] = target === 'claude' ? { type: 'stdio', ...registration } : registration
-    atomicJson(paths.mcp, next)
-    if (digest(readJson(paths.mcp)) !== digest(next)) throw failure('PARENT_CONFIG_READBACK_FAILED')
+    if (remove && !shape.mcp.keys.includes('mcpServers') && !Object.keys(next.mcpServers).length) delete next.mcpServers
+    writeOwnedJson(paths.mcp, next, shape.mcp)
   } else if (target === 'grok') {
     const text = existsSync(paths.mcp) ? readFileSync(paths.mcp, 'utf8') : ''
-    const block = remove ? '' : `\n[mcp_servers.${parentServerName}]\ncommand = ${JSON.stringify(registration.command)}\nargs = ${JSON.stringify(registration.args)}\n`
+    const block = remove ? '' : grokMcpBlock(registration)
     writeText(paths.mcp, replaceOwnedToml(text, block, previous?.mcp_digest))
   } else {
     mkdirSync(dirname(paths.mcp), { recursive: true })
@@ -152,20 +178,11 @@ export async function connectParent(target, { remove = false } = {}) {
       const entry = current.config?.mcp_servers?.[parentServerName]
       if (entry && previous?.mcp_digest !== digest(entry) && digest(entry) !== digest(registration)) throw failure('PARENT_CONFIG_OWNERSHIP_CONFLICT')
       if (remove) {
-        // 自分のMCP tableをTOML構造で解決して解除。literal quoted headerにも対応する。
-        let text = readFileSync(paths.mcp, 'utf8'), block = ownedTomlBlock(text).block
-        text = replaceOwnedToml(text, '', digest(block))
-        for (const hook of previous?.trust ?? []) {
-          const keys = ['hooks', 'state', hook.key]
-          const owned = ownedTomlBlock(text, keys).block
-          if (owned) text = replaceOwnedToml(text, '', digest(owned), keys)
-        }
-        writeText(paths.mcp, text)
+        await removeCodexConfiguration(client, paths.mcp, previous?.trust)
       } else await client.request('config/batchWrite', { filePath: paths.mcp, edits: [{ keyPath: `mcp_servers.${parentServerName}`, value: registration, mergeStrategy: 'replace' }] })
     } finally { await client.close() }
   }
-  atomicJson(paths.hooks, nextHooks)
-  if (digest(readJson(paths.hooks)) !== digest(nextHooks)) throw failure('PARENT_CONFIG_READBACK_FAILED')
+  writeOwnedJson(paths.hooks, nextHooks, shape.hooks)
   let trust = null
   if (target === 'codex' && !remove) {
     const client = await codexConnection(dirname(paths.mcp))
@@ -191,7 +208,7 @@ export async function connectParent(target, { remove = false } = {}) {
       mcpDigest = digest(entry)
     } finally { await client.close() }
   }
-  const result = { schema: 'peertable.parent-connect.v1', target, status: remove ? 'removed' : 'registered', runtime_status: remove ? 'stopped' : 'PARENT_RESTART_REQUIRED', paths, commands: ownedCommands, hooks_digest: digest(savedOwned), mcp_digest: mcpDigest, backup: archive, trust, updated_at: new Date().toISOString() }
+  const result = { schema: 'peertable.parent-connect.v1', target, status: remove ? 'removed' : 'registered', runtime_status: remove ? 'stopped' : 'PARENT_RESTART_REQUIRED', paths, commands: ownedCommands, hooks_digest: digest(savedOwned), mcp_digest: mcpDigest, json_shape: shape, backup: archive, trust, updated_at: new Date().toISOString() }
   atomicJson(recordPath, result)
   return result
 }

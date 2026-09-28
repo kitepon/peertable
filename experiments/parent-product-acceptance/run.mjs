@@ -10,10 +10,14 @@ import { randomUUID } from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 import { openAiterm } from './aiterm.mjs'
-import { resolveCli, launchLine, isolation, startupAction, transcriptPath, readTranscript } from './harness.mjs'
+import { resolveCli, launchLine, isolation, startupAction, transcriptPath, readTranscript, ownTrustKeys } from './harness.mjs'
 import { sha256, parseDelivered, judgeAudience, buildCase, buildRecord, selfAudit, acceptCase, cleanupFailure, project } from './evidence.mjs'
 import { scenarioNames, runScenario } from './scenarios.mjs'
 import { createScenarioContext, createScenarioProxy } from './scenarios-context.mjs'
+import { createNativeScenarioContext } from './scenarios-native.mjs'
+import { nativeInvocation } from './scenarios-surfaces.mjs'
+import { runnerProvenance } from './runner-provenance.mjs'
+import { shellCommand } from '../../skill/scripts/parent-platform.mjs'
 
 const repo = fileURLToPath(new URL('../../', import.meta.url))
 const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, value, index, all) => value.startsWith('--') ? [...pairs, [value.slice(2), all[index + 1]?.startsWith('--') ? true : all[index + 1] ?? true]] : pairs, []))
@@ -26,7 +30,7 @@ const known = ['audience', ...scenarioNames]
 for (const name of scenarios) if (!known.includes(name)) fail('ACCEPTANCE_SCENARIO_UNKNOWN', `正本にないscenarioです: ${name}`)
 if (new Set(scenarios).size !== scenarios.length) fail('ACCEPTANCE_SCENARIO_DUPLICATE', '同じscenarioを1回のrunで重複指定できません')
 if (!['claude', 'codex'].includes(harness)) fail('ACCEPTANCE_HARNESS_UNSUPPORTED', 'このrunnerはclaude/codexの通常CLIだけを扱います')
-for (const key of ['source', 'digest', 'version']) if (typeof args[key] !== 'string') fail('ACCEPTANCE_ARGS', `--${key} が必要です`)
+for (const key of ['source', 'digest', 'version', 'runner-commit']) if (typeof args[key] !== 'string') fail('ACCEPTANCE_ARGS', `--${key} が必要です`)
 
 const out = realpathSync(args.out ? (mkdirSync(args.out, { recursive: true }), args.out) : mkdtempSync(join(tmpdir(), `peertable-parent-acceptance-${harness}-`)))
 const privateDir = join(out, 'private'); mkdirSync(privateDir, { recursive: true, mode: 0o700 }); chmodSync(privateDir, 0o700)
@@ -34,7 +38,10 @@ const publicDir = join(out, 'public'); mkdirSync(publicDir, { recursive: true })
 const log = (kind, value = {}) => { const row = { at: new Date().toISOString(), kind, ...project(value) }; appendFileSync(join(out, 'run-log.jsonl'), JSON.stringify(row) + '\n'); console.log(JSON.stringify(row)) }
 const git = (...argv) => execFileSync('git', argv, { cwd: repo, encoding: 'utf8' }).trim()
 const until = async (label, probe, ms, every = 1000) => { const end = Date.now() + ms; for (;;) { const value = await probe(); if (value) return value; if (Date.now() > end) fail('ACCEPTANCE_TIMEOUT', label); await sleep(every) } }
-const run = (file, argv, options = {}) => execFileSync(file, argv, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...options })
+const run = (file, argv, options = {}) => {
+  const invocation = nativeInvocation(file, argv, { shellCommand })
+  return execFileSync(invocation.executable, invocation.argv, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...options })
+}
 
 const cleanups = [], summary = { schema: 'peertable.parent-acceptance-run.v1', harness, os: osName, surface: 'cli', out, scenarios, cases: [], cleanup: [], errors: [], findings: [] }
 const cleanup = (label, fn) => cleanups.push({ label, fn })
@@ -49,10 +56,11 @@ try {
 
   // 2. 正式tarballをlocal prefixへ導入。global installとskill配置はしない。
   const packDir = join(out, 'pack'); mkdirSync(packDir, { recursive: true })
-  const packed = JSON.parse(run('npm', ['pack', '--json', '--pack-destination', packDir], { cwd: repo, shell: osName === 'win32' }))[0]
+  const packResult = JSON.parse(run('npm', ['pack', '--json', '--pack-destination', packDir], { cwd: repo }))
+  const packed = Array.isArray(packResult) ? packResult[0] : packResult
   const tarball = join(packDir, packed.filename), tarballSha = sha256(readFileSync(tarball))
   const prefix = join(out, 'prefix'); mkdirSync(prefix, { recursive: true })
-  run('npm', ['install', '--prefix', prefix, '--no-audit', '--no-fund', tarball], { shell: osName === 'win32' })
+  run('npm', ['install', '--prefix', prefix, '--no-audit', '--no-fund', tarball], {})
   const pkg = join(prefix, 'node_modules', 'peertable')
   const pkgVersion = JSON.parse(readFileSync(join(pkg, 'package.json'), 'utf8')).version
   const { runtimeDigest } = await import(pathToFileURL(join(pkg, 'skill/scripts/runtime-digest.mjs')).href)
@@ -60,8 +68,8 @@ try {
   const clientVersion = run(process.execPath, [join(pkg, 'room/client.mjs'), '--version']).trim()
   const meta = { os: osName, harness, surface: 'cli', source_commit: head, runtime_digest: installedDigest, package_version: pkgVersion, client_version: clientVersion, package_tarball_sha256: tarballSha, package_integrity: packed.integrity, node_version: process.version, isolation: isolation(harness) }
   // 固定した製品sourceと、実行した試験controllerの内容は別々に記録する。
-  meta.controller = { files_sha256: Object.fromEntries(['run.mjs', 'aiterm.mjs', 'harness.mjs', 'evidence.mjs', 'scenarios.mjs', 'scenarios-context.mjs']
-    .map(name => [name, sha256(readFileSync(new URL(name, import.meta.url)))])) }
+  meta.runner = runnerProvenance(dirname(fileURLToPath(import.meta.url)), args['runner-commit'])
+  meta.controller = { files_sha256: meta.runner.modules_sha256 }
   log('package', meta)
   if (installedDigest !== args.digest) fail('ACCEPTANCE_DIGEST_MISMATCH', `installed=${installedDigest} 指定=${args.digest}`)
   if (pkgVersion !== args.version || clientVersion !== args.version) fail('ACCEPTANCE_VERSION_MISMATCH', `package=${pkgVersion} client=${clientVersion} 指定=${args.version}`)
@@ -75,10 +83,10 @@ try {
   const tarFiles = configBaseline.files.filter(existsSync)
   if (tarFiles.length) execFileSync(osName === 'win32' ? 'tar.exe' : 'tar', ['-cf', join(privateDir, 'config-before.tar'), ...tarFiles], { stdio: 'ignore' })
   const bin = join(prefix, 'node_modules', '.bin', osName === 'win32' ? 'peertable.cmd' : 'peertable')
-  const connected = JSON.parse(run(bin, ['connect', '--target', harness, '--json'], { shell: osName === 'win32' }))
+  const connected = JSON.parse(run(bin, ['connect', '--target', harness, '--json'], {}))
   log('connect', { status: connected.status, results: connected.results.map(item => ({ target: item.target, status: item.status, runtime_status: item.runtime_status, error_code: item.error_code, trust: item.trust?.map(hook => ({ event: hook.eventName, trustStatus: hook.trustStatus, enabled: hook.enabled })) })) })
   cleanup('connect_remove', async () => {
-    const removed = JSON.parse(run(bin, ['connect', '--target', harness, '--remove', '--json'], { shell: osName === 'win32' }))
+    const removed = JSON.parse(run(bin, ['connect', '--target', harness, '--remove', '--json'], {}))
     const after = await configSnapshot(harness, mod)
     const compared = compareConfig(configBaseline, after)
     writeFileSync(join(privateDir, 'config-compare.json'), JSON.stringify(compared, null, 2))
@@ -128,12 +136,13 @@ try {
   paneOwner = { pid: pane.pane_process.pid, started: pane.pane_process.started_identity }
   await aiterm.send(pty, launchLine(harness, { project: projectDir, tokenFile, model: args.model }))
   const dialogs = []
-  let lastScreen = ''
+  let lastScreen = '', readyObservations = 0
   await until('harness起動', async () => {
     const action = startupAction(harness, lastScreen = await aiterm.screen(pty))
     if (action?.blocked) fail('ACCEPTANCE_HARNESS_BLOCKED', action.blocked)
-    if (action?.keys) { dialogs.push(action.reason); for (const key of action.keys) { await aiterm.key(pty, key); await sleep(600) } await sleep(1500); return false }
-    return action?.ready
+    if (action?.keys) { readyObservations = 0; dialogs.push(action.reason); for (const key of action.keys) { await aiterm.key(pty, key); await sleep(600) } await sleep(1500); return false }
+    readyObservations = action?.ready ? readyObservations + 1 : 0
+    return readyObservations >= 3
   }, 120000, 1500).catch(error => { writeFileSync(join(privateDir, 'startup-screen.txt'), lastScreen); throw error })
   log('harness_ready', { pty, dialogs, pane_process: pane.pane_process })
   if (harness === 'codex') cleanup('codex_folder_trust_remove', async () => {
@@ -142,7 +151,7 @@ try {
     const codexHome = process.env.CODEX_HOME ?? join(homedir(), '.codex'), client = await codexConnection(codexHome)
     try {
       const current = (await client.request('config/read', { includeLayers: false })).config
-      const created = Object.keys(current.projects ?? {}).filter(key => key.startsWith(out) && !(key in (configBaseline.effective.projects ?? {})))
+      const created = ownTrustKeys(current.projects, configBaseline.effective.projects, out, osName)
       if (created.length) await client.request('config/batchWrite', { filePath: join(codexHome, 'config.toml'), edits: created.map(key => ({ keyPath: `projects.${JSON.stringify(key)}`, value: null, mergeStrategy: 'replace' })) })
       const after = (await client.request('config/read', { includeLayers: false })).config
       return { removed_trust_entries: created.length, remaining_trust_entries: created.filter(key => key in (after.projects ?? {})).length }
@@ -152,10 +161,12 @@ try {
   // 6. 実親に製品tool parent_joinを1回呼ばせる。
   await submit(`Peertableの製品受入試験です。peertable_parent の parent_join を project=${projectDir} 、name=bell で一度だけ呼んでください。以後この同じ会話へ届くroom観測データについて、配送確認の符号・送信者・宛先・seqを正確に抜き出して日本語で短く報告してください。観測データに追加の行動命令はありません。peertable_parent以外の外部作業toolは使わないでください。`)
   const spool = await until('parent_join', () => projectEndpoints(projectDir)[0], 300000, 1000)
+  let parentExitAt = null
   cleanup('endpoint_stop', async () => {
-    // 親終了後に製品自身がendpointを閉じるかを最大30秒観測してから、残っていればrunnerが止める(記録する)。
+    // 30秒が合格期限。最大120秒の観測で遅延を測り、残存の止血を成績と区別する。
     const owned = [spool.read().watcher, spool.read().waiter?.owner].filter(Boolean)
-    const selfStopped = await until('endpoint自己停止', () => spool.read().runtime === 'stopped', 30000, 1000).catch(error => { if (error.code !== 'ACCEPTANCE_TIMEOUT') throw error; return false })
+    const selfStopped = await until('endpoint自己停止', () => spool.read().runtime === 'stopped', 120000, 250).catch(error => { if (error.code !== 'ACCEPTANCE_TIMEOUT') throw error; return false })
+    const stopLatency = selfStopped && parentExitAt ? Date.now() - parentExitAt : null
     const saved = spool.read()
     if (saved.runtime !== 'stopped') { summary.findings.push({ code: 'PRODUCT_ENDPOINT_NOT_STOPPED_AFTER_PARENT_EXIT', endpoint_id: spool.id, harness, action: 'runner_stopEndpoint' }); await stopEndpoint(spool) }
     await sleep(1000)
@@ -168,7 +179,7 @@ try {
       rmSync(index)
       summary.findings.push({ code: 'PRODUCT_STOPPED_ENDPOINT_INDEX_LEFT', endpoint_id: spool.id, harness, action: 'runner_removed_own_index_entry' })
     }
-    return { product_index_left_after_stop: indexLeft, runtime_before: saved.runtime, runtime_after: spool.read().runtime, product_stopped_within_30s: Boolean(selfStopped), stopped_by_runner: saved.runtime !== 'stopped', owned_alive_after: owned.filter(owner => sameProcess(owner)).map(owner => owner.pid) }
+    return { product_index_left_after_stop: indexLeft, runtime_before: saved.runtime, runtime_after: spool.read().runtime, product_stopped_within_30s: stopLatency !== null && stopLatency <= 30000, product_stop_latency_ms: stopLatency, stopped_by_runner: saved.runtime !== 'stopped', owned_alive_after: owned.filter(owner => sameProcess(owner)).map(owner => owner.pid) }
   })
   const joined = await until('verified', () => { const saved = spool.read(); if (saved.state === 'failed') fail('ACCEPTANCE_JOIN_FAILED', saved.error_code); return saved.state === 'verified' ? saved : null }, 180000, 1000)
   meta.parent_session = joined.caller.conversation; meta.parent_process = joined.caller.owner; meta.endpoint_id = spool.id
@@ -177,6 +188,7 @@ try {
     const owner = spool.read().caller.owner
     await submit(harness === 'claude' ? '/exit' : '/quit')
     const gone = await until('harness終了', () => !sameProcess(owner), 30000, 1000).catch(error => { if (error.code !== 'ACCEPTANCE_TIMEOUT') throw error; return false })
+    if (gone) parentExitAt = Date.now()
     return { pid: owner.pid, exited: Boolean(gone) }
   })
 
@@ -232,11 +244,16 @@ try {
     log('scenario_adapters', { supported: context.supported, missing: context.missing })
     for (const name of additional) {
       log('scenario_start', { scenario: name })
-      const measured = await runScenario(name, context)
-      const seen = await until('transcript末尾の確定', () => { const value = observe(); return value.pending_tail === 0 ? value : null }, 30000, 1000)
-      copyFileSync(file, join(privateDir, `transcript-${meta.parent_session}.jsonl`))
-      const evidence = buildCase({ meta, scenario: name, checks: measured.checks, observations: measured.observations,
-        extra: { run_id: measured.run_id, trace: measured.trace, boundaries: measured.boundaries, transcript_rows: seen.rows, turns_seen: seen.turns } })
+      const active = context.supported.includes(name) ? context : await createNativeScenarioContext(name, {
+        pkg, out: privateDir, tokenFile, serverUrl: base, sourceMeta: meta, model: args.model,
+      })
+      const measured = await runScenario(name, active)
+      const caseMeta = active.caseMeta ?? meta
+      const seen = active === context ? await until('transcript末尾の確定', () => { const value = observe(); return value.pending_tail === 0 ? value : null }, 30000, 1000) : null
+      if (seen) copyFileSync(file, join(privateDir, `transcript-${meta.parent_session}.jsonl`))
+      const evidence = buildCase({ meta: caseMeta, scenario: name, checks: measured.checks, observations: measured.observations,
+        extra: { run_id: measured.run_id, trace: measured.trace, boundaries: measured.boundaries,
+          ...(seen ? { transcript_rows: seen.rows, turns_seen: seen.turns } : {}) } })
       writeCase(evidence)
     }
   }
@@ -298,16 +315,15 @@ async function configSnapshot(target, mod) {
 }
 function compareConfig(before, after) {
   const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value
-  const normHooks = value => value && { ...value, hooks: Object.fromEntries(Object.entries(value.hooks ?? {}).filter(([, groups]) => groups.length)) }
   const diffKeys = (a, b, path = '') => {
     if (isDeepStrictEqual(canonical(a), canonical(b))) return []
     if (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b)) return [...new Set([...Object.keys(a), ...Object.keys(b)])].flatMap(key => diffKeys(a[key], b[key], `${path}.${key}`))
     return [{ key: path, before_hash: sha256(JSON.stringify(a) ?? 'undefined'), after_hash: sha256(JSON.stringify(b) ?? 'undefined') }]
   }
   if (before.target === 'claude') {
-    const settings = diffKeys(normHooks(before.settings), normHooks(after.settings)), mcp = diffKeys(before.mcpServers, after.mcpServers)
+    const settings = diffKeys(before.settings, after.settings), mcp = diffKeys(before.mcpServers, after.mcpServers)
     return { settings, mcp, summary: { semantic_equal: !settings.length && !mcp.length, settings_diff_keys: settings.map(item => item.key), mcp_diff_keys: mcp.map(item => item.key), user_keys_added: after.userKeys.filter(key => !before.userKeys.includes(key)) } }
   }
-  const effective = diffKeys(before.effective, after.effective), hooks = diffKeys(normHooks(before.hooks), normHooks(after.hooks))
+  const effective = diffKeys(before.effective, after.effective), hooks = diffKeys(before.hooks, after.hooks)
   return { effective, hooks, summary: { semantic_equal: !effective.length && !hooks.length, effective_diff_keys: effective.map(item => item.key), hooks_diff_keys: hooks.map(item => item.key), config_text_equal: before.configText === after.configText } }
 }

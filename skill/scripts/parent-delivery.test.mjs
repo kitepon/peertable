@@ -9,9 +9,9 @@ import { randomUUID } from 'node:crypto'
 import { ParentSpool, PAGE_CHARS, renderDelivery, digest, armParentState } from './parent-delivery.mjs'
 import { processIdentity, processHarness, harnessProcess, readHookEvent, atomicJson } from './parent-platform.mjs'
 import { queueCodex, codexHook, checkCodexReceiver } from './parent-receivers/codex.mjs'
-import { mergeOwnedHooks, tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, hookEntries, ownsParentConnection } from './parent-connect.mjs'
+import { mergeOwnedHooks, tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, hookEntries, ownsParentConnection, grokMcpBlock } from './parent-connect.mjs'
 import { cursorEvent } from './parent-receivers/cursor.mjs'
-import { clientHarness, hookContext, verifyJoinHook, forgetEndpoint } from './parent-caller.mjs'
+import { clientHarness, hookContext, verifyHookCaller, verifyJoinHook, forgetEndpoint } from './parent-caller.mjs'
 const fixture = t => {
   const project = mkdtempSync(join(tmpdir(), 'peertable spool 日本語 '))
   t.after(() => rmSync(project, { recursive: true, force: true }))
@@ -191,6 +191,17 @@ test('Cursor afterMCPExecutionはtool_use_idなしでもendpointと実会話・�
   assert.equal(verifyJoinHook('cursor', { ...event, mcp_server_name: 'other' }, owner, options), null)
 })
 
+test('事前hookの本人相関期限は本人不一致と区別する', () => {
+  const input = { project: '/専用試験', name: 'bell' }
+  for (const harness of ['claude', 'cursor', 'grok']) {
+    const context = { harness, name: 'parent_join', input_digest: digest(input), owner: processIdentity(process.pid), created_at: Date.now() }
+    assert.doesNotThrow(() => verifyHookCaller(context, harness, 'parent_join', input))
+    const expired = { ...context, created_at: Date.now() - 30001 }
+    assert.throws(() => verifyHookCaller(expired, harness, 'parent_join', input), { code: 'PARENT_BIND_TIMEOUT' })
+    assert.throws(() => verifyHookCaller(expired, harness, 'parent_join', { ...input, name: '別人' }), { code: 'PARENT_CALLER_MISMATCH' })
+  }
+})
+
 test('probe期限は受信準備から始め、確認済みprobeだけが自身の期限エラーを解除する', t => {
   const spool = fixture(t)
   spool.update({ created_at: '2000-01-01T00:00:00.000Z' })
@@ -269,6 +280,27 @@ test('hook更新は外部の順序・承認・入力を保持する', () => {
   const next = mergeOwnedHooks({ permissions: { allow: ['read'] }, hooks: { Stop: [foreign, ours, foreign] } }, { Stop: [{ hooks: [{ command: '新hook' }] }] }, [JSON.stringify(['自分のhook', []])])
   assert.deepEqual(next.hooks.Stop[0], foreign); assert.deepEqual(next.hooks.Stop[2], foreign)
   assert.deepEqual(next.permissions, { allow: ['read'] })
+})
+
+test('GrokのMCP登録解除はLF末尾の外部TOMLへ空行を追加しない', () => {
+  for (const before of ['', '# 利用者の設定\nmodel = "grok"\n', '# 利用者の空行も保持\n\n\n']) {
+    const added = replaceOwnedToml(before, grokMcpBlock({ command: '/空白 dir/node', args: ['日本語', 'parent'] }))
+    const removed = replaceOwnedToml(added, '', digest(ownedTomlBlock(added).block))
+    assert.equal(removed, before)
+  }
+})
+
+test('hook解除は導入した空のevent/containerを撤去し、利用者の空eventと最新の編集を残す', () => {
+  const pristine = { permissions: { allow: ['read'] } }
+  const original = { keys: Object.keys(pristine), event_names: [] }
+  const ours = { hooks: [{ command: '専用hook' }] }, commands = [JSON.stringify(['専用hook', []])]
+  const registered = mergeOwnedHooks(pristine, { PreToolUse: [ours], Stop: [ours] }, commands, original)
+  assert.deepEqual(mergeOwnedHooks(registered, {}, commands, original), pristine)
+  const latest = { ...registered, language: '日本語', hooks: { ...registered.hooks, UserPromptSubmit: [] } }
+  assert.deepEqual(mergeOwnedHooks(latest, {}, commands, original), { ...pristine, language: '日本語', hooks: { UserPromptSubmit: [] } })
+  const originallyEmpty = { hooks: { Stop: [] } }, shape = { keys: ['hooks'], event_names: ['Stop'] }
+  const added = mergeOwnedHooks(originallyEmpty, { Stop: [ours], PreToolUse: [ours] }, commands, shape)
+  assert.deepEqual(mergeOwnedHooks(added, {}, commands, shape), originallyEmpty)
 })
 
 test('別hostが正式endpointを置き換えると旧本文を新会話へ移さず旧receiverを閉じる', async t => {

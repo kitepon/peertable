@@ -74,11 +74,11 @@ Peertableは原文spoolと受信cursor、Claudeの公式asyncRewake、Codexの�
 setup、resume、teardownはそれぞれ一回の製品入口で必要な順序を完結させる。利用AIへbridge停止、更新、再起動、ready確認の順序選択を委ねない。
 
 - global npm installは検出したAIのスキル配置を更新する。再実行入口は`peertable install`。所有するPeertableリンクだけを管理し、共有AI設定本文や他製品の設定を変更しない。installからprojectの再構築を行わない。
-- 親の接続は`peertable connect --target claude|codex|grok|cursor`が所有する。Peertable専用MCP・公式hookだけを管理し、他製品の設定・承認・順序を保持する。設定追加だけで実会話への受信成立としない。
+- 親の接続は`peertable connect --target claude|codex|grok|cursor`が所有する。Peertable専用MCP・公式hookだけを管理し、他製品の設定・承認・順序を保持する。設定追加だけで実会話への受信成立としない。導入前のJSONの構造を所有記録へ残し、解除時は導入した空event・容器だけを撤去して利用者の現在値を保つ。CodexのTOML解除には公式config APIを使う。
 - setupは明示projectの生成物、接続、bridge起動、ready確認までを持つ。再実行時は既存roomと議題を保ってresumeへ進む。席の追加は`peertable launch`がroom登録と実ターン開始まで確認する。
 - 着任指示の成立まで、その席への通常通知はpendingに保持する。初回指示と参加通知の配達順序はPeertableが所有し、起動中断の記録は再着席前の退席処理で解除する。
 - resumeはPeertable所有の生成物とroom MCPを現行treeへ同期してから席を復帰する。
-- 親の実processが終了した場合も、watcherはendpointを停止して所有するglobal索引を撤去する。配送履歴・保存本文はprojectに残し、他の親の索引は保持する。故障した受信口はresumeの対象として索引を保持する。
+- 親の実processが終了した場合も、watcherはendpointを停止して所有するglobal索引を撤去する。Windowsでは同じwatcherをWMIの起動APIで親のMCP Jobの外へ起動し、親終了後の自己停止を維持する。配送履歴・保存本文はprojectに残し、他の親の索引は保持する。故障した受信口はresumeの対象として索引を保持する。
 - teardownは親の購読・背景受信とwakeup、seat-status、alarmの3 bridgeを停止してから生成物を片付ける。親のharness processは終了せず、親の配送履歴と受付不明の本文を保持する。既定は席と足場だけを畳み、room履歴とLattice storeを残す。痕跡ゼロは明示した`--purge`だけで行う。
 
 roomは解散状態（archive）を持つ。teardownがroomをarchiveし、公開一覧（`/api/rooms`のrooms欄とトップページ主一覧）から外す。個別ページとログAPIは読めるまま残る。次のsetupのmember登録が同じroomを自動で現役へ戻す。公開面に並ぶのは現役の卓だけである。

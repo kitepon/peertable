@@ -8,8 +8,9 @@ import { failure, resolveExecutable, atomicJson, processIdentity, sameProcess, r
 import { digest, renderDelivery } from '../parent-delivery.mjs'
 
 export function codexCallerOptions(caller) {
-  if (!sameProcess(caller.owner) || !['codex', 'codex.exe'].includes(basename(caller.owner.executable ?? '').toLowerCase()) || !caller.codex_home) throw failure('PARENT_CODEX_CALLER_EXECUTABLE_UNBOUND')
-  return { executable: caller.owner.executable, codexHome: caller.codex_home }
+  const owner = caller.owner ? processIdentity(caller.owner.pid) : null
+  if (!owner || owner.started !== caller.owner.started || !['codex', 'codex.exe'].includes((owner.executable_name ?? basename(owner.executable ?? '')).toLowerCase()) || !caller.codex_home) throw failure('PARENT_CODEX_CALLER_EXECUTABLE_UNBOUND')
+  return { executable: owner.executable, codexHome: caller.codex_home }
 }
 export async function codexConnection(project, { executable = resolveExecutable('codex'), codexHome, timeout = 15000 } = {}) {
   const child = spawn(executable, ['app-server', '--listen', 'stdio://'], { cwd: project, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, ...(codexHome ? { CODEX_HOME: codexHome } : {}) } })

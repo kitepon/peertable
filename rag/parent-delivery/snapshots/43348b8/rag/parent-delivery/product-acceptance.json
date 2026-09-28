@@ -1,0 +1,258 @@
+{
+  "schema": "peertable.parent-product-acceptance.v1",
+  "records": [
+    {
+      "id": "darwin/cursor/cli/audience",
+      "status": "passed",
+      "kind": "product_live",
+      "native": true,
+      "harness_version": "2026.09.26-dd393fe",
+      "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+      "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+      "package_version": "0.8.63",
+      "parent_session": "d70e9c86-b865-4732-b6a0-04b6af92f7a5",
+      "evidence_file": "rag/parent-delivery/live/darwin/cursor/cli/audience.json",
+      "body_equal": true,
+      "owner_input_required": false,
+      "receipt_evidence": "5:bell:r1,7:bell:r1,4:bell:r1",
+      "observations": [
+        "parent_join",
+        "native_background_task_armed",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery"
+      ],
+      "audiences": {
+        "dm": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "multiple": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "all": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        }
+      }
+    },
+    {
+      "id": "darwin/grok/cli/audience",
+      "status": "passed",
+      "kind": "product_live",
+      "native": true,
+      "harness_version": "1.0.41 (4220f3b224a6)",
+      "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+      "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+      "package_version": "0.8.63",
+      "parent_session": "01a0e926-e47b-7a01-b2ca-cd3b02d99d55",
+      "evidence_file": "rag/parent-delivery/live/darwin/grok/cli/audience.json",
+      "body_equal": true,
+      "owner_input_required": false,
+      "receipt_evidence": "5:bell:r1,7:bell:r1,4:bell:r1",
+      "observations": [
+        "parent_join",
+        "native_background_task_armed",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery"
+      ],
+      "audiences": {
+        "dm": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "multiple": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "all": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        }
+      }
+    },
+    {
+      "id": "linux/cursor/cli/audience",
+      "status": "passed",
+      "kind": "product_live",
+      "native": true,
+      "harness_version": "2026.09.26-dd393fe",
+      "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+      "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+      "package_version": "0.8.63",
+      "parent_session": "78326524-689e-4921-b983-4cb13b717a36",
+      "evidence_file": "rag/parent-delivery/live/linux/cursor/cli/audience.json",
+      "body_equal": true,
+      "owner_input_required": false,
+      "receipt_evidence": "5:bell:r1,7:bell:r1,4:bell:r1",
+      "observations": [
+        "parent_join",
+        "native_background_task_armed",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery"
+      ],
+      "audiences": {
+        "dm": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "multiple": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "all": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        }
+      }
+    },
+    {
+      "id": "linux/grok/cli/audience",
+      "status": "passed",
+      "kind": "product_live",
+      "native": true,
+      "harness_version": "1.0.41 (4220f3b224a6)",
+      "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+      "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+      "package_version": "0.8.63",
+      "parent_session": "01a0e92c-b15c-7b73-a7cb-dea3fa2e1072",
+      "evidence_file": "rag/parent-delivery/live/linux/grok/cli/audience.json",
+      "body_equal": true,
+      "owner_input_required": false,
+      "receipt_evidence": "5:bell:r1,7:bell:r1,4:bell:r1",
+      "observations": [
+        "parent_join",
+        "native_background_task_armed",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery"
+      ],
+      "audiences": {
+        "dm": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "multiple": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "all": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        }
+      }
+    },
+    {
+      "id": "win32/cursor/cli/audience",
+      "status": "passed",
+      "kind": "product_live",
+      "native": true,
+      "harness_version": "2026.09.26-dd393fe",
+      "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+      "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+      "package_version": "0.8.63",
+      "parent_session": "1ee065f6-5b2f-4fd3-9bf5-3409761385c1",
+      "evidence_file": "rag/parent-delivery/live/win32/cursor/cli/audience.json",
+      "body_equal": true,
+      "owner_input_required": false,
+      "receipt_evidence": "5:bell:r1,7:bell:r1,4:bell:r1",
+      "observations": [
+        "parent_join",
+        "native_background_task_armed",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery"
+      ],
+      "audiences": {
+        "dm": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "multiple": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "all": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        }
+      }
+    },
+    {
+      "id": "win32/grok/cli/audience",
+      "status": "passed",
+      "kind": "product_live",
+      "native": true,
+      "harness_version": "1.0.41 (4220f3b224a6)",
+      "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8",
+      "runtime_digest": "cfb95c4f9499c8611dff4315a046faa6bfe9bd844ebabbd800aa4f3a8343a86c",
+      "package_version": "0.8.63",
+      "parent_session": "01a0e935-f345-7a80-b693-8a1bda596b5c",
+      "evidence_file": "rag/parent-delivery/live/win32/grok/cli/audience.json",
+      "body_equal": true,
+      "owner_input_required": false,
+      "receipt_evidence": "5:bell:r1,7:bell:r1,4:bell:r1",
+      "observations": [
+        "parent_join",
+        "native_background_task_armed",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery",
+        "delivery_in_parent_conversation",
+        "parent_reply_after_delivery"
+      ],
+      "audiences": {
+        "dm": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "multiple": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        },
+        "all": {
+          "count": 1,
+          "body_equal": true,
+          "status": "passed"
+        }
+      }
+    }
+  ],
+  "source_commit": "43348b8c3557e8abe43e0ee45d3c9b8b19e427f8"
+}

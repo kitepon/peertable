@@ -57,8 +57,12 @@ export function consumeCaller(harness, request, requestId) {
   const context = readJson(consumed)
   if (harness === 'claude') assertClaudeParent(context)
   const original = { ...args }; delete original.hook_context_id
-  if (context.harness !== harness || context.name !== request.params.name || context.input_digest !== digest(original) || !sameProcess(context.owner) || Date.now() - context.created_at > 30000) throw failure('PARENT_CALLER_MISMATCH')
+  verifyHookCaller(context, harness, request.params.name, original)
   return context
+}
+export function verifyHookCaller(context, harness, name, input) {
+  if (context.harness !== harness || context.name !== name || context.input_digest !== digest(input) || !sameProcess(context.owner)) throw failure('PARENT_CALLER_MISMATCH')
+  if (Date.now() - context.created_at > 30000) throw failure('PARENT_BIND_TIMEOUT', '公式hookの本人相関が束縛前に30秒の期限を超えました')
 }
 export function registerEndpoint(spool) {
   atomicJson(join(parentHome(), 'endpoints', `${spool.id}.json`), { endpoint_id: spool.id, project: realpathSync(spool.project) })

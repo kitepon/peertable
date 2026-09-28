@@ -59,7 +59,13 @@ export function processIdentity(pid, { includeExecutable = true } = {}) {
       const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ')
       if (!stat.startsWith(`${pid} (`) || !Number.isSafeInteger(Number(fields[1])) || !/^\d+$/u.test(fields[19] ?? '')) throw failure('PARENT_PROCESS_API_SCHEMA_INVALID')
       if (fields[0] === 'Z') return null
-      return result({ pid: Number(pid), parent: Number(fields[1]), started: `${readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim()}:${fields[19]}`, executable: includeExecutable ? readlinkSync(`/proc/${pid}/exe`) : null, command: includeExecutable ? readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ') : null })
+      const executable = includeExecutable ? readlinkSync(`/proc/${pid}/exe`) : null
+      // 自動更新でunlinkされた実行中binaryは/procの実体を使い、kernelの表示用suffixを名前に混ぜない。
+      const deleted = executable?.endsWith(' (deleted)')
+      return result({ pid: Number(pid), parent: Number(fields[1]), started: `${readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim()}:${fields[19]}`,
+        executable: deleted ? `/proc/${pid}/exe` : executable,
+        ...(deleted ? { executable_name: basename(executable.slice(0, -10)) } : {}),
+        command: includeExecutable ? readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ') : null })
     }
     const raw = execFileSync('/bin/ps', ['-ww', '-p', String(pid), '-o', 'ppid=', '-o', 'lstart=', '-o', 'command='], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
     const match = /^(\d+)\s+(\w+\s+\w+\s+\d+\s+\d+:\d+:\d+\s+\d+)\s+(.+)$/u.exec(raw)
@@ -95,7 +101,7 @@ export function processDescendsFrom(owner, ancestor) {
   return false
 }
 export function processHarness(identity) {
-  const executable = basename(identity.executable ?? '').toLowerCase()
+  const executable = (identity.executable_name ?? basename(identity.executable ?? '')).toLowerCase()
   const native = { 'claude': 'claude', 'claude.exe': 'claude', 'codex': 'codex', 'codex.exe': 'codex', 'grok': 'grok', 'grok.exe': 'grok', 'cursor-agent': 'cursor', 'cursor.exe': 'cursor', 'cursor': 'cursor' }
   if (native[executable]) return native[executable]
   if (/^grok-(?:macos|linux)-(?:aarch64|x86_64)$/u.test(executable)) return 'grok'

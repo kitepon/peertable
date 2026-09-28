@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { parseDelivered, judgeAudience, buildCase, buildRecord, selfAudit, acceptCase, cleanupFailure } from './evidence.mjs'
-import { readJsonl, readTranscript, startupAction } from './harness.mjs'
+import { readJsonl, readTranscript, startupAction, ownTrustKeys } from './harness.mjs'
 import { openAiterm } from './aiterm.mjs'
 import { renderDelivery } from '../../skill/scripts/parent-delivery.mjs'
 
@@ -146,4 +146,11 @@ test('起動dialogは観測済みの文言だけに操作を返す', () => {
   assert.equal(startupAction('codex', codex158.replace('› 1. Trust', '  1. Trust').replace('  2. Quit', '› 2. Quit')), null)
   assert.deepEqual(startupAction('codex', '  ✨ Update available! 0.155.1 -> 0.158.0\n'), { blocked: 'codex_update_prompt' })
   assert.equal(startupAction('codex', '  Some new dialog\n› 1. Accept\n'), null)
+})
+
+test('Codexの信頼entryはWindowsの大小文字差を吸収し同prefixの隣projectを残す', () => {
+  const out = 'C:\\Users\\kite_\\ptacc\\run'
+  const projects = { 'c:\\users\\kite_\\ptacc\\run\\project-1': {}, 'C:\\Users\\kite_\\ptacc\\run-other\\user': {}, 'c:\\users\\kite_\\ptacc\\run\\old': {} }
+  assert.deepEqual(ownTrustKeys(projects, { 'C:\\Users\\kite_\\ptacc\\run\\old': {} }, out, 'win32'), ['c:\\users\\kite_\\ptacc\\run\\project-1'])
+  assert.deepEqual(ownTrustKeys({ '/tmp/Run/p': {}, '/tmp/run/p': {}, '/tmp/run-other/p': {} }, {}, '/tmp/run', 'linux'), ['/tmp/run/p'])
 })

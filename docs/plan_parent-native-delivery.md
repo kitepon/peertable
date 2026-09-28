@@ -94,7 +94,7 @@ MCP requestと公式hookから実際の親を識別する。AIにthread IDやcon
 
 `parent_join`のreceiptは`schema: peertable.parent-join-result.v1`、`endpoint_id`、`state: binding_pending | receiving | verified | failed`、`harness`、`wait_process`、`error_code`を持つ。Cursor/Grokの結果返却後にhookで束縛する場合、最初のreceiptは`binding_pending`であり、成功やreadyと書かない。hookが返却結果の`endpoint_id`を実会話へ束縛した時点で`receiving`へ進み、購読とprobe配送を開始する。probeがその会話の受信経路を通った後に`verified`へ進める。`verified`を配送開始の条件にしてprobeを止める循環を作らない。進行は製品が続け、オーナーに手順の再実行を求めない。
 
-事前hookで実会話を照合できたjoinは、返却時点で`receiving`にできる。事後hookで初めて束縛するjoinだけが`binding_pending`を返す。旧watcherからの移行中は、束縛とreceiver準備が済んでも旧本文出力の停止が確認されるまで新watchとprobeを開始しない。束縛待ち・probe待ちはそれぞれ30秒を初期の明示期限とし、前者は`PARENT_BIND_TIMEOUT`、後者は`PARENT_PROBE_TIMEOUT`で失敗を残す。probe期限はnative receiverの準備確認後から計る。背景toolの登録前は、必要な登録入力を伴う`rearm_pending`として表示する。Windows Grokの実測ではモデルが登録toolを呼ぶまで数分かかり、join時点から計る旧実装の期限とは目的が異なった。遅れて確認された現在のprobeは、そのprobeの期限エラーだけを解除する。実機の開始時間を第1工程で測り、必要なら根拠を残して期限を調整する。無期限のpendingにしない。
+現行のClaude/Cursor/Grokは事前hookで実会話と入力digestを照合し、照合記録が30秒を超えた場合はendpoint作成前に`PARENT_BIND_TIMEOUT`で失敗する。Codexは公式MCPのthread metadataと実processを直接照合する。事前hookで実会話を照合できたjoinは、返却時点で`receiving`にできる。事後hookで初めて束縛するjoinだけが`binding_pending`を返す。旧watcherからの移行中は、束縛とreceiver準備が済んでも旧本文出力の停止が確認されるまで新watchとprobeを開始しない。束縛待ち・probe待ちはそれぞれ30秒を初期の明示期限とし、前者は`PARENT_BIND_TIMEOUT`、後者は`PARENT_PROBE_TIMEOUT`で失敗を残す。probe期限はnative receiverの準備確認後から計る。背景toolの登録前は、必要な登録入力を伴う`rearm_pending`として表示する。Windows Grokの実測ではモデルが登録toolを呼ぶまで数分かかり、join時点から計る旧実装の期限とは目的が異なった。遅れて確認された現在のprobeは、そのprobeの期限エラーだけを解除する。実機の開始時間を第1工程で測り、必要なら根拠を残して期限を調整する。無期限のpendingにしない。
 
 登録の疎通実績と現在の受信継続は別に記録する。runtimeの受信状態は`armed | rearm_pending | stopped | failed`とし、背景taskが終わって次の待機が登録されるまでを`rearm_pending`として診断へ出す。Cursor/Grokではnative背景toolの呼出しと結果を公式hookで相関し、task ID・受信process identity・endpointを保存する。receiptを生成しただけでは`armed`にしない。再登録までに届いた本文は配送記録へ保持し、次の待機が拾う。永久に再登録されない状態を健康と表示しない。
 
@@ -378,8 +378,10 @@ Codexの公式hook本文はXMLのtextとして記録される。[一次仕様の
 
 修理後のmacOS通常CLIで、Claude/CodexのDM・複数宛・ALLについて親の実会話・応答・原文・receiptを再確認し、親終了後の自動停止と共有索引の撤去、他設定の保持を確認した。[修理後の候補観測](../rag/parent-delivery/repaired-cli-candidate-observation.json)は実測commitをそのまま記録し、最終manifestへ流用しない。
 
-最終受入の製品sourceは`43348b8c3557e8abe43e0ee45d3c9b8b19e427f8`へ揃えて測定する。試験制御用の`experiments/`は配布物に含めず、実測した製品sourceとは別にrunnerのcommitを記録する。異なるcommitで得た証拠の`source_commit`を書き換えず、最終対象で実行する。実機で確認した起動dialogと終了確認のrunner修理は統合済みで、関連focused testは9件合格した。
+旧候補`43348b8`の実機試験で、Linuxの実行中binary更新と、WindowsのCodex終了時に配送watcherが消される問題を再現した。設定解除ではCodexのTOMLに空行が残り、ClaudeのJSONに導入時の空eventが残った。これらの修理により旧候補を最終sourceとして扱えなくなった。[修理の原因と検証](../rag/parent-delivery/cli-lifecycle-repairs.md)へ実測と未確認の境界を保存する。
 
-この固定sourceでCursor/Grok通常CLIの3 OS audienceを取得し、[親の独立監査](../rag/parent-delivery/cursor-grok-formal-review.json)で18件の原文・公式turn・同会話の後続返答を生証跡と照合して受け入れた。[最終manifest](../rag/parent-delivery/product-acceptance.json)へ実測のまま保存し、他scenarioやDesktopの成功へ広げない。Linux Grokの複数宛とWindows GrokではTUI画面の取得不足を残した。旧候補の証拠を書き換えて使っていない。
+旧候補で独立監査したCursor/Grokの6 CLI audience・18本文は、[試験当時のmanifest](../rag/parent-delivery/snapshots/43348b8/rag/parent-delivery/product-acceptance.json)と同じsnapshot内の証拠へ移して保存した。本文・source・判定は書き換えない。Linux Grokの複数宛とWindows Grokの画面取得不足も保持する。[現在の受入manifest](../rag/parent-delivery/product-acceptance.json)は修理後の再測定まで空とし、旧候補の成功で公開gateを通さない。
 
-24 scenarioの手順と実操作moduleをCLI runnerへ接続した。作業中・待機・連続配送・tool省略・原文全量・上限超過・source再接続・出力中断・receipt再送・配布物確認は既存contextで実行でき、残る13 scenarioのnative adapterは実装中である。必要adapterのない試験は操作前にtyped errorで止まり、成績を作らない。統合の関連focused testは25件合格した。製品sourceは固定したまま、試験controllerの各fileのSHA-256を証拠へ記録する。
+24 scenarioの手順と実操作moduleをCLI runnerへ接続した。既存contextの11 scenarioに加え、残る13 scenarioには新しい専用project・公式session・spoolを持つnative fixtureを接続する。各操作の実境界が未確認ならtyped errorで止まり、合格を作らない。Cursor/Grokのtask取消・idle・会話切替の観測は仕上げ中である。長時間leaseは通常の製品期限を実際に跨ぎ、期限短縮や時刻書換えで代用しない。修理後の最終sourceを固定してから正式試験を開始する。
+
+試験controllerは製品sourceとは別のcommitと全実行moduleのSHA-256を記録し、実行fileを指定commitのGit blobへ照合する。Windowsの試験起動もPowerShell 7へ統一した。設定解除のJSON比較で空eventを除く補正を廃止し、Codexの信頼entryは専用project配下だけを解除する。自己停止は親終了からの実時間を記録し、30秒を超えた停止やrunnerによる止血を合格にしない。
