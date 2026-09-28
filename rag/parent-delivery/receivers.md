@@ -27,3 +27,5 @@
 - [Cursorの公式導入資料](https://prod.cursor.com/docs/enterprise/deployment-patterns): CLIのWindows PowerShell installerが記載されている。古いWSL限定資料だけでWindows nativeの必須行を除外しない。
 
 公式仕様の記述、Aitermでの試験、Peertableの新機構の成立は別の証拠である。Aitermの成功をPeertableの12組合せの成功へ置き換えない。
+
+第1工程のmacOS実測は[caller相関と背景完了の記録](phase1-macos-caller-background.md)へ保存した。Cursor/Grokの事前hook入力書換え・別会話拒否・通常TUIの2件の背景受信を観測済み。Codex queue＋同期hookと製品版の12組合せは未合格。

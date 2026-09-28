@@ -1,0 +1,1924 @@
+{
+  "schema": "peertable.parent-mechanism-probe.v1",
+  "observed_at": "2026-09-28",
+  "source_base": "2f1dcd9",
+  "aiterm_reference": "8cfe1da43a28606ccb53acd1dbfcc0607436add0",
+  "os": "darwin",
+  "native": true,
+  "node": "v26.10.0",
+  "product_acceptance": false,
+  "harnesses": {
+    "cursor": {
+      "version": "2026.09.26-dd393fe",
+      "model": "Auto",
+      "caller_session": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+      "background_session": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+      "caller_events": [
+        {
+          "at": "2026-09-28T13:45:46.199Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "MCP:parent_join",
+            "tool_use_id": "1795b61f-5ef5-427b-9a50-140ea0681970",
+            "tool_input": {
+              "label": "同じ入力"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:46.202Z",
+          "kind": "rewrite",
+          "id": "8cc52d6d-bc89-4d6d-b3a4-7343943af489",
+          "conversation": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+          "use": "1795b61f-5ef5-427b-9a50-140ea0681970",
+          "name": "MCP:parent_join",
+          "input": {
+            "label": "同じ入力"
+          },
+          "updated": {
+            "label": "同じ入力",
+            "hook_context_id": "8cc52d6d-bc89-4d6d-b3a4-7343943af489"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:46.227Z",
+          "kind": "mcp_call",
+          "name": "parent_join",
+          "args": {
+            "label": "同じ入力",
+            "hook_context_id": "8cc52d6d-bc89-4d6d-b3a4-7343943af489"
+          },
+          "meta": null,
+          "client": {
+            "name": "Cursor",
+            "version": "1.0.0"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:46.229Z",
+          "kind": "mcp_result",
+          "name": "parent_join",
+          "result": {
+            "code": "PROBE_BOUND",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:46.374Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "afterMCPExecution",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "parent_join",
+            "tool_input": "{\"label\":\"同じ入力\",\"hook_context_id\":\"8cc52d6d-bc89-4d6d-b3a4-7343943af489\"}",
+            "result_json": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PROBE_BOUND\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":false}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:46.583Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "MCP:parent_join",
+            "tool_use_id": "1795b61f-5ef5-427b-9a50-140ea0681970",
+            "tool_input": {
+              "label": "同じ入力",
+              "hook_context_id": "8cc52d6d-bc89-4d6d-b3a4-7343943af489"
+            },
+            "tool_output": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PROBE_BOUND\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":false}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.392Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "MCP:parent_read",
+            "tool_use_id": "a79009c6-19f9-426b-8c89-e69d118f92d1",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.395Z",
+          "kind": "rewrite",
+          "id": "a5de92ab-cb76-4bf1-8128-eaca1074b71e",
+          "conversation": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+          "use": "a79009c6-19f9-426b-8c89-e69d118f92d1",
+          "name": "MCP:parent_read",
+          "input": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          },
+          "updated": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "a5de92ab-cb76-4bf1-8128-eaca1074b71e"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.419Z",
+          "kind": "mcp_call",
+          "name": "parent_read",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "a5de92ab-cb76-4bf1-8128-eaca1074b71e"
+          },
+          "meta": null,
+          "client": {
+            "name": "Cursor",
+            "version": "1.0.0"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.419Z",
+          "kind": "mcp_result",
+          "name": "parent_read",
+          "result": {
+            "code": "PROBE_SAME_CALLER",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.681Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "afterMCPExecution",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "parent_read",
+            "tool_input": "{\"label\":\"同じ入力\",\"endpoint_id\":\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\",\"hook_context_id\":\"a5de92ab-cb76-4bf1-8128-eaca1074b71e\"}",
+            "result_json": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PROBE_SAME_CALLER\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":false}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.885Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "MCP:parent_read",
+            "tool_use_id": "bea1e151-6f0a-4c1c-8e52-b1f9fb40b4c4",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.892Z",
+          "kind": "rewrite",
+          "id": "22b07c2a-e1b8-498a-8e93-d552fadcb6aa",
+          "conversation": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+          "use": "bea1e151-6f0a-4c1c-8e52-b1f9fb40b4c4",
+          "name": "MCP:parent_read",
+          "input": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          },
+          "updated": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "22b07c2a-e1b8-498a-8e93-d552fadcb6aa"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.911Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "MCP:parent_read",
+            "tool_use_id": "a79009c6-19f9-426b-8c89-e69d118f92d1",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+              "hook_context_id": "a5de92ab-cb76-4bf1-8128-eaca1074b71e"
+            },
+            "tool_output": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PROBE_SAME_CALLER\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":false}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.935Z",
+          "kind": "mcp_call",
+          "name": "parent_read",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "22b07c2a-e1b8-498a-8e93-d552fadcb6aa"
+          },
+          "meta": null,
+          "client": {
+            "name": "Cursor",
+            "version": "1.0.0"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:49.937Z",
+          "kind": "mcp_result",
+          "name": "parent_read",
+          "result": {
+            "code": "PROBE_SAME_CALLER",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:50.107Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "afterMCPExecution",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "parent_read",
+            "tool_input": "{\"label\":\"同じ入力\",\"endpoint_id\":\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\",\"hook_context_id\":\"22b07c2a-e1b8-498a-8e93-d552fadcb6aa\"}",
+            "result_json": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PROBE_SAME_CALLER\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":false}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:50.423Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "MCP:parent_read",
+            "tool_use_id": "bea1e151-6f0a-4c1c-8e52-b1f9fb40b4c4",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+              "hook_context_id": "22b07c2a-e1b8-498a-8e93-d552fadcb6aa"
+            },
+            "tool_output": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PROBE_SAME_CALLER\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":false}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:52.736Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "MCP:parent_leave",
+            "tool_use_id": "137b2463-9090-4cea-bd23-9c095ee368fb",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:52.744Z",
+          "kind": "rewrite",
+          "id": "c60ca112-89e0-48e1-8f77-6732cc86ae58",
+          "conversation": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+          "use": "137b2463-9090-4cea-bd23-9c095ee368fb",
+          "name": "MCP:parent_leave",
+          "input": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          },
+          "updated": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "c60ca112-89e0-48e1-8f77-6732cc86ae58"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:52.776Z",
+          "kind": "mcp_call",
+          "name": "parent_leave",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "c60ca112-89e0-48e1-8f77-6732cc86ae58"
+          },
+          "meta": null,
+          "client": {
+            "name": "Cursor",
+            "version": "1.0.0"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:52.776Z",
+          "kind": "mcp_result",
+          "name": "parent_leave",
+          "result": {
+            "code": "PROBE_SAME_CALLER",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:52.934Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "afterMCPExecution",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "parent_leave",
+            "tool_input": "{\"label\":\"同じ入力\",\"endpoint_id\":\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\",\"hook_context_id\":\"c60ca112-89e0-48e1-8f77-6732cc86ae58\"}",
+            "result_json": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PROBE_SAME_CALLER\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":false}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:53.134Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "tool_name": "MCP:parent_leave",
+            "tool_use_id": "137b2463-9090-4cea-bd23-9c095ee368fb",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+              "hook_context_id": "c60ca112-89e0-48e1-8f77-6732cc86ae58"
+            },
+            "tool_output": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PROBE_SAME_CALLER\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":false}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:45:59.051Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "sessionEnd",
+            "conversation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "generation_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "session_id": "44d1911f-e78e-44fe-9692-8a8fcb282d53",
+            "reason": "completed"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.540Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "generation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "session_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "tool_name": "MCP:parent_read",
+            "tool_use_id": "03afd66a-cf79-44d6-8e4d-f2037ee289a2",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.543Z",
+          "kind": "rewrite",
+          "id": "fd5207f8-1baa-4d23-884d-515ed219b799",
+          "conversation": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+          "use": "03afd66a-cf79-44d6-8e4d-f2037ee289a2",
+          "name": "MCP:parent_read",
+          "input": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          },
+          "updated": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "fd5207f8-1baa-4d23-884d-515ed219b799"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.571Z",
+          "kind": "mcp_call",
+          "name": "parent_read",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "fd5207f8-1baa-4d23-884d-515ed219b799"
+          },
+          "meta": null,
+          "client": {
+            "name": "Cursor",
+            "version": "1.0.0"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.573Z",
+          "kind": "mcp_result",
+          "name": "parent_read",
+          "result": {
+            "code": "PARENT_CALLER_MISMATCH",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.744Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "afterMCPExecution",
+            "conversation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "generation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "session_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "tool_name": "parent_read",
+            "tool_input": "{\"label\":\"同じ入力\",\"endpoint_id\":\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\",\"hook_context_id\":\"fd5207f8-1baa-4d23-884d-515ed219b799\"}",
+            "result_json": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PARENT_CALLER_MISMATCH\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":true}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.877Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "generation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "session_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "tool_name": "MCP:parent_leave",
+            "tool_use_id": "7b8d7a92-3f10-43cd-904a-3a91240a1473",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.882Z",
+          "kind": "rewrite",
+          "id": "1b13422f-6833-415c-b060-40c19f13b72f",
+          "conversation": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+          "use": "7b8d7a92-3f10-43cd-904a-3a91240a1473",
+          "name": "MCP:parent_leave",
+          "input": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          },
+          "updated": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "1b13422f-6833-415c-b060-40c19f13b72f"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.920Z",
+          "kind": "mcp_call",
+          "name": "parent_leave",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+            "hook_context_id": "1b13422f-6833-415c-b060-40c19f13b72f"
+          },
+          "meta": null,
+          "client": {
+            "name": "Cursor",
+            "version": "1.0.0"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.921Z",
+          "kind": "mcp_result",
+          "name": "parent_leave",
+          "result": {
+            "code": "PARENT_CALLER_MISMATCH",
+            "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:02.981Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "generation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "session_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "tool_name": "MCP:parent_read",
+            "tool_use_id": "03afd66a-cf79-44d6-8e4d-f2037ee289a2",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+              "hook_context_id": "fd5207f8-1baa-4d23-884d-515ed219b799"
+            },
+            "tool_output": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PARENT_CALLER_MISMATCH\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":true}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:03.114Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "afterMCPExecution",
+            "conversation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "generation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "session_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "tool_name": "parent_leave",
+            "tool_input": "{\"label\":\"同じ入力\",\"endpoint_id\":\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\",\"hook_context_id\":\"1b13422f-6833-415c-b060-40c19f13b72f\"}",
+            "result_json": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PARENT_CALLER_MISMATCH\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":true}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:47:03.338Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "generation_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "session_id": "21a8d8c1-ad19-44ec-8004-f10d9860b1c0",
+            "tool_name": "MCP:parent_leave",
+            "tool_use_id": "7b8d7a92-3f10-43cd-904a-3a91240a1473",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "3eef9fa9-9252-4b3c-b502-01c6fd02318b",
+              "hook_context_id": "1b13422f-6833-415c-b060-40c19f13b72f"
+            },
+            "tool_output": "{\"content\":[{\"type\":\"text\",\"text\":\"{\\\"code\\\":\\\"PARENT_CALLER_MISMATCH\\\",\\\"endpoint_id\\\":\\\"3eef9fa9-9252-4b3c-b502-01c6fd02318b\\\"}\"}],\"isError\":true}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:52:58.614Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "38619d9a-8fb0-4e02-bfa9-260e3e0abe1d",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "tool_name": "Shell",
+            "tool_use_id": "toolu_01HRqFrHzkW6SdE9fdvx3YBz",
+            "tool_input": {
+              "command": "'/opt/homebrew/bin/node' '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' 'wait' '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable cursor 本人性 gINTIv'",
+              "cwd": ""
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:09.547Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "38619d9a-8fb0-4e02-bfa9-260e3e0abe1d",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "tool_name": "Shell",
+            "tool_use_id": "toolu_01HRqFrHzkW6SdE9fdvx3YBz",
+            "tool_input": {
+              "command": "'/opt/homebrew/bin/node' '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' 'wait' '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable cursor 本人性 gINTIv'",
+              "cwd": ""
+            },
+            "tool_output": "{\"shell_id\":185626,\"pid\":52159}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:11.752Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "stop",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "38619d9a-8fb0-4e02-bfa9-260e3e0abe1d",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa"
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:53.632Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "f7b152fd-1533-4a35-a822-cdb6c396159c",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "tool_name": "Read",
+            "tool_use_id": "toolu_019UYqmSKvtM6D6F5tkY9S16",
+            "tool_input": {
+              "file_path": "/Users/kite/.cursor/projects/private-var-folders-v4-ntdd-q2d10q962kq3cfx8lr00000gn-T-peertable-cursor-gINTIv/terminals/185626.txt"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:53.869Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "f7b152fd-1533-4a35-a822-cdb6c396159c",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "tool_name": "Read",
+            "tool_use_id": "toolu_019UYqmSKvtM6D6F5tkY9S16",
+            "tool_input": {
+              "file_path": "/Users/kite/.cursor/projects/private-var-folders-v4-ntdd-q2d10q962kq3cfx8lr00000gn-T-peertable-cursor-gINTIv/terminals/185626.txt"
+            },
+            "tool_output": "{\"file_path\":\"/Users/kite/.cursor/projects/private-var-folders-v4-ntdd-q2d10q962kq3cfx8lr00000gn-T-peertable-cursor-gINTIv/terminals/185626.txt\",\"content_length\":695}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:56.381Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "f7b152fd-1533-4a35-a822-cdb6c396159c",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "tool_name": "Shell",
+            "tool_use_id": "toolu_019uEe5Z4ZXQmE3o2nSWuzt5",
+            "tool_input": {
+              "command": "'/opt/homebrew/bin/node' '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' 'wait' '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable cursor 本人性 gINTIv'",
+              "cwd": ""
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:56.668Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "f7b152fd-1533-4a35-a822-cdb6c396159c",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "tool_name": "Shell",
+            "tool_use_id": "toolu_019uEe5Z4ZXQmE3o2nSWuzt5",
+            "tool_input": {
+              "command": "'/opt/homebrew/bin/node' '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' 'wait' '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable cursor 本人性 gINTIv'",
+              "cwd": ""
+            },
+            "tool_output": "{\"shell_id\":185627,\"pid\":53666}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:59.092Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "stop",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "f7b152fd-1533-4a35-a822-cdb6c396159c",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa"
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:30.892Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "preToolUse",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "00c80f31-fd09-493f-81e1-3379fa1d7428",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "tool_name": "Read",
+            "tool_use_id": "toolu_01LgD16qpRRUJHiyFPA6Fq3e",
+            "tool_input": {
+              "file_path": "/Users/kite/.cursor/projects/private-var-folders-v4-ntdd-q2d10q962kq3cfx8lr00000gn-T-peertable-cursor-gINTIv/terminals/185627.txt"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:31.117Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "postToolUse",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "00c80f31-fd09-493f-81e1-3379fa1d7428",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "tool_name": "Read",
+            "tool_use_id": "toolu_01LgD16qpRRUJHiyFPA6Fq3e",
+            "tool_input": {
+              "file_path": "/Users/kite/.cursor/projects/private-var-folders-v4-ntdd-q2d10q962kq3cfx8lr00000gn-T-peertable-cursor-gINTIv/terminals/185627.txt"
+            },
+            "tool_output": "{\"file_path\":\"/Users/kite/.cursor/projects/private-var-folders-v4-ntdd-q2d10q962kq3cfx8lr00000gn-T-peertable-cursor-gINTIv/terminals/185627.txt\",\"content_length\":693}"
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:35.310Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "stop",
+            "conversation_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa",
+            "generation_id": "00c80f31-fd09-493f-81e1-3379fa1d7428",
+            "session_id": "b66e8d43-7732-425a-b36d-6877cc7c5bfa"
+          }
+        }
+      ],
+      "background_wait_events": [
+        {
+          "at": "2026-09-28T13:53:09.471Z",
+          "kind": "armed",
+          "waiter": "b18317cb-bf34-48fe-bd97-fbae2a3614a1",
+          "pid": 52190
+        },
+        {
+          "at": "2026-09-28T13:53:50.739Z",
+          "kind": "injected",
+          "id": "1",
+          "body": "符号 CURSOR_BACKGROUND_ONE_日本語"
+        },
+        {
+          "at": "2026-09-28T13:53:50.788Z",
+          "kind": "output",
+          "result": {
+            "outcome": "message",
+            "room": "配送試験",
+            "from": "probe",
+            "to": "bell",
+            "seq": "1",
+            "body": "符号 CURSOR_BACKGROUND_ONE_日本語",
+            "waiter": "b18317cb-bf34-48fe-bd97-fbae2a3614a1"
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:56.618Z",
+          "kind": "armed",
+          "waiter": "ba0b6362-accf-43b8-b8ad-d9981c906979",
+          "pid": 53699
+        },
+        {
+          "at": "2026-09-28T13:54:24.589Z",
+          "kind": "injected",
+          "id": "2",
+          "body": "符号 CURSOR_BACKGROUND_TWO_日本語"
+        },
+        {
+          "at": "2026-09-28T13:54:24.667Z",
+          "kind": "output",
+          "result": {
+            "outcome": "message",
+            "room": "配送試験",
+            "from": "probe",
+            "to": "bell",
+            "seq": "2",
+            "body": "符号 CURSOR_BACKGROUND_TWO_日本語",
+            "waiter": "ba0b6362-accf-43b8-b8ad-d9981c906979"
+          }
+        }
+      ],
+      "assistant_observed": [
+        "1件目が届きました。seq は 1、本文の符号は CURSOR_BACKGROUND_ONE_日本語です。",
+        "2件目も届いて、probeはこれで終わりです。seq は 2、本文の符号は CURSOR_BACKGROUND_TWO_日本語でした。"
+      ],
+      "same_caller": true,
+      "other_caller_rejected": true,
+      "native_parallel_reads": false,
+      "idle_background_two_messages": true,
+      "product_spool": false
+    },
+    "grok": {
+      "version": "1.0.41 (4220f3b224a6)",
+      "model": "Grok 4.6 (high)",
+      "caller_session": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+      "background_session": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+      "caller_events": [
+        {
+          "at": "2026-09-28T13:49:32.059Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "search_tool",
+            "toolName": "search_tool",
+            "tool_use_id": "call-2ac48082-a10f-4487-9c87-257c4a49c177-0",
+            "toolUseId": "call-2ac48082-a10f-4487-9c87-257c4a49c177-0",
+            "tool_input": {
+              "query": "peertable_probe parent_join parent_read parent_leave",
+              "limit": 10
+            },
+            "toolInput": {
+              "query": "peertable_probe parent_join parent_read parent_leave",
+              "limit": 10
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:32.195Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUse",
+            "hookEventName": "post_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "search_tool",
+            "toolName": "search_tool",
+            "tool_use_id": "call-2ac48082-a10f-4487-9c87-257c4a49c177-0",
+            "toolUseId": "call-2ac48082-a10f-4487-9c87-257c4a49c177-0",
+            "tool_input": {
+              "query": "peertable_probe parent_join parent_read parent_leave",
+              "limit": 10
+            },
+            "toolInput": {
+              "query": "peertable_probe parent_join parent_read parent_leave",
+              "limit": 10
+            },
+            "toolResult": {
+              "type": "SearchTool",
+              "result_count": 10,
+              "content": "{\n  \"results\": [\n    {\n      \"server\": \"peertable_probe\",\n      \"tools\": [\n        {\n          \"tool_name\": \"peertable_probe__parent_join\",\n          \"description\": \"公式事前hookと同じ会話の照合fixture\",\n          \"score\": 38.88677215576172,\n          \"input_schema\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"label\": {\n                \"type\": \"string\"\n              },\n              \"endpoint_id\": {\n                \"type\": \"string\"\n              },\n              \"hook_context_id\": {\n                \"type\": \"string\",\n                \"description\": \"製品hook専用。モデルは省略する\"\n              }\n            },\n            \"required\": [\n              \"label\"\n            ],\n            \"additionalProperties\": false\n          }\n        },\n        {\n          \"tool_name\": \"peertable_probe__parent_leave\",\n          \"description\": \"公式事前hookと同じ会話の照合fixture\",\n          \"score\": 37.82375717163086,\n          \"input_schema\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"label\": {\n                \"type\": \"string\"\n              },\n              \"endpoint_id\": {\n                \"type\": \"string\"\n              },\n              \"hook_context_id\": {\n                \"type\": \"string\",\n                \"description\": \"製品hook専用。モデルは省略する\"\n              }\n            },\n            \"required\": [\n              \"label\"\n            ],\n            \"additionalProperties\": false\n          }\n        },\n        {\n          \"tool_name\": \"peertable_probe__parent_read\",\n          \"description\": \"公式事前hookと同じ会話の照合fixture\",\n          \"score\": 35.804561614990234,\n          \"input_schema\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"label\": {\n                \"type\": \"string\"\n              },\n              \"endpoint_id\": {\n                \"type\": \"string\"\n              },\n              \"hook_context_id\": {\n                \"type\": \"string\",\n                \"description\": \"製品hook専用。モデルは省略する\"\n              }\n            },\n            \"required\": [\n              \"label\"\n            ],\n            \"additionalProperties\": false\n          }\n        }\n      ]\n    },\n    {\n      \"server\": \"x-article\",\n      \"tools\": [\n        {\n          \"tool_name\": \"x-article__x_like\",\n          \"description\": \"Like a tweet (FavoriteTweet). Pass the numeric tweet id. Already liked (FavoriteTweet code 139) returns { success: false, alreadyLiked: true, tweetId } instead of throwing. Prefer likedByMe on read tools over probing with x_like.\",\n          \"score\": 5.607769012451172,\n          \"input_schema\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"account\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"クオ\",\n                  \"ベル\"\n                ],\n                \"description\": \"X account. Required. No default. Registered now: クオ, ベル. Use one of these names. If empty, call x_article_set_credentials or x_account_adopt first.\"\n              },\n              \"tweetId\": {\n                \"type\": \"string\",\n                \"minLength\": 1,\n                \"description\": \"Tweet rest_id to like\"\n              }\n            },\n            \"required\": [\n              \"account\",\n              \"tweetId\"\n            ],\n            \"additionalProperties\": false,\n            \"$schema\": \"http://json-schema.org/draft-07/schema#\"\n          }\n        },\n        {\n          \"tool_name\": \"x-article__x_home_timeline\",\n          \"description\": \"Read the home timeline (Following or For You). Returns a compact tweet list (tweetId, text, screenName, url, likedByMe, following, followedBy, followRequestSent, badgeType, followersCount) plus nextCursor for pagination. Does not include promoted posts. count is timeline slots, not flattened replies. likedByMe / following are boolean or null when X omitted the field — do not probe with x_like / x_follow.\",\n          \"score\": 4.837660789489746,\n          \"input_schema\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"account\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"クオ\",\n                  \"ベル\"\n                ],\n                \"description\": \"X account. Required. No default. Registered now: クオ, ベル. Use one of these names. If empty, call x_article_set_credentials or x_account_adopt first.\"\n              },\n              \"tab\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"following\",\n                  \"foryou\"\n                ],\n                \"description\": \"following = HomeLatestTimeline (default). foryou = HomeTimeline (ranked).\"\n              },\n              \"count\": {\n                \"type\": \"integer\",\n                \"minimum\": 1,\n                \"maximum\": 40,\n                \"description\": \"Requested X page size, 1–40. Default 20. X may return more entries in a page.\"\n              },\n              \"cursor\": {\n                \"type\": \"string\",\n                \"description\": \"nextCursor from a previous page.\"\n              }\n            },\n            \"required\": [\n              \"account\"\n            ],\n            \"additionalProperties\": false,\n            \"$schema\": \"http://json-schema.org/draft-07/schema#\"\n          }\n        },\n        {\n          \"tool_name\": \"x-article__x_follow\",\n          \"description\": \"Follow a user (REST 1.1 friendships/create). Provide EXACTLY one of `userId` (numeric rest_id) or `screenName` (@handle; looked up via UserByScreenName). HTTP 200 means the follow was accepted: { success: true, following: true }. create is async, so a stale following=false on the user object is not a failure. reason is only set on a real reject (pending / blocked / protected / restricted / rate_limited / unknown). HTTP 429 is { success: false, rateLimited: true, retryAfterSec?, code: 88 }. Prefer following on read tools over probing with x_follow.\",\n          \"score\": 4.193950653076172,\n          \"input_schema\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"account\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"クオ\",\n                  \"ベル\"\n                ],\n                \"description\": \"X account. Required. No default. Registered now: クオ, ベル. Use one of these names. If empty, call x_article_set_credentials or x_account_adopt first.\"\n              },\n              \"userId\": {\n                \"type\": \"string\",\n                \"description\": \"Target user rest_id (digits only). Use this OR screenName.\"\n              },\n              \"screenName\": {\n                \"type\": \"string\",\n                \"description\": \"Target @handle without requiring the @. Use this OR userId.\"\n              }\n            },\n            \"required\": [\n              \"account\"\n            ],\n            \"additionalProperties\": false,\n            \"$schema\": \"http://json-schema.org/draft-07/schema#\"\n          }\n        },\n        {\n          \"tool_name\": \"x-article__x_article_set_credentials\",\n          \"description\": \"Store X session cookies (auth_token, ct0, twid) **encrypted** on this server under a named account. These values never leave the machine running the MCP server. If unnamed legacy credentials exist, call x_account_adopt first.\",\n          \"score\": 3.9133150577545166,\n          \"input_schema\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"account\": {\n                \"type\": \"string\",\n                \"minLength\": 1,\n                \"description\": \"Account name to create or overwrite. Letters in any script, digits, \\\".\\\", \\\"_\\\" or \\\"-\\\". Required. No default.\"\n              },\n              \"authToken\": {\n                \"type\": \"string\",\n                \"minLength\": 10,\n                \"description\": \"Value of the auth_token cookie from x.com\"\n              },\n              \"ct0\": {\n                \"type\": \"string\",\n                \"minLength\": 10,\n                \"description\": \"Value of the ct0 cookie (also sent as x-csrf-token header)\"\n              },\n              \"twid\": {\n                \"type\": \"string\",\n                \"description\": \"Optional twid cookie (usually starts with u%3D)\"\n              }\n            },\n            \"required\": [\n              \"account\",\n              \"authToken\",\n              \"ct0\"\n            ],\n            \"additionalProperties\": false,\n            \"$schema\": \"http://json-schema.org/draft-07/schema#\"\n          }\n        },\n        {\n          \"tool_name\": \"x-article__x_article_revise\",\n          \"description\": \"Edit an article that may already be published. Direct UpdateTitle on a published article returns GraphQL 214 — there is no published-edit mutation in this client-web bundle. This tool tries the draft updates first; on 214 it Unpublishes, applies title/markdown, then Publishes again (set republish:false to leave it as a draft). Same ops as the granular tools; does not invent a queryId. Provide title and/or markdown.\",\n          \"score\": 3.370596408843994,\n          \"input_schema\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"account\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"クオ\",\n                  \"ベル\"\n                ],\n                \"description\": \"X account. Required. No default. Registered now: クオ, ベル. Use one of these names. If empty, call x_article_set_credentials or x_account_adopt first.\"\n              },\n              \"articleEntityId\": {\n                \"type\": \"string\"\n              },\n              \"title\": {\n                \"type\": \"string\",\n                \"minLength\": 1\n              },\n              \"markdown\": {\n                \"type\": \"string\",\n                \"description\": \"Replacement body as Markdown. Omit to leave body unchanged.\"\n              },\n              \"republish\": {\n                \"type\": \"boolean\",\n                \"default\": true,\n                \"description\": \"After an unpublish-to-edit, publish again. Default true. Ignored if it was already a draft.\"\n              }\n            },\n            \"required\": [\n              \"account\",\n              \"articleEntityId\"\n            ],\n            \"additionalProperties\": false,\n            \"$schema\": \"http://json-schema.org/draft-07/schema#\"\n          }\n        }\n      ]\n    },\n    {\n      \"server\": \"lattice\",\n      \"tools\": [\n        {\n          \"tool_name\": \"lattice__lattice_sensor_node\",\n          \"description\": \"Two modes. (1) READ A FILE — use INSTEAD of the Read tool: pass `file` (a path or basename) with no `symbol` and it returns that file's current on-disk source with line numbers, exactly the shape Read gives you (`<n>\\\\t<line>`, safe to Edit from), narrowable with `offset`/`limit` just like Read — PLUS a one-line note of which files depend on it. Same bytes as Read, faster (served from the index), with the blast radius attached. Use it whenever you would Read a source file. (2) ONE SYMBOL you can name — its location, signature, verbatim source (includeCode=true) and caller/callee trail in one call, so before changing it you see what calls it and what your edit would break. For an AMBIGUOUS name it returns EVERY matching definition's body in one call (so you never Read a file to find the right overload); pass `file`/`line` to pin one. Use lattice_sensor_explore for several related symbols or the full flow.\",\n          \"score\": 3.4175596237182617,\n          \"input_schema\": {\n            \"type\": \"object\",\n            \"properties\": {\n              \"symbol\": {\n                \"type\": \"string\",\n                \"description\": \"Name of the symbol to read (symbol mode). Omit it and pass `file` alone to read a whole file like Read.\"\n              },\n              \"includeCode\": {\n                \"type\": \"boolean\",\n                \"description\": \"Symbol mode: include the symbol's full body (default: false). Ignored in file mode, which always returns source unless `symbolsOnly` is set.\",\n                \"default\": false\n              },\n              \"file\": {\n                \"type\": \"string\",\n                \"description\": \"A file path or basename (e.g. \\\"harness.rs\\\", \\\"src/auth/session.ts\\\"). Pass it ALONE (no symbol) to READ the file like the Read tool — its full source with line numbers + which files depend on it. Or pass it WITH a symbol to disambiguate an overloaded name to the definition in this file.\"\n              },\n              \"offset\": {\n                \"type\": \"number\",\n                \"description\": \"File mode: 1-based line to start reading from, exactly like Read's offset. Defaults to the start of the file.\"\n              },\n              \"limit\": {\n                \"type\": \"number\",\n                \"description\": \"File mode: maximum number of lines to return, exactly like Read's limit. Defaults to the whole file (capped at 2000 lines, like Read).\"\n              },\n              \"symbolsOnly\": {\n                \"type\": \"boolean\",\n                \"description\": \"File mode: return just the file's symbol map + dependents (a cheap structural overview) instead of its source.\",\n                \"default\": false\n              },\n              \"line\": {\n                \"type\": \"number\",\n                \"description\": \"Symbol mode only: disambiguate to the definition at/around this line (use with the file:line a trail showed you).\"\n              },\n              \"projectPath\": {\n                \"type\": \"string\",\n                \"description\": \"Absolute path to the project to query (or any directory inside it) — lattice sensor uses the nearest .lattice/sensor/ index at or above that path. Omit to use this session's default project. Pass it to query a second codebase, or when the server root has no index of its own (e.g. a monorepo where only sub-projects are indexed, so there is no default project).\"\n              }\n            },\n            \"required\": [\n              \"projectPath\"\n            ]\n          }\n        }\n      ]\n    },\n    {\n      \"server\": \"aishell\",\n      \"tools\": [\n        {\n          \"tool_name\": \"aishell__artifact_read\",\n          \"description\": \"保持済みrun log/artifactの検索・比較・budget読取はsource file読取でなくこれを使う。 Use this to search, compare, or budget-read retained run logs and artifacts, not source files.\",\n          \"score\": 3.254379987716675,\n          \"input_schema\": {\n            \"oneOf\": [\n              {\n                \"additionalProperties\": false,\n                \"properties\": {\n                  \"byte_budget\": {\n                    \"maximum\": 1048576,\n                    \"minimum\": 1,\n                    \"type\": \"integer\"\n                  },\n                  \"context_lines\": {\n                    \"minimum\": 0,\n                    \"type\": \"integer\"\n                  },\n                  \"handle\": {\n                    \"type\": \"string\"\n                  },\n                  \"length\": {\n                    \"minimum\": 0,\n                    \"type\": \"integer\"\n                  },\n                  \"mode\": {\n                    \"enum\": [\n                      \"range\",\n                      \"tail\",\n                      \"around\"\n                    ],\n                    \"type\": \"string\"\n                  },\n                  \"offset\": {\n                    \"minimum\": 0,\n                    \"type\": \"integer\"\n                  },\n                  \"pattern\": {\n                    \"type\": \"string\"\n                  },\n                  \"tail_lines\": {\n                    \"minimum\": 1,\n                    \"type\": \"integer\"\n                  }\n                },\n                \"required\": [\n                  \"handle\"\n                ],\n                \"type\": \"object\"\n              },\n              {\n                \"additionalProperties\": false,\n                \"properties\": {\n                  \"action\": {\n                    \"const\": \"search\",\n                    \"type\": \"string\"\n                  },\n                  \"case\": {\n                    \"enum\": [\n                      \"sensitive\",\n                      \"insensitive\"\n                    ],\n                    \"type\": \"string\"\n                  },\n                  \"page_byte_limit\": {\n                    \"maximum\": 1048576,\n                    \"minimum\": 1,\n                    \"type\": \"integer\"\n                  },\n                  \"pattern\": {\n                    \"maxLength\": 65536,\n                    \"minLength\": 1,\n                    \"type\": \"string\"\n                  },\n                  \"pattern_kind\": {\n                    \"enum\": [\n                      \"literal\",\n                      \"regex\"\n                    ],\n                    \"type\": \"string\"\n                  },\n                  \"project_path\": {\n                    \"maxLength\": 4096,\n                    \"minLength\": 1,\n                    \"type\": \"string\"\n                  },\n                  \"regex_flags\": {\n                    \"maxLength\": 8,\n                    \"minLength\": 0,\n                    \"type\": \"string\"\n                  },\n                  \"sources\": {\n                    \"items\": {\n                      \"oneOf\": [\n                        {\n                          \"additionalProperties\": false,\n                          \"properties\": {\n                            \"handle\": {\n                              \"maxLength\": 16384,\n                              \"minLength\": 1,\n                              \"type\": \"string\"\n                            },\n                            \"type\": {\n                              \"const\": \"artifact\",\n                              \"type\": \"string\"\n                            }\n                          },\n                          \"required\": [\n                            \"type\",\n                            \"handle\"\n                          ],\n                          \"type\": \"object\"\n                        },\n                        {\n                          \"additionalProperties\": false,\n                          \"properties\": {\n                            \"channels\": {\n                              \"items\": {\n                                \"enum\": [\n                                  \"stdout\",\n                                  \"stderr\",\n                                  \"diagnostics\"\n                                ],\n                                \"type\": \"string\"\n                              },\n                              \"maxItems\": 3,\n                              \"minItems\": 1,\n                              \"type\": \"array\",\n                              \"uniqueItems\": true\n                            },\n                            \"run_id\": {\n                              \"maxLength\": 64,\n                              \"minLength\": 1,\n                              \"type\": \"string\"\n                            },\n                            \"type\": {\n                              \"const\": \"run\",\n                              \"type\": \"string\"\n                            }\n                          },\n                          \"required\": [\n                            \"type\",\n                            \"run_id\",\n                            \"channels\"\n                          ],\n                          \"type\": \"object\"\n                        }\n                      ]\n                    },\n                    \"maxItems\": 64,\n                    \"minItems\": 1,\n                    \"type\": \"array\"\n                  }\n                },\n                \"required\": [\n                  \"action\",\n                  \"project_path\",\n                  \"sources\",\n                  \"pattern\"\n                ],\n                \"type\": \"object\"\n              },\n              {\n                \"additionalProperties\": false,\n                \"properties\": {\n                  \"action\": {\n                    \"const\": \"next\",\n                    \"type\": \"string\"\n                  },\n                  \"cursor\": {\n                    \"maxLength\": 65536,\n                    \"minLength\": 1,\n                    \"type\": \"string\"\n                  },\n                  \"page_byte_limit\": {\n                    \"maximum\": 1048576,\n                    \"minimum\": 1,\n                    \"type\": \"integer\"\n                  },\n                  \"stream_handle\": {\n                    \"maxLength\": 16384,\n                    \"minLength\": 1,\n                    \"type\": \"string\"\n                  }\n                },\n                \"required\": [\n                  \"action\",\n                  \"stream_handle\",\n                  \"cursor\"\n                ],\n                \"type\": \"object\"\n              },\n              {\n                \"additionalProperties\": false,\n                \"properties\": {\n                  \"action\": {\n                    \"const\": \"compare\",\n                    \"type\": \"string\"\n                  },\n                  \"baseline_run_id\": {\n                    \"maxLength\": 64,\n                    \"minLength\": 1,\n                    \"type\": \"string\"\n                  },\n                  \"candidate_run_id\": {\n                    \"maxLength\": 64,\n                    \"minLength\": 1,\n                    \"type\": \"string\"\n                  },\n                  \"channels\": {\n                    \"items\": {\n                      \"enum\": [\n                        \"stdout\",\n                        \"stderr\",\n                        \"diagnostics\"\n                      ],\n                      \"type\": \"string\"\n                    },\n                    \"maxItems\": 3,\n                    \"minItems\": 1,\n                    \"type\": \"array\",\n                    \"uniqueItems\": true\n                  },\n                  \"project_path\": {\n                    \"maxLength\": 4096,\n                    \"minLength\": 1,\n                    \"type\": \"string\"\n                  }\n                },\n                \"required\": [\n                  \"action\",\n                  \"project_path\",\n                  \"baseline_run_id\",\n                  \"candidate_run_id\",\n                  \"channels\"\n                ],\n                \"type\": \"object\"\n              }\n            ],\n            \"type\": \"object\",\n            \"properties\": {}\n          }\n        }\n      ]\n    }\n  ],\n  \"total_hidden_tools\": 149,\n  \"status\": \"ready\",\n  \"note\": null\n}"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:35.153Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "peertable_probe__parent_join",
+            "toolName": "peertable_probe__parent_join",
+            "tool_use_id": "call-5ba882b3-83e8-4ea0-bab4-59ffd1bbc09d-1",
+            "toolUseId": "call-5ba882b3-83e8-4ea0-bab4-59ffd1bbc09d-1",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_join",
+              "tool_input": {
+                "label": "同じ入力"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_join",
+              "tool_input": {
+                "label": "同じ入力"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:35.156Z",
+          "kind": "rewrite",
+          "id": "22d2a8a9-cc52-4c65-a392-52a625fb9a3e",
+          "conversation": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+          "use": "call-5ba882b3-83e8-4ea0-bab4-59ffd1bbc09d-1",
+          "name": "peertable_probe__parent_join",
+          "input": {
+            "tool_name": "peertable_probe__parent_join",
+            "tool_input": {
+              "label": "同じ入力"
+            }
+          },
+          "updated": {
+            "tool_name": "peertable_probe__parent_join",
+            "tool_input": {
+              "label": "同じ入力",
+              "hook_context_id": "22d2a8a9-cc52-4c65-a392-52a625fb9a3e"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:35.163Z",
+          "kind": "mcp_call",
+          "name": "parent_join",
+          "args": {
+            "label": "同じ入力",
+            "hook_context_id": "22d2a8a9-cc52-4c65-a392-52a625fb9a3e"
+          },
+          "meta": {
+            "progressToken": 1
+          },
+          "client": {
+            "name": "grok-shell-peertable_probe",
+            "version": "1.0.41"
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:35.171Z",
+          "kind": "mcp_result",
+          "name": "parent_join",
+          "result": {
+            "code": "PROBE_BOUND",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:35.301Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUse",
+            "hookEventName": "post_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "peertable_probe__parent_join",
+            "toolName": "peertable_probe__parent_join",
+            "tool_use_id": "call-5ba882b3-83e8-4ea0-bab4-59ffd1bbc09d-1",
+            "toolUseId": "call-5ba882b3-83e8-4ea0-bab4-59ffd1bbc09d-1",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_join",
+              "tool_input": {
+                "label": "同じ入力",
+                "hook_context_id": "22d2a8a9-cc52-4c65-a392-52a625fb9a3e"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_join",
+              "tool_input": {
+                "label": "同じ入力",
+                "hook_context_id": "22d2a8a9-cc52-4c65-a392-52a625fb9a3e"
+              }
+            },
+            "toolResult": {
+              "type": "MCP",
+              "tool_name": "parent_join",
+              "server_name": "peertable_probe",
+              "output": {
+                "OkayOutput": "{\"code\":\"PROBE_BOUND\",\"endpoint_id\":\"0da76a41-4c49-4f5c-96c2-5057a1365244\"}"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.544Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "peertable_probe__parent_read",
+            "toolName": "peertable_probe__parent_read",
+            "tool_use_id": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-2",
+            "toolUseId": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-2",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.547Z",
+          "kind": "rewrite",
+          "id": "f29a9076-a75c-4033-9e2a-aa25a10eb431",
+          "conversation": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+          "use": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-2",
+          "name": "peertable_probe__parent_read",
+          "input": {
+            "tool_name": "peertable_probe__parent_read",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+            }
+          },
+          "updated": {
+            "tool_name": "peertable_probe__parent_read",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+              "hook_context_id": "f29a9076-a75c-4033-9e2a-aa25a10eb431"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.661Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "peertable_probe__parent_read",
+            "toolName": "peertable_probe__parent_read",
+            "tool_use_id": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-3",
+            "toolUseId": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-3",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.664Z",
+          "kind": "rewrite",
+          "id": "f2825df5-a04e-4074-a74f-03fc3ba80d22",
+          "conversation": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+          "use": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-3",
+          "name": "peertable_probe__parent_read",
+          "input": {
+            "tool_name": "peertable_probe__parent_read",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+            }
+          },
+          "updated": {
+            "tool_name": "peertable_probe__parent_read",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+              "hook_context_id": "f2825df5-a04e-4074-a74f-03fc3ba80d22"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.670Z",
+          "kind": "mcp_call",
+          "name": "parent_read",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+            "hook_context_id": "f29a9076-a75c-4033-9e2a-aa25a10eb431"
+          },
+          "meta": {
+            "progressToken": 2
+          },
+          "client": {
+            "name": "grok-shell-peertable_probe",
+            "version": "1.0.41"
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.670Z",
+          "kind": "mcp_call",
+          "name": "parent_read",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+            "hook_context_id": "f2825df5-a04e-4074-a74f-03fc3ba80d22"
+          },
+          "meta": {
+            "progressToken": 3
+          },
+          "client": {
+            "name": "grok-shell-peertable_probe",
+            "version": "1.0.41"
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.674Z",
+          "kind": "mcp_result",
+          "name": "parent_read",
+          "result": {
+            "code": "PROBE_SAME_CALLER",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.674Z",
+          "kind": "mcp_result",
+          "name": "parent_read",
+          "result": {
+            "code": "PROBE_SAME_CALLER",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.801Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUse",
+            "hookEventName": "post_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "peertable_probe__parent_read",
+            "toolName": "peertable_probe__parent_read",
+            "tool_use_id": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-2",
+            "toolUseId": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-2",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "f29a9076-a75c-4033-9e2a-aa25a10eb431"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "f29a9076-a75c-4033-9e2a-aa25a10eb431"
+              }
+            },
+            "toolResult": {
+              "type": "MCP",
+              "tool_name": "parent_read",
+              "server_name": "peertable_probe",
+              "output": {
+                "OkayOutput": "{\"code\":\"PROBE_SAME_CALLER\",\"endpoint_id\":\"0da76a41-4c49-4f5c-96c2-5057a1365244\"}"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:38.919Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUse",
+            "hookEventName": "post_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "peertable_probe__parent_read",
+            "toolName": "peertable_probe__parent_read",
+            "tool_use_id": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-3",
+            "toolUseId": "call-235e22cf-a3b5-4e7c-bebe-c2c4ea2fa4ed-3",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "f2825df5-a04e-4074-a74f-03fc3ba80d22"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "f2825df5-a04e-4074-a74f-03fc3ba80d22"
+              }
+            },
+            "toolResult": {
+              "type": "MCP",
+              "tool_name": "parent_read",
+              "server_name": "peertable_probe",
+              "output": {
+                "OkayOutput": "{\"code\":\"PROBE_SAME_CALLER\",\"endpoint_id\":\"0da76a41-4c49-4f5c-96c2-5057a1365244\"}"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:48.891Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "peertable_probe__parent_leave",
+            "toolName": "peertable_probe__parent_leave",
+            "tool_use_id": "call-ffea6608-505d-4744-bdaa-e8fa9912d16e-4",
+            "toolUseId": "call-ffea6608-505d-4744-bdaa-e8fa9912d16e-4",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_leave",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_leave",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:48.896Z",
+          "kind": "rewrite",
+          "id": "3b1e1b8f-6959-4e29-8763-156cde5bbb7c",
+          "conversation": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+          "use": "call-ffea6608-505d-4744-bdaa-e8fa9912d16e-4",
+          "name": "peertable_probe__parent_leave",
+          "input": {
+            "tool_name": "peertable_probe__parent_leave",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+            }
+          },
+          "updated": {
+            "tool_name": "peertable_probe__parent_leave",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+              "hook_context_id": "3b1e1b8f-6959-4e29-8763-156cde5bbb7c"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:48.900Z",
+          "kind": "mcp_call",
+          "name": "parent_leave",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+            "hook_context_id": "3b1e1b8f-6959-4e29-8763-156cde5bbb7c"
+          },
+          "meta": {
+            "progressToken": 4
+          },
+          "client": {
+            "name": "grok-shell-peertable_probe",
+            "version": "1.0.41"
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:48.907Z",
+          "kind": "mcp_result",
+          "name": "parent_leave",
+          "result": {
+            "code": "PROBE_SAME_CALLER",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:49.220Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUse",
+            "hookEventName": "post_tool_use",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "tool_name": "peertable_probe__parent_leave",
+            "toolName": "peertable_probe__parent_leave",
+            "tool_use_id": "call-ffea6608-505d-4744-bdaa-e8fa9912d16e-4",
+            "toolUseId": "call-ffea6608-505d-4744-bdaa-e8fa9912d16e-4",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_leave",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "3b1e1b8f-6959-4e29-8763-156cde5bbb7c"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_leave",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "3b1e1b8f-6959-4e29-8763-156cde5bbb7c"
+              }
+            },
+            "toolResult": {
+              "type": "MCP",
+              "tool_name": "parent_leave",
+              "server_name": "peertable_probe",
+              "output": {
+                "OkayOutput": "{\"code\":\"PROBE_SAME_CALLER\",\"endpoint_id\":\"0da76a41-4c49-4f5c-96c2-5057a1365244\"}"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:52.463Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "Stop",
+            "hookEventName": "stop",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "lastAssistantMessage": "`PROBE_BOUND`  \n`PROBE_SAME_CALLER`  \n`PROBE_SAME_CALLER`  \n`PROBE_SAME_CALLER`",
+            "reason": "end_turn",
+            "backgroundTasks": []
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:52.772Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "SessionEnd",
+            "hookEventName": "session_end",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "reason": "shutdown"
+          }
+        },
+        {
+          "at": "2026-09-28T13:49:53.079Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "Stop",
+            "hookEventName": "stop",
+            "sessionId": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "session_id": "01a0e847-0d43-7672-bdfd-137b6a8cced1",
+            "reason": "shutdown"
+          }
+        },
+        {
+          "at": "2026-09-28T13:50:48.766Z",
+          "kind": "rewrite",
+          "id": "d924b414-31ca-4547-a630-83d498ce2591",
+          "conversation": "01a0e848-2ced-78a3-a6cc-64c20800ba9d",
+          "use": "call-7cc5915f-5d6e-4345-9d13-c62fd4d538e2-1",
+          "name": "peertable_probe.parent_read",
+          "input": {
+            "tool_name": "peertable_probe.parent_read",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+            }
+          },
+          "updated": {
+            "tool_name": "peertable_probe.parent_read",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+              "hook_context_id": "d924b414-31ca-4547-a630-83d498ce2591"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:10.710Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "tool_name": "run_terminal_command",
+            "toolName": "run_terminal_command",
+            "tool_use_id": "call-a9b97540-a983-47d8-bc55-9ae6b622e4c6-0",
+            "toolUseId": "call-a9b97540-a983-47d8-bc55-9ae6b622e4c6-0",
+            "tool_input": {
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "description": "Launch parent background wait probe",
+              "background": true,
+              "timeout": 0
+            },
+            "toolInput": {
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "description": "Launch parent background wait probe",
+              "background": true,
+              "timeout": 0
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:10.851Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUse",
+            "hookEventName": "post_tool_use",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "tool_name": "run_terminal_command",
+            "toolName": "run_terminal_command",
+            "tool_use_id": "call-a9b97540-a983-47d8-bc55-9ae6b622e4c6-0",
+            "toolUseId": "call-a9b97540-a983-47d8-bc55-9ae6b622e4c6-0",
+            "tool_input": {
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "description": "Launch parent background wait probe",
+              "background": true,
+              "timeout": 0
+            },
+            "toolInput": {
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "description": "Launch parent background wait probe",
+              "background": true,
+              "timeout": 0
+            },
+            "toolResult": {
+              "type": "BackgroundTaskStarted",
+              "task_id": "01a0e84a-7c4f-7830-bb79-ecd48e0706d2",
+              "task_type": "bash",
+              "output_file": "/Users/kite/.grok/sessions/%2Fprivate%2Fvar%2Ffolders%2Fv4%2Fntdd_q2d10q962kq3cfx8lr00000gn%2FT%2Fpeertable%20grok%20%E6%9C%AC%E4%BA%BA%E6%80%A7%20SE4ZDk/01a0e84a-238b-76e1-b7cd-c14069a20945/terminal/call-a9b97540-a983-47d8-bc55-9ae6b622e4c6-0.log",
+              "status": "running",
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "summary": "Background task 01a0e84a-7c4f-7830-bb79-ecd48e0706d2 started",
+              "retrieval_hint": "Use get_command_or_subagent_output with task_ids=[\"01a0e84a-7c4f-7830-bb79-ecd48e0706d2\"] when you need the output.",
+              "pid": 52296
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:19.103Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "Stop",
+            "hookEventName": "stop",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "lastAssistantMessage": "背景受信登録済み。native 背景 task `01a0e84a-7c4f-7830-bb79-ecd48e0706d2` を登録済みで、完了通知待ちで idle に入ります。",
+            "reason": "end_turn",
+            "backgroundTasks": [
+              {
+                "id": "01a0e84a-7c4f-7830-bb79-ecd48e0706d2",
+                "type": "shell",
+                "status": "running",
+                "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'"
+              }
+            ]
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:55.474Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "tool_name": "get_command_or_subagent_output",
+            "toolName": "get_command_or_subagent_output",
+            "tool_use_id": "call-9a5bc4ef-ba86-4ba8-8e87-c728de6da914-1",
+            "toolUseId": "call-9a5bc4ef-ba86-4ba8-8e87-c728de6da914-1",
+            "tool_input": {
+              "task_ids": [
+                "01a0e84a-7c4f-7830-bb79-ecd48e0706d2"
+              ]
+            },
+            "toolInput": {
+              "task_ids": [
+                "01a0e84a-7c4f-7830-bb79-ecd48e0706d2"
+              ]
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:53:55.601Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUse",
+            "hookEventName": "post_tool_use",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "tool_name": "get_command_or_subagent_output",
+            "toolName": "get_command_or_subagent_output",
+            "tool_use_id": "call-9a5bc4ef-ba86-4ba8-8e87-c728de6da914-1",
+            "toolUseId": "call-9a5bc4ef-ba86-4ba8-8e87-c728de6da914-1",
+            "tool_input": {
+              "task_ids": [
+                "01a0e84a-7c4f-7830-bb79-ecd48e0706d2"
+              ]
+            },
+            "toolInput": {
+              "task_ids": [
+                "01a0e84a-7c4f-7830-bb79-ecd48e0706d2"
+              ]
+            },
+            "toolResult": {
+              "type": "TaskOutput",
+              "Result": {
+                "task_id": "01a0e84a-7c4f-7830-bb79-ecd48e0706d2",
+                "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+                "status": "completed",
+                "exit_code": 0,
+                "started": "2026-09-28T13:53:10Z",
+                "ended": "2026-09-28T13:53:50Z",
+                "duration_secs": 40.097074,
+                "output": "{\"outcome\":\"message\",\"room\":\"配送試験\",\"from\":\"probe\",\"to\":\"bell\",\"seq\":\"1\",\"body\":\"符号 GROK_BACKGROUND_ONE_日本語\",\"waiter\":\"089ed1f5-62ab-4e4c-ab2c-29d139b0b88c\"}\n",
+                "output_file": "/Users/kite/.grok/sessions/%2Fprivate%2Fvar%2Ffolders%2Fv4%2Fntdd_q2d10q962kq3cfx8lr00000gn%2FT%2Fpeertable%20grok%20%E6%9C%AC%E4%BA%BA%E6%80%A7%20SE4ZDk/01a0e84a-238b-76e1-b7cd-c14069a20945/terminal/call-a9b97540-a983-47d8-bc55-9ae6b622e4c6-0.log",
+                "truncated": false,
+                "truncation_hint": "[truncated - use read_file on output_file for full content]",
+                "raw_output_bytes": 175
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:00.131Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "tool_name": "run_terminal_command",
+            "toolName": "run_terminal_command",
+            "tool_use_id": "call-cff3f8f5-dc3c-4b65-9886-2f5c2a3d2cc6-2",
+            "toolUseId": "call-cff3f8f5-dc3c-4b65-9886-2f5c2a3d2cc6-2",
+            "tool_input": {
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "description": "Reregister parent background wait probe",
+              "background": true,
+              "timeout": 0
+            },
+            "toolInput": {
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "description": "Reregister parent background wait probe",
+              "background": true,
+              "timeout": 0
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:00.270Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUse",
+            "hookEventName": "post_tool_use",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "tool_name": "run_terminal_command",
+            "toolName": "run_terminal_command",
+            "tool_use_id": "call-cff3f8f5-dc3c-4b65-9886-2f5c2a3d2cc6-2",
+            "toolUseId": "call-cff3f8f5-dc3c-4b65-9886-2f5c2a3d2cc6-2",
+            "tool_input": {
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "description": "Reregister parent background wait probe",
+              "background": true,
+              "timeout": 0
+            },
+            "toolInput": {
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "description": "Reregister parent background wait probe",
+              "background": true,
+              "timeout": 0
+            },
+            "toolResult": {
+              "type": "BackgroundTaskStarted",
+              "task_id": "01a0e84b-3d4e-7bd1-9170-a47787b85491",
+              "task_type": "bash",
+              "output_file": "/Users/kite/.grok/sessions/%2Fprivate%2Fvar%2Ffolders%2Fv4%2Fntdd_q2d10q962kq3cfx8lr00000gn%2FT%2Fpeertable%20grok%20%E6%9C%AC%E4%BA%BA%E6%80%A7%20SE4ZDk/01a0e84a-238b-76e1-b7cd-c14069a20945/terminal/call-cff3f8f5-dc3c-4b65-9886-2f5c2a3d2cc6-2.log",
+              "status": "running",
+              "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+              "summary": "Background task 01a0e84b-3d4e-7bd1-9170-a47787b85491 started",
+              "retrieval_hint": "Use get_command_or_subagent_output with task_ids=[\"01a0e84b-3d4e-7bd1-9170-a47787b85491\"] when you need the output.",
+              "pid": 53960
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:02.680Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "Stop",
+            "hookEventName": "stop",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "lastAssistantMessage": "背景受信登録済み。native 背景 task `01a0e84b-3d4e-7bd1-9170-a47787b85491` を再登録済みで、完了通知待ちで idle に入ります。",
+            "reason": "end_turn",
+            "backgroundTasks": [
+              {
+                "id": "01a0e84b-3d4e-7bd1-9170-a47787b85491",
+                "type": "shell",
+                "status": "running",
+                "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'"
+              }
+            ]
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:28.903Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "tool_name": "get_command_or_subagent_output",
+            "toolName": "get_command_or_subagent_output",
+            "tool_use_id": "call-9ea44ece-8cf1-486f-8a20-6ea2af59e796-3",
+            "toolUseId": "call-9ea44ece-8cf1-486f-8a20-6ea2af59e796-3",
+            "tool_input": {
+              "task_ids": [
+                "01a0e84b-3d4e-7bd1-9170-a47787b85491"
+              ]
+            },
+            "toolInput": {
+              "task_ids": [
+                "01a0e84b-3d4e-7bd1-9170-a47787b85491"
+              ]
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:29.025Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUse",
+            "hookEventName": "post_tool_use",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "tool_name": "get_command_or_subagent_output",
+            "toolName": "get_command_or_subagent_output",
+            "tool_use_id": "call-9ea44ece-8cf1-486f-8a20-6ea2af59e796-3",
+            "toolUseId": "call-9ea44ece-8cf1-486f-8a20-6ea2af59e796-3",
+            "tool_input": {
+              "task_ids": [
+                "01a0e84b-3d4e-7bd1-9170-a47787b85491"
+              ]
+            },
+            "toolInput": {
+              "task_ids": [
+                "01a0e84b-3d4e-7bd1-9170-a47787b85491"
+              ]
+            },
+            "toolResult": {
+              "type": "TaskOutput",
+              "Result": {
+                "task_id": "01a0e84b-3d4e-7bd1-9170-a47787b85491",
+                "command": "/opt/homebrew/bin/node '/Users/kite/.codex/worktrees/aiterm-unified-delivery/peertable/experiments/parent-background-wait-probe.mjs' wait '/var/folders/v4/ntdd_q2d10q962kq3cfx8lr00000gn/T/peertable grok 本人性 SE4ZDk'",
+                "status": "completed",
+                "exit_code": 0,
+                "started": "2026-09-28T13:54:00Z",
+                "ended": "2026-09-28T13:54:24Z",
+                "duration_secs": 24.631875,
+                "output": "{\"outcome\":\"message\",\"room\":\"配送試験\",\"from\":\"probe\",\"to\":\"bell\",\"seq\":\"2\",\"body\":\"符号 GROK_BACKGROUND_TWO_日本語\",\"waiter\":\"9d4b43dd-1c0d-4b5a-9ee7-d67d0d0b1cc5\"}\n",
+                "output_file": "/Users/kite/.grok/sessions/%2Fprivate%2Fvar%2Ffolders%2Fv4%2Fntdd_q2d10q962kq3cfx8lr00000gn%2FT%2Fpeertable%20grok%20%E6%9C%AC%E4%BA%BA%E6%80%A7%20SE4ZDk/01a0e84a-238b-76e1-b7cd-c14069a20945/terminal/call-cff3f8f5-dc3c-4b65-9886-2f5c2a3d2cc6-2.log",
+                "truncated": false,
+                "truncation_hint": "[truncated - use read_file on output_file for full content]",
+                "raw_output_bytes": 175
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:31.173Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "Stop",
+            "hookEventName": "stop",
+            "sessionId": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "session_id": "01a0e84a-238b-76e1-b7cd-c14069a20945",
+            "lastAssistantMessage": "2件目: seq=`2`、本文符号=`GROK_BACKGROUND_TWO_日本語`。再登録せず、ここで終了します。",
+            "reason": "end_turn",
+            "backgroundTasks": []
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:28.603Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e84c-537e-7232-9379-8209fae73e1f",
+            "session_id": "01a0e84c-537e-7232-9379-8209fae73e1f",
+            "tool_name": "peertable_probe__parent_read",
+            "toolName": "peertable_probe__parent_read",
+            "tool_use_id": "call-58d7bf53-d86d-4baa-b9af-bbb475aff132-0",
+            "toolUseId": "call-58d7bf53-d86d-4baa-b9af-bbb475aff132-0",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:28.605Z",
+          "kind": "rewrite",
+          "id": "656885ab-7134-4ecc-aa86-d6df0105bf6e",
+          "conversation": "01a0e84c-537e-7232-9379-8209fae73e1f",
+          "use": "call-58d7bf53-d86d-4baa-b9af-bbb475aff132-0",
+          "name": "peertable_probe__parent_read",
+          "input": {
+            "tool_name": "peertable_probe__parent_read",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+            }
+          },
+          "updated": {
+            "tool_name": "peertable_probe__parent_read",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+              "hook_context_id": "656885ab-7134-4ecc-aa86-d6df0105bf6e"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:28.618Z",
+          "kind": "mcp_call",
+          "name": "parent_read",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+            "hook_context_id": "656885ab-7134-4ecc-aa86-d6df0105bf6e"
+          },
+          "meta": {
+            "progressToken": 1
+          },
+          "client": {
+            "name": "grok-shell-peertable_probe",
+            "version": "1.0.41"
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:28.624Z",
+          "kind": "mcp_result",
+          "name": "parent_read",
+          "result": {
+            "code": "PARENT_CALLER_MISMATCH",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:28.745Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUseFailure",
+            "hookEventName": "post_tool_use_failure",
+            "sessionId": "01a0e84c-537e-7232-9379-8209fae73e1f",
+            "session_id": "01a0e84c-537e-7232-9379-8209fae73e1f",
+            "tool_name": "peertable_probe__parent_read",
+            "toolName": "peertable_probe__parent_read",
+            "tool_use_id": "call-58d7bf53-d86d-4baa-b9af-bbb475aff132-0",
+            "toolUseId": "call-58d7bf53-d86d-4baa-b9af-bbb475aff132-0",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "656885ab-7134-4ecc-aa86-d6df0105bf6e"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_read",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "656885ab-7134-4ecc-aa86-d6df0105bf6e"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:31.507Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PreToolUse",
+            "hookEventName": "pre_tool_use",
+            "sessionId": "01a0e84c-537e-7232-9379-8209fae73e1f",
+            "session_id": "01a0e84c-537e-7232-9379-8209fae73e1f",
+            "tool_name": "peertable_probe__parent_leave",
+            "toolName": "peertable_probe__parent_leave",
+            "tool_use_id": "call-953c263f-72bd-4016-94ae-3b23c4642714-1",
+            "toolUseId": "call-953c263f-72bd-4016-94ae-3b23c4642714-1",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_leave",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_leave",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+              }
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:31.510Z",
+          "kind": "rewrite",
+          "id": "ff48a609-9986-4e0c-8822-b3f17431038d",
+          "conversation": "01a0e84c-537e-7232-9379-8209fae73e1f",
+          "use": "call-953c263f-72bd-4016-94ae-3b23c4642714-1",
+          "name": "peertable_probe__parent_leave",
+          "input": {
+            "tool_name": "peertable_probe__parent_leave",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+            }
+          },
+          "updated": {
+            "tool_name": "peertable_probe__parent_leave",
+            "tool_input": {
+              "label": "同じ入力",
+              "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+              "hook_context_id": "ff48a609-9986-4e0c-8822-b3f17431038d"
+            }
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:31.513Z",
+          "kind": "mcp_call",
+          "name": "parent_leave",
+          "args": {
+            "label": "同じ入力",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+            "hook_context_id": "ff48a609-9986-4e0c-8822-b3f17431038d"
+          },
+          "meta": {
+            "progressToken": 2
+          },
+          "client": {
+            "name": "grok-shell-peertable_probe",
+            "version": "1.0.41"
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:31.517Z",
+          "kind": "mcp_result",
+          "name": "parent_leave",
+          "result": {
+            "code": "PARENT_CALLER_MISMATCH",
+            "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244"
+          }
+        },
+        {
+          "at": "2026-09-28T13:55:31.630Z",
+          "kind": "hook",
+          "event": {
+            "hook_event_name": "PostToolUseFailure",
+            "hookEventName": "post_tool_use_failure",
+            "sessionId": "01a0e84c-537e-7232-9379-8209fae73e1f",
+            "session_id": "01a0e84c-537e-7232-9379-8209fae73e1f",
+            "tool_name": "peertable_probe__parent_leave",
+            "toolName": "peertable_probe__parent_leave",
+            "tool_use_id": "call-953c263f-72bd-4016-94ae-3b23c4642714-1",
+            "toolUseId": "call-953c263f-72bd-4016-94ae-3b23c4642714-1",
+            "tool_input": {
+              "tool_name": "peertable_probe__parent_leave",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "ff48a609-9986-4e0c-8822-b3f17431038d"
+              }
+            },
+            "toolInput": {
+              "tool_name": "peertable_probe__parent_leave",
+              "tool_input": {
+                "label": "同じ入力",
+                "endpoint_id": "0da76a41-4c49-4f5c-96c2-5057a1365244",
+                "hook_context_id": "ff48a609-9986-4e0c-8822-b3f17431038d"
+              }
+            }
+          }
+        }
+      ],
+      "background_wait_events": [
+        {
+          "at": "2026-09-28T13:53:10.834Z",
+          "kind": "armed",
+          "waiter": "089ed1f5-62ab-4e4c-ab2c-29d139b0b88c",
+          "pid": 52300
+        },
+        {
+          "at": "2026-09-28T13:53:50.819Z",
+          "kind": "injected",
+          "id": "1",
+          "body": "符号 GROK_BACKGROUND_ONE_日本語"
+        },
+        {
+          "at": "2026-09-28T13:53:50.829Z",
+          "kind": "output",
+          "result": {
+            "outcome": "message",
+            "room": "配送試験",
+            "from": "probe",
+            "to": "bell",
+            "seq": "1",
+            "body": "符号 GROK_BACKGROUND_ONE_日本語",
+            "waiter": "089ed1f5-62ab-4e4c-ab2c-29d139b0b88c"
+          }
+        },
+        {
+          "at": "2026-09-28T13:54:00.236Z",
+          "kind": "armed",
+          "waiter": "9d4b43dd-1c0d-4b5a-9ee7-d67d0d0b1cc5",
+          "pid": 53964
+        },
+        {
+          "at": "2026-09-28T13:54:24.672Z",
+          "kind": "injected",
+          "id": "2",
+          "body": "符号 GROK_BACKGROUND_TWO_日本語"
+        },
+        {
+          "at": "2026-09-28T13:54:24.770Z",
+          "kind": "output",
+          "result": {
+            "outcome": "message",
+            "room": "配送試験",
+            "from": "probe",
+            "to": "bell",
+            "seq": "2",
+            "body": "符号 GROK_BACKGROUND_TWO_日本語",
+            "waiter": "9d4b43dd-1c0d-4b5a-9ee7-d67d0d0b1cc5"
+          }
+        }
+      ],
+      "assistant_observed": [
+        "2件目: seq=2、本文符号=GROK_BACKGROUND_TWO_日本語。再登録せず、ここで終了します。"
+      ],
+      "same_caller": true,
+      "other_caller_rejected": true,
+      "native_parallel_reads": true,
+      "idle_background_two_messages": true,
+      "product_spool": false
+    }
+  }
+}
