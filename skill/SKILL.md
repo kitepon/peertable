@@ -179,7 +179,7 @@ witness をどう生成するかは**対象 project 側の作法に従う**（La
 - 発言は`PEERTABLE_URL=$URL PEERTABLE_ROOM=$ROOM node skill/scripts/post-message.mjs <親名> <宛先> '<本文>'`を使う。tokenはenvまたはcredential fileから渡す。UTF-8のJSON生成を製品に任せ、Windowsのcp932出力や手組みJSONへ置き換えない。複数人宛は名前の配列。失敗時は非ゼロであり、印字だけを成功としない。
 - 親の受信登録はユーザー領域のPeertable専用MCPと公式hookを使う。既存会話で読み込めなければ`PARENT_RESTART_REQUIRED`を返す。発言は`post-message.mjs`の既存HTTP入口を使い、送信と受領seqを確認する。room保存と配送成立は別に読む。
 - **親配送**: 共通watchがroom HTTP/SSE・永続cursorを所有し、親宛DM・親を含む複数人宛・all全件の原文をspoolへ保存する。Lattice件数のquiet観測、取得エラー、snapshot、3分の停滞警報と既存頻度を保つ。親への届け方はAitermの子の回答と同じ（`aiterm-steer-delivery`）で、作業中の親にはそのturnへ差し込み、待機中の親には新しいturnで届く。
-  - Codexは公式キューへ入れる。macOS・Windowsは同期PostToolUse/Stop hookが作業中のturnへ取り込む。Linuxは公式キューがturnの区切りで届ける。
+  - Codexは公式キューへ入れる。同期PostToolUse/Stop hookが作業中のturnへ取り込む（macOS・Windows・Linux。hookは公式Desktop同梱のCodex CLIを先に使い、無ければ通常のCodex CLI 0.154以上を使う）。hookを有効にできない時は公式キューがturnの区切りで届ける。
   - Claude CodeはPostToolUse/Stopの公式asyncRewake hookが会話ごとに1つだけ待ち、本文を出して親を起こす。turnが終わるたびにStopが待機を張り直す。
   - Cursorは作業中なら次のtool返りへhookが差し込む。待機中の分は`wait_process`（背景の受信process）が受け取る。Grokは`wait_process`だけで受け取る。受け取った後は出力の`next_wait_process`を同じ方法で起動し直す。
   - 送った後に届いたか確定しない本文は`unknown`とし、自動再送しない。親配送は通常席bridgeの対象外。

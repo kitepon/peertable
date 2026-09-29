@@ -115,6 +115,10 @@ function writeText(file, text) { mkdirSync(dirname(file), { recursive: true }); 
 async function withCodexConfig(codexHome, fn) {
   return steer.withCodexReceiver(PEERTABLE_PROFILE, { thread_id: '00000000-0000-4000-8000-000000000000', codex_home: codexHome }, fn)
 }
+// Codexのconfig/readは書いていない既定値（enabled=true・environment_id="local"・値の無い項目）を足して返す。
+// それを除いた形で所有を照合する。利用者が変えた値（無効化・envの追加など）は残るので衝突として止まる。
+export const codexOwnedEntry = entry => Object.fromEntries(Object.entries(entry).filter(([key, value]) =>
+  value !== null && !(key === 'enabled' && value === true) && !(key === 'environment_id' && value === 'local')))
 export async function removeCodexConfiguration(request, filePath, trust = []) {
   // 追加したtableの区切りも公式APIが撤去する。手でheaderだけ消すと追加された空行が残る。
   await request('config/batchWrite', { filePath, edits: [
@@ -152,8 +156,8 @@ export async function connectParent(target, { remove = false } = {}) {
     const codexHome = dirname(paths.mcp)
     await withCodexConfig(codexHome, async request => {
       const current = await request('config/read', { includeLayers: true })
-      const entry = current.config?.mcp_servers?.[parentServerName]
-      if (entry && previous?.mcp_digest !== digest(entry) && digest(entry) !== digest(registration)) throw failure('PARENT_CONFIG_OWNERSHIP_CONFLICT')
+      const entry = current.config?.mcp_servers?.[parentServerName], owned = entry && digest(codexOwnedEntry(entry))
+      if (entry && previous?.mcp_digest !== owned && owned !== digest(registration)) throw failure('PARENT_CONFIG_OWNERSHIP_CONFLICT')
       if (remove) await removeCodexConfiguration(request, paths.mcp, previous?.trust ?? [])
       else {
         await request('config/batchWrite', { filePath: paths.mcp, edits: [{ keyPath: `mcp_servers.${parentServerName}`, value: registration, mergeStrategy: 'replace' },
@@ -163,8 +167,8 @@ export async function connectParent(target, { remove = false } = {}) {
         if (saved?.command !== registration.command || digest(saved.args) !== digest(registration.args)) throw failure('PARENT_CONFIG_READBACK_FAILED')
       }
     })
-    // 作業中のturnへの差し込み（Steer）はAitermと同じ公式hook。macOS・Windowsで使え、Linuxは公式キューだけで届く。
-    // Desktopが無い等で有効にできなくても、公式キューの配送はそのまま使える（Aitermと同じ）。
+    // 作業中のturnへの差し込み（Steer）はAitermと同じ公式hook。全OSで、Desktop同梱のCodex CLIを先に、無ければ通常のCodex CLIを使う。
+    // CLIが古い等で有効にできなくても、公式キューの配送はそのまま使える（Aitermと同じ）。
     try { delivery = await steer.configureCodexSteer(PEERTABLE_PROFILE, remove ? 'disable' : 'enable', { hook: entries.codex, codex_home: codexHome }) }
     catch (error) { delivery = { status: 'failed', reason_code: error.code ?? error.delivery_code ?? 'codex_steer_setup_failed', detail: error.message } }
   }

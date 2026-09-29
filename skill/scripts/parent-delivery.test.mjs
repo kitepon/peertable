@@ -13,7 +13,7 @@ test.after(() => rmSync(home, { recursive: true, force: true }))
 
 const { ParentSpool, renderDelivery, digest } = await import('./parent-delivery.mjs')
 const { processIdentity, processHarness, harnessProcess, readHookEvent } = await import('./parent-platform.mjs')
-const { tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, grokMcpBlock, removeLegacyHooks } = await import('./parent-connect.mjs')
+const { tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, grokMcpBlock, removeLegacyHooks, codexOwnedEntry } = await import('./parent-connect.mjs')
 const { clientHarness } = await import('./parent-caller.mjs')
 const { PEERTABLE_PROFILE, steer } = await import('./parent-steer.mjs')
 
@@ -112,6 +112,17 @@ test('TOML literal/basic quoted own tableの置換は他設定の字面と順序
   const owned = ownedTomlBlock(text).block
   assert.throws(() => replaceOwnedToml(text, ''), /PARENT_CONFIG_OWNERSHIP_CONFLICT/u)
   assert.equal(replaceOwnedToml(text, '', digest(owned)), '#利用者\n[mcp_servers.other]\ncommand="other"\n[hooks.state.\'C:\\path:key\']\nenabled=true\n')
+})
+
+test('Codexが読み戻しで足す既定値は所有の照合に含めない', () => {
+  const registration = { command: '/usr/bin/node', args: ['/pt/room/client.mjs', 'parent'] }
+  // Codex 0.158のconfig/readが返す形。
+  const readBack = { ...registration, environment_id: 'local', enabled: true, tool_timeout_sec: null }
+  assert.equal(digest(codexOwnedEntry(readBack)), digest(registration))
+  // 利用者が変えた値は残り、照合で衝突になる。
+  assert.notEqual(digest(codexOwnedEntry({ ...readBack, enabled: false })), digest(registration))
+  assert.notEqual(digest(codexOwnedEntry({ ...readBack, env: { A: '1' } })), digest(registration))
+  assert.notEqual(digest(codexOwnedEntry({ ...readBack, environment_id: 'remote' })), digest(registration))
 })
 
 test('GrokのMCP登録解除はLF末尾の外部TOMLへ空行を追加しない', () => {

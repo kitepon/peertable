@@ -65,7 +65,7 @@ Web UIのメンバーカードは**オーナー意匠**である（裁定 2026-0
 
 | 親 | 特定の根拠 | 届け方 |
 | --- | --- | --- |
-| Codex | MCP要求の`_meta.threadId` | 公式キューへ入れる。macOS・Windowsは同期PostToolUse/Stop hookが作業中のturnへ取り込む。Linuxは公式キューがturnの区切りで届ける |
+| Codex | MCP要求の`_meta.threadId` | 公式キューへ入れる。同期PostToolUse/Stop hookが作業中のturnへ取り込む（macOS・Windows・Linux。hookは公式Desktop同梱のCodex CLIを先に使い、無ければ通常のCodex CLI 0.154以上を使う）。hookを有効にできない時は公式キューがturnの区切りで届ける |
 | Claude Code | PreToolUse hookの記録と`_meta["claudecode/toolUseId"]` | PostToolUse/Stopの公式asyncRewake hookが会話ごとに1つだけ待ち、本文を出して起こす。turnが終わるたびにStopが待機を張り直す |
 | Cursor | tool結果の`steer_channel`を公式hookが会話へ結ぶ | 作業中は次のtool返りへ`additional_context`で差し込む。待機中は`wait_process`（背景の受信process）が受け取る |
 | Grok | なし | `wait_process`だけで受け取る |
