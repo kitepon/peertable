@@ -4,11 +4,11 @@ import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
-import { randomUUID } from 'node:crypto'
-import { ParentSpool, armParentState, failedParentRecords, PARENT_PROBE_TIMEOUT_MS } from './parent-delivery.mjs'
+import { ParentSpool } from './parent-delivery.mjs'
 import { atomicJson, readJson, processIdentity, sameProcess, failure, posixQuote, psQuote } from './parent-platform.mjs'
-import { registerEndpoint, endpointsFor, forgetEndpoint } from './parent-caller.mjs'
+import { registerEndpoint, forgetEndpoint } from './parent-caller.mjs'
 import { ownsParentConnection } from './parent-connect.mjs'
+import { PEERTABLE_PROFILE, steer } from './parent-steer.mjs'
 import { launchDetached } from './parent-process.mjs'
 import { RoomApi } from './room-api.mjs'
 import { runtimeDigest } from './runtime-digest.mjs'
@@ -43,21 +43,14 @@ export async function stopOwnedProcess(owner) {
   while (Date.now() < deadline && sameProcess(owner)) await delay(50)
   if (sameProcess(owner)) throw failure('PARENT_RECEIVER_STOP_FAILED', `受信process ${owner.pid}が停止しません`)
 }
-function hasSharedWaiter(spool, state) {
-  return state.waiter?.channel === 'claude_asyncRewake' && endpointsFor().some(other => {
-    if (other.id === spool.id) return false
-    const saved = other.read()
-    return saved.runtime !== 'stopped' && saved.waiter?.owner?.pid === state.waiter.owner.pid && saved.waiter?.owner?.started === state.waiter.owner.started
-  })
-}
-export async function stopEndpoint(spool) {
+export async function stopEndpoint(spool, reason = 'PARENT_SESSION_CLOSED') {
   const state = spool.update({ runtime: 'stopped', closed_at: new Date().toISOString() })
-  const sharedWaiter = hasSharedWaiter(spool, state)
-  for (const owner of [sharedWaiter ? null : state.waiter?.owner, state.watcher]) await stopOwnedProcess(owner)
-  spool.update({ waiter: null, watcher: null })
+  if (state.channel) steer.closeChannel(PEERTABLE_PROFILE, state.channel.channel_id, 'stopped')
+  await stopOwnedProcess(state.watcher)
+  spool.update({ watcher: null })
   spool.transact(saved => {
-    for (const record of saved.records) if (record.state === 'ready' || record.state === 'waiting') {
-      record.state = 'failed'; record.error_code = 'PARENT_SESSION_CLOSED'; record.receipt = spool.receiptFor(saved, record, 'failed', record.error_code)
+    for (const record of saved.records) if (record.state === 'ready') {
+      record.state = 'failed'; record.error_code = reason; record.receipt = spool.receiptFor(saved, record, 'failed', record.error_code)
     }
   })
   forgetEndpoint(spool)
@@ -90,22 +83,13 @@ export async function migrateLegacy(spool, api) {
   }
   spool.update({ cursor: legacy.last_seq, source_state: { ...legacy }, migration: { legacy_cursor: legacy.last_seq, insufficient_evidence_seqs: missingEvidence, status: missingEvidence.length ? 'evidence_missing' : 'verified', stopped_at: new Date().toISOString() } })
 }
-export async function startEndpoint(spool, { renewProbe = false } = {}) {
-  const state = spool.recover()
+export async function startEndpoint(spool) {
+  const state = spool.read()
   if (!sameProcess(state.caller.owner)) throw failure('PARENT_SESSION_NOT_RUNNING')
   if (!Number.isSafeInteger(state.cursor)) throw failure('PARENT_CURSOR_MISSING')
-  const oldProbe = state.records.find(record => record.event.event_id === `probe:${state.probe_id}`)
-  const probe = !state.probe_id || renewProbe && oldProbe?.state === 'failed' ? randomUUID() : state.probe_id
-  spool.update({ probe_id: probe })
-  spool.saveEvent({ schema: 'peertable.parent-watch-event.v1', type: 'parent_probe', event_id: `probe:${probe}`, room: state.room, from: 'peertable', to: state.name, body: `配送確認の符号は ${probe}。` })
   const currentDigest = runtimeDigest()
   if (state.watcher && sameProcess(state.watcher) && state.runtime_digest === currentDigest) return
   if (state.watcher && sameProcess(state.watcher)) await stopOwnedProcess(state.watcher)
-  if (state.waiter && sameProcess(state.waiter.owner) && state.runtime_digest !== currentDigest) {
-    // 同じClaude sessionの別endpointが使うwaiterは更新時も停止しない。
-    if (hasSharedWaiter(spool, state)) throw failure('PARENT_RESTART_REQUIRED', '共有待機の読込sourceを同じ親sessionで更新してください')
-    await stopOwnedProcess(state.waiter.owner)
-  }
   spool.update({ watcher: null, runtime_digest: currentDigest })
   spool.transact(saved => {
     if (saved.watcher && sameProcess(saved.watcher)) return
@@ -120,30 +104,29 @@ export async function startEndpoint(spool, { renewProbe = false } = {}) {
     saved.watcher = identity
   })
 }
-export async function joinEndpoint(projectArg, name, caller, display = {}) {
+/**
+ * 親の会話をroomの受信者として登録する。同じ名前のendpointがあれば、roomの読み位置と記録を引き継いで、
+ * 今の会話へchannelを張り直す（前のchannelでまだ受け取られていない本文は新しいchannelで送る）。
+ */
+export async function joinEndpoint(projectArg, name, caller, parent, display = {}) {
   const project = realpathSync(projectArg), setup = setupFor(project)
   const api = new RoomApi(setup, { credential: credentialFor(project, setup, name) })
-  const previous = projectEndpoints(project).find(spool => { const saved = spool.read(); return saved.name === name && saved.caller.harness === caller.harness && saved.caller.conversation === caller.conversation })
-  let spool = previous
-  if (spool) {
-    const saved = spool.read()
-    if (!Number.isSafeInteger(saved.cursor)) throw failure('PARENT_CURSOR_MISSING')
-    const runtime = caller.harness === 'codex' ? 'armed' : saved.waiter && sameProcess(saved.waiter.owner) ? saved.runtime : 'rearm_pending'
-    spool.update({ caller, runtime, state: saved.state === 'verified' ? 'verified' : 'receiving', probe_deadline: runtime === 'armed' && saved.state !== 'verified' ? Date.now() + PARENT_PROBE_TIMEOUT_MS : null, error_code: null })
-  } else {
-    for (const old of projectEndpoints(project).filter(item => item.read().name === name && item.read().runtime !== 'stopped')) await stopEndpoint(old)
+  let spool = projectEndpoints(project).find(item => { const saved = item.read(); return saved.name === name && saved.runtime !== 'stopped' && saved.schema === 'peertable.parent-spool.v2' })
+  if (spool && !Number.isSafeInteger(spool.read().cursor)) throw failure('PARENT_CURSOR_MISSING')
+  if (!spool) {
+    for (const old of projectEndpoints(project).filter(item => item.read().name === name && item.read().runtime !== 'stopped')) await stopEndpoint(old, 'PARENT_ENDPOINT_REPLACED')
     const summary = await api.request('summary')
     if (!Number.isSafeInteger(summary.seq)) throw failure('PARENT_START_SEQ_INVALID')
     spool = ParentSpool.create(project, { name, harness: caller.harness, caller, room: setup.room, server_url: setup.server_url.replace(/\/$/u, ''), start_seq: summary.seq, credential: api.credential })
     if ((await api.members()).some(member => member.name === name && member.delivery?.kind === 'parent_watch')) await migrateLegacy(spool, api)
   }
+  spool.rebind(steer.openChannel(PEERTABLE_PROFILE, parent), caller)
+  spool.update({ harness: caller.harness })
   registerEndpoint(spool)
   spool.update({ global_connection: ownsParentConnection(caller.harness) })
   await api.request('members', { method: 'POST', body: parentMemberRecord(name, caller.harness, spool.id, display) })
   actorEnvironment(project, name)
-  // Codexはjoin前に公式queueと同期hookの準備を確認済み。初回も実probeの期限を開始する。
-  if (caller.harness === 'codex') spool.transact(armParentState)
-  await startEndpoint(spool, { renewProbe: true })
+  await startEndpoint(spool)
   return spool
 }
 export async function parentRuntimeStatus(project, { restart = false } = {}) {
@@ -156,16 +139,16 @@ export async function parentRuntimeStatus(project, { restart = false } = {}) {
     const spool = endpoints.find(item => item.id === member.delivery.endpoint_id)
     if (!spool) { checks.push({ name: member.name, status: 'failed', error_code: 'PARENT_ENDPOINT_NOT_FOUND' }); continue }
     try {
-      let state = spool.recover()
-      if (state.caller.peertable_source_digest !== runtimeDigest()) throw failure('PARENT_RESTART_REQUIRED', '親MCPの読込sourceと現在のpackageが異なります')
+      let state = spool.read()
+      if (state.schema !== 'peertable.parent-spool.v2') throw failure('PARENT_REJOIN_REQUIRED', '旧方式の受信登録です。親の会話でparent_joinを呼び直してください')
       if (restart && sameProcess(state.caller.owner) && state.runtime !== 'stopped') { await startEndpoint(spool); state = spool.read() }
       const live = sameProcess(state.caller.owner) && sameProcess(state.watcher) && state.runtime_digest === runtimeDigest()
-      const armed = state.runtime === 'armed' && (state.harness === 'codex' || sameProcess(state.waiter?.owner))
       const unknown = state.records.filter(record => record.state === 'unknown').map(record => record.delivery_id)
-      const failed = failedParentRecords(state).map(record => record.delivery_id)
+      const failed = state.records.filter(record => record.state === 'failed').map(record => record.delivery_id)
       const missingEvidence = state.migration?.status === 'evidence_missing'
-      checks.push({ name: member.name, endpoint_id: spool.id, state: state.state, runtime: state.runtime, status: live && armed && state.state === 'verified' && !state.receipt_error && !state.health_error && !unknown.length && !failed.length && !missingEvidence ? 'ready' : 'failed',
-        error_code: state.error_code ?? (!live ? 'PARENT_SESSION_NOT_RUNNING' : !armed ? 'PARENT_REARM_REQUIRED' : state.state !== 'verified' ? 'PARENT_PROBE_PENDING' : state.receipt_error ? 'PARENT_RECEIPT_FAILED' : state.health_error ? 'PARENT_HEALTH_REPORT_FAILED' : unknown.length ? 'PARENT_DELIVERY_UNKNOWN' : failed.length ? 'PARENT_DELIVERY_FAILED' : missingEvidence ? 'PARENT_LEGACY_EVIDENCE_MISSING' : null), unknown, failed, migration: state.migration })
+      checks.push({ name: member.name, endpoint_id: spool.id, state: state.state, runtime: state.runtime, channel: state.channel?.kind ?? null,
+        status: live && state.runtime === 'armed' && !state.receipt_error && !state.health_error && !unknown.length && !failed.length && !missingEvidence ? 'ready' : 'failed',
+        error_code: state.error_code ?? (!live ? 'PARENT_SESSION_NOT_RUNNING' : state.receipt_error ? 'PARENT_RECEIPT_FAILED' : state.health_error ? 'PARENT_HEALTH_REPORT_FAILED' : unknown.length ? 'PARENT_DELIVERY_UNKNOWN' : failed.length ? 'PARENT_DELIVERY_FAILED' : missingEvidence ? 'PARENT_LEGACY_EVIDENCE_MISSING' : null), unknown, failed, migration: state.migration })
     } catch (error) { checks.push({ name: member.name, status: 'failed', error_code: error.code, detail: error.message }) }
   }
   return { schema: 'peertable.parent-runtime.v1', status: checks.some(check => check.status !== 'ready') ? 'failed' : 'ready', endpoints: checks }

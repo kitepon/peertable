@@ -27,7 +27,6 @@
   "scripts": {
     "postinstall": "node skill/scripts/install-skill.mjs --postinstall",
     "verify:release-commit": "node scripts/verify-release-commit.mjs",
-    "verify:parent-delivery": "node scripts/parent-delivery-acceptance.mjs rag/parent-delivery/product-acceptance.json",
     "test:docs": "node --test scripts/docs-contract.test.mjs",
     "prepublishOnly": "node scripts/prepublish.mjs"
   },
@@ -53,6 +52,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "aiterm-steer-delivery": "file:../aiterm-steer-delivery",
     "koffi": "3.3.2"
   },
   "devDependencies": {

@@ -14,10 +14,10 @@ import { resolveLatticeExecutable, resolvePostToken } from './seat-usage.mjs'
 import { addressedToParent as messageAddressedToParent, latticeStaffingChanged, tableStallUpdate } from './parent-watch-logic.mjs'
 import { ParentSpool, digest } from './parent-delivery.mjs'
 import { RoomApi } from './room-api.mjs'
-import { queueCodex } from './parent-receivers/codex.mjs'
 import { isParentMember } from '../../room/parent-kind.mjs'
 import { processIdentity, sameProcess, failure, atomicJson } from './parent-platform.mjs'
 import { forgetEndpoint } from './parent-caller.mjs'
+import { PEERTABLE_PROFILE, steer } from './parent-steer.mjs'
 
 const args = process.argv.slice(2)
 const project = args.shift()
@@ -185,39 +185,6 @@ function releaseLock() {
 acquireLock()
 process.on('exit', releaseLock)
 
-if (spool) {
-  let probeTimer
-  const watchFailed = error => {
-    process.stderr.write(`PARENT_PROBE_WATCH_FAILED: ${error.message}\n`)
-    process.exit(1)
-  }
-  const scheduleProbe = () => {
-    clearTimeout(probeTimer)
-    const saved = spool.read()
-    if (saved.runtime === 'stopped' || ['verified', 'failed'].includes(saved.state) || saved.probe_deadline == null) return
-    probeTimer = setTimeout(() => {
-      try {
-        // 他processの再武装・成功・終了を、同じatomic状態で再照合する。
-        const expired = spool.transact(current => {
-          if (current.runtime === 'stopped' || ['verified', 'failed'].includes(current.state) || current.probe_deadline == null || Date.now() < current.probe_deadline) return false
-          current.state = 'failed'; current.runtime = 'failed'; current.error_code = 'PARENT_PROBE_TIMEOUT'
-          return true
-        })
-        if (expired) spool.publishHealth().catch(watchFailed)
-        else scheduleProbe()
-      } catch (error) { watchFailed(error) }
-    }, Math.max(0, saved.probe_deadline - Date.now()))
-  }
-  // spoolはatomic renameで更新される。fileの古いinodeではなく所有directoryを監視する。
-  const probeWatch = watch(spool.root, (_, file) => {
-    if (file != null && String(file) !== 'spool.json') return
-    try { scheduleProbe() } catch (error) { watchFailed(error) }
-  })
-  probeWatch.on('error', watchFailed)
-  process.on('exit', () => { clearTimeout(probeTimer); probeWatch.close() })
-  scheduleProbe()
-}
-
 const addressedToParent = message => messageAddressedToParent(message, parent)
 
 function exitWhenParentStdinCloses() {
@@ -242,8 +209,10 @@ async function logQuiet(event) {
 async function writeEvent(event) {
   if (spool) {
     await spool.assertCurrentEndpoint()
-    const saved = spool.saveEvent({ ...event, room, event_id: event.event_id ?? (Number.isSafeInteger(event.seq) ? `room:${event.seq}` : digest(event)) })
-    if (spool.read().harness === 'codex' && saved?.state === 'ready') await queueCodex(spool)
+    spool.saveEvent({ ...event, room, event_id: event.event_id ?? (Number.isSafeInteger(event.seq) ? `room:${event.seq}` : digest(event)) })
+    // Aitermと同じ方式で親の会話へ送る。受付（Codex）や出力（その他）はreceiptでroomへ返す。
+    await spool.deliverReady()
+    await spool.flushReceiptsAfterOutput()
     return
   }
   await new Promise((resolve, reject) => {
@@ -390,23 +359,41 @@ async function maintainReceiver() {
     if (spool.read().runtime === 'stopped') process.exit(0)
     await spool.assertCurrentEndpoint()
     if (!sameProcess(spool.read().caller.owner)) {
-      spool.transact(saved => {
-        saved.runtime = 'stopped'; saved.error_code = 'PARENT_SESSION_CLOSED'
-        for (const record of saved.records) if (record.state === 'ready' || record.state === 'waiting') {
-          record.state = 'failed'; record.error_code = saved.error_code
-          record.receipt = spool.receiptFor(saved, record, 'failed', record.error_code)
+      // 親の会話が終わった。まだ送っていない本文を別の会話へ流さず、失敗としてroomへ返す。
+      const saved = spool.read()
+      if (saved.channel) steer.closeChannel(PEERTABLE_PROFILE, saved.channel.channel_id, 'parent_exited')
+      spool.transact(current => {
+        current.runtime = 'stopped'; current.error_code = 'PARENT_SESSION_CLOSED'
+        for (const record of current.records) if (record.state === 'ready') {
+          record.state = 'failed'; record.error_code = current.error_code
+          record.receipt = spool.receiptFor(current, record, 'failed', record.error_code)
         }
       })
       await spool.flushReceiptsAfterOutput()
       await spool.publishHealth()
       process.exit(0)
     }
-    spool.recover()
+    spool.syncStates()
+    await spool.deliverReady()
     try { await spool.flushReceipts(new RoomApi(setup, { credential: spool.read().credential })) }
     catch (error) { process.stderr.write(`${error.code}: ${error.message}\n`) }
-    if (spool.read().harness === 'codex') while (await queueCodex(spool)) {}
     await spool.publishHealth()
   }
+}
+// 受け口の出力（Claudeのhook、Cursorのhook・背景受信）をroomのreceiptへ早めに返す。
+if (spool && mode === '--deliver') {
+  let syncing = false
+  const timer = setInterval(async () => {
+    if (syncing || !spool.read().records.some(record => record.state === 'sending')) return
+    syncing = true
+    try {
+      spool.syncStates()
+      await spool.deliverReady()
+      await spool.flushReceiptsAfterOutput()
+    } catch (error) { process.stderr.write(`${error.code ?? 'PARENT_SYNC_FAILED'}: ${error.message}\n`) }
+    finally { syncing = false }
+  }, 1000)
+  timer.unref()
 }
 async function catchUp() {
   await maintainReceiver()

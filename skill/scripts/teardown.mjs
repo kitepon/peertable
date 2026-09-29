@@ -87,7 +87,7 @@ export async function teardownProject(options, dependencies = {}) {
     if (parentEndpoints.length) {
       await step('親配送の未読・成否不明記録の控え', () => {
         const archive = join(project, 'docs', 'archive', `parent-delivery_${new Date().toISOString().replace(/[:.]/gu, '-')}`)
-        for (const endpoint of parentEndpoints) endpoint.recover()
+        for (const endpoint of parentEndpoints) if (endpoint.read().schema === 'peertable.parent-spool.v2') endpoint.syncStates()
         cpSync(join(team, 'parent-delivery'), archive, { recursive: true })
         return archive
       })

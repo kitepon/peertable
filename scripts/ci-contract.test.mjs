@@ -18,7 +18,7 @@ function walk(directory) {
 }
 
 test('親配送の故障試験と全entryのsyntax検査を3OS製品CIへ登録する', () => {
-  for (const file of ['skill/scripts/parent-delivery.test.mjs', 'skill/scripts/parent-source-runtime.test.mjs', 'skill/scripts/parent-process.test.mjs', 'skill/scripts/parent-platform-unlinked-executable.test.mjs', 'room/parent-client.test.mjs', 'scripts/parent-delivery-acceptance.test.mjs', 'experiments/delivery-receipt-repro.mjs', 'experiments/http-utf8-body-repro.mjs']) assert.ok(productRunner.includes(file))
+  for (const file of ['skill/scripts/parent-delivery.test.mjs', 'skill/scripts/parent-process.test.mjs', 'skill/scripts/parent-platform-unlinked-executable.test.mjs', 'room/parent-client.test.mjs', 'experiments/delivery-receipt-repro.mjs', 'experiments/http-utf8-body-repro.mjs']) assert.ok(productRunner.includes(file))
   assert.match(productRunner, /scriptsWithExtension\(path\.join\(root, directory\), '\.mjs'\)/u)
   for (const directory of ['room', 'skill/scripts', 'scripts']) for (const file of walk(path.join(root, directory)).filter(file => file.endsWith('.mjs'))) {
     const source = readFileSync(file, 'utf8')
@@ -26,11 +26,11 @@ test('親配送の故障試験と全entryのsyntax検査を3OS製品CIへ登録�
   }
 })
 
-test('公開前gateは実機受入manifestを検査し、fixture試験だけでpublishしない', () => {
+test('親配送はAitermと同じ方式（aiterm-steer-delivery）を使い、旧方式の受入manifestを公開gateにしない', () => {
   const prepublish = readFileSync(path.join(root, 'scripts/prepublish.mjs'), 'utf8')
-  assert.match(prepublish, /scripts\/parent-delivery-acceptance\.mjs/u)
-  assert.match(prepublish, /rag\/parent-delivery\/product-acceptance\.json/u)
-  assert.equal(manifest.scripts['verify:parent-delivery'], 'node scripts/parent-delivery-acceptance.mjs rag/parent-delivery/product-acceptance.json')
+  assert.doesNotMatch(prepublish, /parent-delivery-acceptance/u)
+  assert.equal(manifest.scripts['verify:parent-delivery'], undefined)
+  assert.match(manifest.dependencies['aiterm-steer-delivery'] ?? '', /^\^?\d+\.\d+\.\d+$/u)
 })
 
 test('CI実行本体とMarkdown検査を製品repoが所有する', () => {

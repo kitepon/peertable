@@ -114,22 +114,22 @@ try {
   // AのHTTPを保留し、別processのBがunknownを先に確定してから古いAを後着させる。
   const racedMessage = await (await post('messages', { from: 'mio', to: 'native-parent', body: 'receipt順序反転' })).json()
   const credential = join(root, 'receipt-token'); writeFileSync(credential, TOKEN, { mode: 0o600 })
-  const spool = ParentSpool.create(root, { endpoint_id: endpoint, name: 'native-parent', room: ROOM, server_url: `http://127.0.0.1:${port}`, credential, start_seq: 0, harness: 'codex', caller: { conversation: 'fixture', owner: processIdentity(process.pid) } })
+  const spool = ParentSpool.create(root, { endpoint_id: endpoint, name: 'native-parent', room: ROOM, server_url: `http://127.0.0.1:${port}`, credential, start_seq: 0, harness: 'codex', caller: { harness: 'codex', owner: processIdentity(process.pid) } })
   spool.saveEvent({ type: 'parent_dm', seq: racedMessage.seq, body: 'receipt順序反転' })
-  const record = spool.claim('codex_queue'), accepted = { queued_submission_id: 'race-official-id', accepted_at: '2026-09-28T02:00:00Z' }
-  spool.finish(record, accepted)
+  const record = spool.read().records[0], accepted = { queued_submission_id: 'race-official-id', accepted_at: '2026-09-28T02:00:00Z' }
+  spool.settle(record.delivery_id, 'submitted', 'codex_queue_accepted', accepted)
   const roomApi = new RoomApi(spool.read(), { credential }); let releaseA, startedA
   const started = new Promise(resolve => { startedA = resolve }), delayA = new Promise(resolve => { releaseA = resolve })
   const flushA = spool.flushReceipts({ request: async (path, args) => { startedA(); await delayA; return roomApi.request(path, args) } })
   await started
-  const code = `import {ParentSpool} from ${JSON.stringify(new URL('../skill/scripts/parent-delivery.mjs', import.meta.url).href)};import {RoomApi} from ${JSON.stringify(new URL('../skill/scripts/room-api.mjs', import.meta.url).href)};const s=new ParentSpool(process.argv[1],process.argv[2]);s.finish(s.read().records[0],{state:'unknown',reason:'hook_output_unknown'});await s.flushReceipts(new RoomApi(s.read(),{credential:s.read().credential}));`
+  const code = `import {ParentSpool} from ${JSON.stringify(new URL('../skill/scripts/parent-delivery.mjs', import.meta.url).href)};import {RoomApi} from ${JSON.stringify(new URL('../skill/scripts/room-api.mjs', import.meta.url).href)};const s=new ParentSpool(process.argv[1],process.argv[2]);s.settle(s.read().records[0].delivery_id,'unknown','hook_output_unknown');await s.flushReceipts(new RoomApi(s.read(),{credential:s.read().credential}));`
   const childB = spawn(process.execPath, ['--input-type=module', '-e', code, root, endpoint], { stdio: ['ignore', 'ignore', 'pipe'] }); let childError = ''
   childB.stderr.on('data', chunk => { childError += chunk })
   const [childStatus] = await once(childB, 'exit'); if (childStatus !== 0) throw new Error(childError)
   releaseA(); await flushA
   const raced = (await (await fetch(`${base}/deliveries?seq=${racedMessage.seq}`)).json()).delivery['native-parent']
   check('別processのunknown後に古いdeliveredが到着しても消さない', raced.state === 'unknown' && raced.receipt_revision === 2 && spool.read().records[0].state === 'unknown' && spool.read().records[0].receipt.pending === false)
-  spool.finish(record, { ...accepted, resolve_unknown: true, reason: 'official_output_complete' }); await spool.flushReceipts(roomApi)
+  spool.settle(record.delivery_id, 'submitted', 'official_output_complete', accepted); await spool.flushReceipts(roomApi)
   const resolved = (await (await fetch(`${base}/deliveries?seq=${racedMessage.seq}`)).json()).delivery['native-parent']
   check('公式出力証拠の新revisionはunknownを解消し受付ID/時刻を保つ', resolved.state === 'delivered' && resolved.receipt_revision === 3 && resolved.queued_submission_id === accepted.queued_submission_id && resolved.accepted_at === accepted.accepted_at)
   await post('bridges', { kind: 'parent_receiver', recipient: 'native-parent', endpoint_id: endpoint, state: 'rearm_pending' })

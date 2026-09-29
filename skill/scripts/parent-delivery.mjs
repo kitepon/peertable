@@ -1,9 +1,11 @@
-// roomを正本とする配送spool。本文保存とcursor、claimとreceiptは同じatomic更新にする。
+// roomを正本とする配送spool。本文の保存、roomのcursor、配送の状態、roomへのreceiptを同じatomic更新にする。
+// 親への配送そのものはAitermと同じ方式（aiterm-steer-delivery のchannel）で行う。
 import { mkdirSync, rmSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { createHash, createHmac, randomUUID, randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { atomicJson, readJson, processIdentity, sameProcess, failure } from './parent-platform.mjs'
 import { RoomApi } from './room-api.mjs'
+import { PEERTABLE_PROFILE, steer } from './parent-steer.mjs'
 
 const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 const now = () => new Date().toISOString()
@@ -11,16 +13,9 @@ const canonical = value => value === null || typeof value !== 'object' ? JSON.st
   : Array.isArray(value) ? `[${value.map(canonical).join(',')}]`
     : `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`
 export const digest = value => createHash('sha256').update(typeof value === 'string' ? value : canonical(value)).digest('hex')
-export const PAGE_CHARS = 12000
-// 正規背景通知の受取、reader、parent_readまでを含む初回確認の期限。
-export const PARENT_PROBE_TIMEOUT_MS = 120000
-export const eventKinds = ['parent_dm', 'parent_room_update', 'parent_lattice_error', 'parent_lattice_update', 'parent_table_stalled', 'parent_watch_snapshot', 'watch_error', 'parent_probe']
-export function armParentState(state) {
-  state.runtime = 'armed'
-  if (state.state !== 'verified' && state.probe_deadline == null) state.probe_deadline = Date.now() + PARENT_PROBE_TIMEOUT_MS
-}
-// 明示再登録で新しいprobeが届いた場合だけ、既知の失敗probeを解決済みにする。
-export const failedParentRecords = state => state.records.filter(record => record.state === 'failed' && !(record.event.type === 'parent_probe' && record.resolved_by))
+export const eventKinds = ['parent_dm', 'parent_room_update', 'parent_lattice_error', 'parent_lattice_update', 'parent_table_stalled', 'parent_watch_snapshot', 'watch_error']
+// 配送の経路。receiptのreasonに載せる。
+const routeReason = { claude_hook: 'claude_asyncRewake_output', cursor_hook: 'cursor_hook_output', receiver: 'background_receiver_output' }
 
 export function withParentLock(root, fn) {
     const owner = processIdentity(process.pid)
@@ -61,10 +56,9 @@ export class ParentSpool {
     const spool = new ParentSpool(project, binding.endpoint_id ?? randomUUID())
     mkdirSync(spool.root, { recursive: true, mode: 0o700 })
     if (existsSync(spool.file)) throw failure('PARENT_ENDPOINT_ALREADY_EXISTS')
-    atomicJson(spool.file, { schema: 'peertable.parent-spool.v1', endpoint_id: spool.id,
-      generation: randomUUID(), ...binding, state: 'receiving', runtime: 'rearm_pending', created_at: now(),
-      continuation_key: randomBytes(32).toString('hex'), records: [], quiet_events: [], cursor: binding.start_seq,
-      watcher: null, waiter: null, source_state: null, migration: null })
+    atomicJson(spool.file, { schema: 'peertable.parent-spool.v2', endpoint_id: spool.id,
+      generation: randomUUID(), ...binding, state: 'receiving', runtime: 'armed', created_at: now(),
+      records: [], quiet_events: [], cursor: binding.start_seq, watcher: null, source_state: null, migration: null })
     return spool
   }
   read() { return readJson(this.file) }
@@ -83,16 +77,17 @@ export class ParentSpool {
     if (member?.delivery?.kind === 'parent_receiver' && member.delivery.endpoint_id === this.id) return
     this.transact(saved => {
       saved.runtime = 'stopped'; saved.state = 'failed'; saved.error_code = 'PARENT_ENDPOINT_SUPERSEDED'
-      for (const record of saved.records) if (record.state === 'ready' || record.state === 'waiting') {
+      for (const record of saved.records) if (record.state === 'ready') {
         record.state = 'failed'; record.error_code = saved.error_code
         record.receipt = null
       }
     })
+    if (this.read().channel) steer.closeChannel(PEERTABLE_PROFILE, this.read().channel.channel_id, 'superseded')
     throw failure('PARENT_ENDPOINT_SUPERSEDED')
   }
   async publishHealth() {
     const saved = this.read()
-    const state = saved.runtime === 'armed' && (saved.state !== 'verified' || saved.receipt_error || saved.migration?.status === 'evidence_missing' || saved.records.some(record => record.state === 'unknown') || failedParentRecords(saved).length) ? 'failed' : saved.runtime
+    const state = saved.runtime === 'armed' && (saved.receipt_error || saved.migration?.status === 'evidence_missing' || saved.records.some(record => ['unknown', 'failed'].includes(record.state))) ? 'failed' : saved.runtime
     try {
       await new RoomApi(saved, { credential: saved.credential }).request('bridges', { method: 'POST', body: { kind: 'parent_receiver', recipient: saved.name, endpoint_id: this.id, pid: process.pid, state, detail: JSON.stringify({ endpoint_id: this.id, state: saved.state, error_code: saved.error_code ?? saved.receipt_error?.code ?? null }) } })
       this.update({ health_error: null })
@@ -112,7 +107,7 @@ export class ParentSpool {
         return null
       }
       const record = { delivery_id: randomUUID(), key, digest: digest(event), event, state: 'ready', saved_at: now(),
-        claim: null, receipt: null, queued_submission_id: null, accepted_at: null }
+        channel_id: null, receipt: null, queued_submission_id: null, accepted_at: null }
       state.records.push(record)
       return record
     })
@@ -120,147 +115,74 @@ export class ParentSpool {
   saveCursor(cursor, sourceState) {
     return this.transact(state => { state.cursor = cursor; state.source_state = sourceState })
   }
-  recover() {
-    return this.transact(state => {
-      for (const record of state.records) {
-        if (record.claim?.page_inflight && !sameProcess(record.claim.page_owner)) {
-          this.markUnknown(state, record, 'PARENT_PAGE_OUTPUT_INTERRUPTED')
-          continue
-        }
-        const durableHookClaim = join(this.root, 'queue-claims', `${record.delivery_id}.json`)
-        if (!record.hook_claim && existsSync(durableHookClaim)) {
-          const claim = readJson(durableHookClaim)
-          if (claim.delivery_id !== record.delivery_id || claim.endpoint_id !== this.id || claim.digest !== record.queue_digest) throw failure('PARENT_CLAIM_MISMATCH')
-          record.hook_claim = claim
-          record.hook_state = 'claimed'
-        }
-        if (record.hook_claim && record.hook_state !== 'output_complete' && !sameProcess(record.hook_claim.owner)) {
-          this.markUnknown(state, record, 'PARENT_CODEX_HOOK_INTERRUPTED')
-          continue
-        }
-        if (record.state === 'sending' && !record.claim?.handoff && !sameProcess(record.claim?.owner)) {
-          this.markUnknown(state, record, 'PARENT_OUTPUT_INTERRUPTED')
-        }
-      }
-      if (state.waiter && !sameProcess(state.waiter.owner)) {
-        state.waiter = null
-        if (state.runtime !== 'stopped') state.runtime = 'rearm_pending'
-      }
-      return state
-    })
-  }
-  claim(channel, deliveryId = null) {
-    return this.transact(state => {
-      if (state.runtime === 'stopped' || state.state === 'failed') return null
-      const record = deliveryId ? state.records.find(item => item.delivery_id === deliveryId && item.state === 'ready') : state.records.find(item => item.state === 'ready')
-      if (!record) return null
-      // readyの先頭だけをclaimし、受信側ごとの並列出力による順序逆転を止める。
-      if (state.records.some(item => item.state === 'sending')) return null
-      record.state = 'sending'
-      record.claim = { id: randomUUID(), channel, owner: processIdentity(process.pid), at: now(), handoff: false, offset: 0 }
-      return record
-    })
-  }
-  handoff(record) {
-    return this.transact(state => {
-      const saved = this.owned(state, record)
-      saved.claim.handoff = true
-      return saved
-    })
-  }
-  owned(state, record) {
-    const saved = state.records.find(item => item.delivery_id === record.delivery_id)
-    if (!saved || saved.claim?.id !== record.claim?.id) throw failure('PARENT_CLAIM_MISMATCH')
-    return saved
-  }
   receiptFor(state, record, result, reason) {
     return Number.isSafeInteger(record.event.seq) ? { seq: record.event.seq, recipient: state.name, result, reason, route: 'parent_receiver', endpoint_id: this.id,
       receipt_revision: (record.receipt?.receipt_revision ?? 0) + 1,
       queued_submission_id: record.queued_submission_id, accepted_at: record.accepted_at, pending: true } : null
   }
-  markUnknown(state, record, code) {
-    if (record.state === 'unknown' && record.error_code === code) return
-    record.state = 'unknown'; record.error_code = code
-    record.receipt = this.receiptFor(state, record, 'unknown', code)
-  }
-  finish(record, options = {}) {
+  settle(deliveryId, outcome, reason, fields = {}) {
     return this.transact(state => {
-      const saved = this.owned(state, record)
-      return this.complete(state, saved, options)
-    })
-  }
-  complete(state, saved, { state: outcome = 'submitted', reason = saved.claim.channel, queued_submission_id, accepted_at, resolve_unknown = false } = {}) {
-      if (queued_submission_id && saved.queued_submission_id && saved.queued_submission_id !== queued_submission_id) throw failure('PARENT_QUEUE_ACCEPTANCE_CONFLICT')
-      if (accepted_at && saved.accepted_at && saved.accepted_at !== accepted_at) throw failure('PARENT_QUEUE_ACCEPTANCE_CONFLICT')
-      // queueの遅延受付は後段のunknownを消さない。受付証拠だけを追加する。
-      saved.state = saved.state === 'unknown' && queued_submission_id && !resolve_unknown ? 'unknown' : outcome
-      saved.completed_at = now()
-      if (queued_submission_id) saved.queued_submission_id = queued_submission_id
-      if (accepted_at) saved.accepted_at = accepted_at
-      saved.receipt = this.receiptFor(state, saved, saved.state === 'submitted' ? 'delivered' : saved.state, saved.state === 'unknown' && outcome === 'submitted' ? saved.receipt?.reason ?? reason : reason)
-      if (saved.event.type === 'parent_probe' && saved.state === 'submitted' && (!state.probe_id || saved.event.event_id === `probe:${state.probe_id}`)) {
-        state.state = 'verified'
-        for (const previous of state.records) if (previous.event.type === 'parent_probe' && previous.state === 'failed') previous.resolved_by = saved.delivery_id
-        if (state.error_code === 'PARENT_PROBE_TIMEOUT') {
-          state.error_code = null
-          if (state.runtime === 'failed') state.runtime = state.harness === 'codex' || sameProcess(state.waiter?.owner) ? 'armed' : 'rearm_pending'
-        }
+      const record = state.records.find(item => item.delivery_id === deliveryId)
+      if (!record) throw failure('PARENT_DELIVERY_UNKNOWN')
+      Object.assign(record, fields)
+      record.state = outcome
+      if (outcome !== 'ready' && outcome !== 'sending') {
+        record.completed_at = now()
+        if (outcome !== 'submitted') record.error_code = reason
+        record.receipt = this.receiptFor(state, record, outcome === 'submitted' ? 'delivered' : outcome, reason)
       }
-      return saved
+      return record
+    })
   }
-  token(record, offset) {
-    const state = this.read()
-    const payload = Buffer.from(JSON.stringify({ endpoint: this.id, generation: state.generation, delivery: record.delivery_id, digest: record.digest, claim: record.claim.id, offset })).toString('base64url')
-    return `${payload}.${createHmac('sha256', state.continuation_key).update(payload).digest('base64url')}`
-  }
-  page(deliveryId, continuationToken = null) {
-    let selected, offset = 0
-    if (continuationToken) {
-      const [payload, signature] = continuationToken.split('.')
-      const state = this.read()
-      const expected = createHmac('sha256', state.continuation_key).update(payload ?? '').digest('base64url')
-      if (!signature || signature.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) throw failure('PARENT_CONTINUATION_INVALID')
-      let data
-      try { data = JSON.parse(Buffer.from(payload, 'base64url').toString()) } catch { throw failure('PARENT_CONTINUATION_INVALID') }
-      selected = state.records.find(item => item.delivery_id === data.delivery)
-      if (!selected || data.endpoint !== this.id || data.generation !== state.generation || data.digest !== selected.digest || data.claim !== selected.claim?.id || selected.state !== 'sending' || data.offset !== selected.claim.offset || (deliveryId && deliveryId !== data.delivery)) throw failure('PARENT_CONTINUATION_MISMATCH')
-      offset = data.offset
-    } else {
-      const state = this.read()
-      selected = state.records.find(item => item.state === 'sending' && item.claim?.handoff && (!deliveryId || item.delivery_id === deliveryId)) ?? this.claim('parent_read', deliveryId)
-      if (selected?.claim.offset > 0) throw failure('PARENT_CONTINUATION_REQUIRED')
+  /** readyの本文を到着順に親のchannelへ送る。Codexは公式キューの受付で、それ以外は受け口の出力でdeliveredになる。 */
+  async deliverReady() {
+    for (;;) {
+      const record = this.transact(state => {
+        if (state.runtime === 'stopped' || !state.channel) return null
+        const item = state.records.find(entry => entry.state === 'ready')
+        if (!item) return null
+        item.state = 'sending'; item.channel_id = state.channel.channel_id; item.sent_at = now()
+        return item
+      })
+      if (!record) return
+      try {
+        const result = await steer.sendToChannel(PEERTABLE_PROFILE, record.channel_id, record.delivery_id, renderDelivery(this.read(), record))
+        if (result.state === 'submitted') this.settle(record.delivery_id, 'submitted', 'codex_queue_accepted', { queued_submission_id: result.queued_submission_id, accepted_at: now() })
+      } catch (error) {
+        // 送信の成否が確定しない失敗は自動で再送しない（Aitermと同じ）。
+        this.settle(record.delivery_id, error.outcome_unknown ? 'unknown' : 'failed', error.delivery_code ?? error.code ?? 'PARENT_DELIVERY_FAILED')
+      }
     }
-    if (!selected) return null
-    const pageClaim = randomUUID()
-    this.transact(state => {
-      const saved = this.owned(state, selected)
-      if (saved.state !== 'sending' || saved.claim.offset !== offset) throw failure('PARENT_CONTINUATION_MISMATCH')
-      if (saved.claim.page_inflight) throw failure('PARENT_READ_IN_PROGRESS')
-      saved.claim.page_inflight = pageClaim
-      saved.claim.page_owner = processIdentity(process.pid)
-      saved.claim.page_started_at = now()
-    })
-    let end = Math.min(offset + PAGE_CHARS, String(selected.event.body ?? '').length)
-    // UTF-16のsurrogate pairをページ境界で分割しない。
-    const body = String(selected.event.body ?? '')
-    if (end < body.length && /[\uD800-\uDBFF]/u.test(body[end - 1])) end--
-    const final = end === body.length
-    return { record: selected, page_claim: pageClaim, offset, end, final, result: { schema: 'peertable.parent-read-page.v1', endpoint_id: this.id,
-      delivery_id: selected.delivery_id, digest: selected.digest, event: { ...selected.event, body: body.slice(offset, end), message: selected.event.message ? { ...selected.event.message, body: body.slice(offset, end) } : undefined },
-      offset, total_characters: body.length, complete: final, continuation_token: final ? null : this.token(selected, end) } }
   }
-  pageWritten(page) {
-    return this.transact(state => {
-      const saved = this.owned(state, page.record)
-      if (saved.claim.page_inflight !== page.page_claim) throw failure('PARENT_PAGE_CLAIM_MISMATCH')
-      if (saved.state !== 'sending') throw failure('PARENT_PAGE_OUTPUT_UNKNOWN')
-      saved.claim.page_inflight = null
-      saved.claim.page_owner = null
-      if (page.final) return this.complete(state, saved, { reason: 'parent_read_complete' })
-      saved.claim.offset = page.end
-      saved.claim.handoff = true
-      return saved
-    })
+  /** 受け口の出力状況をspoolへ写す。取り下げた本文と、channelの記録が無い本文は、次のchannelで送り直す。 */
+  syncStates() {
+    const state = this.read()
+    for (const record of state.records) {
+      if (record.state === 'submitted' && record.queued_submission_id && state.channel?.kind === 'codex' && state.caller.codex) {
+        const hook = steer.codexHookDeliveryState(state.caller.codex.codex_home, state.caller.codex.thread_id, record.delivery_id, steer.codexHookDirectory(PEERTABLE_PROFILE))
+        if (hook === 'unknown' && record.error_code !== 'CODEX_HOOK_DELIVERY_UNCONFIRMED') this.settle(record.delivery_id, 'unknown', 'CODEX_HOOK_DELIVERY_UNCONFIRMED')
+        continue
+      }
+      if (record.state !== 'sending' || !record.channel_id) continue
+      let current
+      try { current = steer.channelDeliveryState(PEERTABLE_PROFILE, record.channel_id, record.delivery_id) }
+      catch (error) { if (error.delivery_code === 'CHANNEL_UNKNOWN') current = null; else throw error }
+      if (current === 'emitted') {
+        const by = readEmittedBy(record.channel_id, record.delivery_id)
+        this.settle(record.delivery_id, 'submitted', routeReason[by] ?? 'parent_receiver_output', { accepted_at: now() })
+      } else if (current === 'unknown') this.settle(record.delivery_id, 'unknown', 'PARENT_OUTPUT_UNKNOWN')
+      else if (current === 'withdrawn' || current === null) this.settle(record.delivery_id, 'ready', null, { channel_id: null })
+    }
+  }
+  /** 親の会話へ新しいchannelを張る。前のchannelでまだ誰も受け取っていない本文は取り下げて、新しいchannelで送る。 */
+  rebind(channel, caller) {
+    const previous = this.read().channel
+    this.transact(state => { state.channel = { channel_id: channel.channel_id, kind: channel.kind }; state.caller = caller; state.runtime = 'armed'; state.state = 'receiving'; state.error_code = null })
+    if (!previous || previous.channel_id === channel.channel_id) return
+    steer.closeChannel(PEERTABLE_PROFILE, previous.channel_id, 'rebound')
+    for (const record of this.read().records.filter(item => item.state === 'sending' && item.channel_id === previous.channel_id)) {
+      if (previous.kind !== 'codex' && steer.withdrawFromChannel(PEERTABLE_PROFILE, previous.channel_id, record.delivery_id)) this.settle(record.delivery_id, 'ready', null, { channel_id: null })
+    }
   }
   async flushReceipts(api) {
     const pending = this.read().records.filter(item => item.receipt?.pending)
@@ -288,26 +210,16 @@ export class ParentSpool {
     try { await this.flushReceipts(api) }
     catch (error) { process.stderr.write(`${error.code ?? 'PARENT_RECEIPT_FAILED'}: ${error.message}\n`) }
   }
-  slot(channel, receipt = null) {
-    return this.transact(state => {
-      if (state.waiter && sameProcess(state.waiter.owner)) return null
-      if (state.runtime === 'stopped') return null
-      const waiter = { waiter_id: receipt?.waiter_id ?? randomUUID(), generation: receipt?.generation ?? randomUUID(), channel, owner: processIdentity(process.pid), started_at: now(), native_task: null }
-      if (receipt && (state.wait_receipt?.waiter_id !== receipt.waiter_id || state.wait_receipt?.generation !== receipt.generation)) throw failure('PARENT_WAITER_MISMATCH')
-      state.waiter = waiter
-      if (channel === 'claude_asyncRewake') armParentState(state)
-      else state.runtime = 'rearm_pending'
-      return waiter
-    })
-  }
-  releaseSlot(waiter, outcome = 'rearm_pending') {
-    this.transact(state => { if (state.waiter?.waiter_id === waiter.waiter_id && state.waiter?.generation === waiter.generation) { state.waiter = null; state.runtime = outcome } })
-  }
+}
+
+function readEmittedBy(channelId, deliveryId) {
+  try { return readJson(join(PEERTABLE_PROFILE.state_root(), 'steer-channels', channelId, 'emitted', `${deliveryId}.json`)).by }
+  catch { return null }
 }
 
 // 通知はroomの観測データとして描画する。本文へ追加の行動命令を混ぜない。
-export function renderDelivery(state, record, { preview = false } = {}) {
+export function renderDelivery(state, record) {
   const event = record.event
   const body = String(event.body ?? '')
-  return `[Peertable room=${state.room} from=${event.from ?? 'peertable'} to=${JSON.stringify(event.to_names ?? event.to ?? state.name)} seq=${event.seq ?? event.event_id ?? record.delivery_id}]\n本文: ${preview ? body.slice(0, PAGE_CHARS) : body}\n[配送ID=${record.delivery_id} digest=${record.digest}${preview ? ' 全文取得=parent_read' : ''}]`
+  return `[Peertable room=${state.room} from=${event.from ?? 'peertable'} to=${JSON.stringify(event.to_names ?? event.to ?? state.name)} seq=${event.seq ?? event.event_id ?? record.delivery_id}]\n本文: ${body}\n[配送ID=${record.delivery_id} digest=${record.digest}]`
 }

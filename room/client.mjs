@@ -382,6 +382,12 @@ async function runDiagnostics(asJson) {
       'scripts/pid-alive.mjs',
       'scripts/parent-watch.mjs',
       'scripts/parent-watch-logic.mjs',
+      // 親への配送（Aitermと同じ方式）。hook入口と背景受信が欠けると、親へ届かない
+      'scripts/parent-steer.mjs',
+      'scripts/peertable-parent-codex-hook.mjs',
+      'scripts/peertable-parent-claude-hook.mjs',
+      'scripts/peertable-parent-cursor-hook.mjs',
+      'scripts/peertable-parent-receive.mjs',
       'scripts/seat-credential.mjs',
       'scripts/ensure-room-mcp.mjs',
       // 既存卓の現行tree同期とteardownのblock単位所有。resume／teardownから呼ぶため一体で必須
