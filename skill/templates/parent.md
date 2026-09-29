@@ -35,20 +35,22 @@
 
 ## 着卓手順
 
-`peertable connect --target claude|codex|grok|cursor`でユーザー領域の親MCPと公式hookを接続し、現在の会話から`parent_join(project, name, model?, effort?, mission?)`を呼ぶ。本人性は実MCPと公式hookが相関する。表示用model/effortは分かる値だけを渡す。既存会話へMCP/hookを読み込めない場合は`PARENT_RESTART_REQUIRED`のままで、着卓完了としない。
+`peertable connect --target claude|codex|grok|cursor`でユーザー領域の親MCPと公式hookを接続し、現在の会話から`parent_join(project, name, model?, effort?, mission?)`を呼ぶ。親の特定はAitermと同じ根拠（MCP要求のmetadataと公式hook）で行う。表示用model/effortは分かる値だけを渡す。既存会話へMCP/hookを読み込めない場合は`PARENT_RESTART_REQUIRED`のままで、着卓完了としない。
 
 `parent-join.sh`は共通Node接続入口への互換入口であり、HTTPだけで親を登録しない。Lattice併用では`.team/parent-env.json`（POSIXは`parent-env.sh`も）にあるactorを親shellへ設定する。子processのexportは親shellへ伝播しない。Lattice mutationの前にこのactorを設定する。
 
 ## 新着の検知
 
-Peertableの共通watchがHTTP/SSE、cursor、Lattice件数のquiet観測、取得エラー、3分の停滞警報、snapshot、耳疎通probeを所有し、原文を配送spoolへ保存する。親宛DM、親を含む複数人宛、all全件が対象。親自身の発言と他席間のDMは対象外。
+Peertableの共通watchがHTTP/SSE、cursor、Lattice件数のquiet観測、取得エラー、3分の停滞警報、snapshotを所有し、原文を配送spoolへ保存する。親宛DM、親を含む複数人宛、all全件が対象。親自身の発言と他席間のDMは対象外。
 
-- Claude Code: 初回PostToolUseと後続Stopの公式asyncRewakeを使う。全toolを省略した受信turnでもStopが次の1slotを残す。期限controlは完成済み引数で同じ`parent_join`を呼ぶ。
-- Codex: 実callerの公式App Serverへqueueを1回投入する。同期PostToolUse/Stopは自身の入力だけを取得し、残りは公式queueが同じthreadを起こす。
-- Cursor: 作業中の公式hookとnative背景Shellが同じclaimを共有する。`wait_process.native_tool`の完成済みinputをそのtoolへ渡す。生きたwaitがあるreceiptには新しいtoolが無い。背景完了後は`parent_read`の次receiptを登録する。
-- Grok Build: 完成済み`run_terminal_command(background:true)`を登録する。完了済みの正確なtask IDを`get_command_or_subagent_output`でtimeoutなしに取得し、そこで示された配送IDを`parent_read`で回収して次receiptを登録する。
+親への届け方はAitermの子の回答と同じ。作業中ならそのturnへ差し込まれ、待機中なら新しいturnで届く。
 
-長文は同じ配送ID・digest・継続tokenで最後まで回収する。`unknown`は自動再送しない。Cursor/Grokは外部作業がない受信turnでも受信維持toolを登録する。全toolを省略した場合は`rearm_pending`であり健康ではない。receipt作成だけで背景登録済みとしない。耳疎通が受信口を通って`verified`となり、現在runtimeが`armed`であることを診断する。同じ会話のprobeが既知の失敗となった場合は、`parent_join`で新しい確認を開始する。新確認が届くまで復旧済みとせず、旧失敗記録と本文を保持する。`unknown`は再送しない。`parent_leave`は受信登録だけを閉じ、親harnessを終了しない。
+- Claude Code: 何もしなくてよい。公式asyncRewake hookが本文を出して起こす。turnが終わるたびに待機が張り直される。
+- Codex: 何もしなくてよい。公式キューに入り、作業中は同期hookがそのturnへ取り込む（macOS・Windows）。
+- Cursor: `parent_join`の結果の`wait_process`（executableとargs）を、そのまま背景processとして起動する。作業中は次のtool返りにも差し込まれる。
+- Grok Build: `wait_process`をそのまま背景commandとして起動する。完了したら出力の`deliveries`が本文。
+
+CursorとGrokは、受け取った後に出力の`next_wait_process`を同じ方法で起動し直す。届いたか確定しない本文は`unknown`で、自動再送しない。`parent_leave`は受信登録だけを閉じ、親harnessを終了しない。
 
 ## 試験結果の監査
 
@@ -113,8 +115,8 @@ peertable_parent_post() {
    `peertable_parent_post <宛先> '<本文>'` を使う。抽象名 `$TOKEN` や手組みJSONへ置き換えない
 3. 工程正本で照合する（Lattice 併用: `lattice todo status --json`。単独: `.team/tasks.md` と
    room ログの突き合わせ）。食い違ったら工程正本が正で、食い違い自体を room へ出す
-4. 現在の実会話から`parent_join`を呼んで束縛を取り直す。同じ会話は同じendpointとcursorへ復旧し、別会話は新世代になる。旧本文・unknownは新会話へ移さない
-5. Cursor/Grokでは返却されたnative背景tool入力を登録する。Claude/Codexは公式受信口で継続する。耳疎通と現在runtimeの確認が済むまで再着卓完了としない
+4. 現在の会話から`parent_join`を呼んで受信を張り直す。同じ名前の親は同じendpointとcursorを引き継ぎ、まだ受け取られていない本文は今の会話へ届く。`unknown`は再送しない
+5. Cursor/Grokでは返却された`wait_process`を背景で起動する。Claude/Codexは何もしなくてよい
 6. 順序の要点は「room と工程正本を読み終えるまで発言しない」
 
 ## 席の縮退・散会

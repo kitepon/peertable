@@ -59,7 +59,7 @@ launchはモデルの非対話実測、同じroomの既存席の撤去、席別�
 
 CodexとGrokの席設定・認証は`.team/seats/`へ分離する。Codexにはroomのstdio MCPと列挙したenv、Grokにはroom以外のproject MCPを無効にした席configを渡す。利用者の共有configを書き換えない。
 
-5. 親は`peertable connect --target claude|codex|grok|cursor`で親MCP/hookを接続し、現在の会話で`parent_join(project,name,model?,effort?,mission?)`を呼ぶ。本人性は実MCPと公式hookで照合する。Cursor/Grokはreceiptにあるnative背景toolの完成済みinputを登録する。耳疎通が`verified`になり、現在runtimeが`armed`になるまで着卓完了としない。
+5. 親は`peertable connect --target claude|codex|grok|cursor`で親MCP/hookを接続し、現在の会話で`parent_join(project,name,model?,effort?,mission?)`を呼ぶ。親の特定はAitermと同じ根拠（MCP要求のmetadataと公式hook）で行う。Cursor/Grokは結果の`wait_process`を親の背景processとして起動する。
 6. membersの全席、最初のclaim、公開Web UIを確認する。Lattice併用ならclaimが工程正本のactiveにも反映されていることを確認する。kickoffは `node scripts/kickoff-gate.mjs <project> --seq <seq> --seats <a,b,c>` が`active`を返すまで成立としない。freshな実効状態、delivered receipt、席の`[引受]`発言の3点を使う。
 
 ## 配達と観測
@@ -178,12 +178,11 @@ witness をどう生成するかは**対象 project 側の作法に従う**（La
 - **親の権限境界（最初に読む・オーナー裁定 2026-08-22）**: 円卓は対等メンバーの自律で回り、各ToDoのクローズは監査担当が行う。親は裁定者ではない——親が卓上で工程手順・着地方法・完了可否を裁定しない。親がやってよいのは、オーナー窓口・環境修理（ブリッジ・CLI・席の器）・campaign 終端の最終監査だけ。実装の代行も裁定の差し込みも、席の正典（roles/member.md）と衝突する「親のバグ」として扱う（実被弾 2026-08-22: Grok 親の実装代行と Fable 親の着地裁定が、監査担当の正規クローズと二重に衝突した）
 - 発言は`PEERTABLE_URL=$URL PEERTABLE_ROOM=$ROOM node skill/scripts/post-message.mjs <親名> <宛先> '<本文>'`を使う。tokenはenvまたはcredential fileから渡す。UTF-8のJSON生成を製品に任せ、Windowsのcp932出力や手組みJSONへ置き換えない。複数人宛は名前の配列。失敗時は非ゼロであり、印字だけを成功としない。
 - 親の受信登録はユーザー領域のPeertable専用MCPと公式hookを使う。既存会話で読み込めなければ`PARENT_RESTART_REQUIRED`を返す。発言は`post-message.mjs`の既存HTTP入口を使い、送信と受領seqを確認する。room保存と配送成立は別に読む。
-- **親配送**: 共通watchがroom HTTP/SSE・永続cursorを所有し、親宛DM・親を含む複数人宛・all全件の原文をspoolへ保存する。Lattice件数のquiet観測、取得エラー、snapshot、耳疎通probe、3分の停滞警報と既存頻度を保つ。
-  - ClaudeはPostToolUse/Stopの公式asyncRewakeで同じsessionを起こす。sessionは1slot、有限leaseの期限controlで同じjoinを更新する。
-  - Codexは実callerの公式queueと同期PostToolUse/Stopを使う。他製品のqueueや承認を変更しない。
-  - Cursorは公式hookとnative背景Shellがclaimを共有する。Grokはnative背景commandの完了と公開結果回収を使う。両者は`wait_process.native_tool`の完成済みinputを実行し、公式hookの登録確認後にarmedとなる。
-  - Cursor/Grokは外部作業が不要でも次の受信維持toolを登録する。受信維持まで省略したturnはrearm_pendingの失敗。timeoutは本文成功に数えず、新receiptで再武装する。生きたslotがある間は別taskを増やさない。
-  - 長文は`parent_read`の継続tokenで全量を回収し、最後の出力完了までackしない。unknownは原文と受付証拠を保持し、自動再送しない。親配送は通常席bridgeの対象外。
+- **親配送**: 共通watchがroom HTTP/SSE・永続cursorを所有し、親宛DM・親を含む複数人宛・all全件の原文をspoolへ保存する。Lattice件数のquiet観測、取得エラー、snapshot、3分の停滞警報と既存頻度を保つ。親への届け方はAitermの子の回答と同じ（`aiterm-steer-delivery`）で、作業中の親にはそのturnへ差し込み、待機中の親には新しいturnで届く。
+  - Codexは公式キューへ入れる。macOS・Windowsは同期PostToolUse/Stop hookが作業中のturnへ取り込む。Linuxは公式キューがturnの区切りで届ける。
+  - Claude CodeはPostToolUse/Stopの公式asyncRewake hookが会話ごとに1つだけ待ち、本文を出して親を起こす。turnが終わるたびにStopが待機を張り直す。
+  - Cursorは作業中なら次のtool返りへhookが差し込む。待機中の分は`wait_process`（背景の受信process）が受け取る。Grokは`wait_process`だけで受け取る。受け取った後は出力の`next_wait_process`を同じ方法で起動し直す。
+  - 送った後に届いたか確定しない本文は`unknown`とし、自動再送しない。親配送は通常席bridgeの対象外。
 - **model / effort変更依頼**: 本人の自然文DMを親が判断し、確定したtargetだけを上記6.7のscriptへ渡す。本人に定型文や完全一致の再送を求めず、親が本人の代わりに依頼文を投稿しない
 - 親の権能は進行・督促・オーナーとの接点だけ。作業者や監査担当を代行しない
 - **作業者は自ら必要な試験と自己監査を行い、工程を次に進めてよい水準まで完成させる。** 完成したら証跡へ記したものと同じ最終的な試験内容と試験結果を監査担当へ渡し、自分では工程をクローズしない
@@ -194,8 +193,8 @@ witness をどう生成するかは**対象 project 側の作法に従う**（La
 - **親の再着卓**（context が要約された／セッションが替わった時。決定51 のメンバー版に対応する親版。2026-08-08 実測）: 卓は生きたまま親だけが記憶を失う局面なので、**復帰は記憶ではなく正本から取り直す**。順に:
   1. **room ログを読む**——`curl -s "$URL/api/$ROOM/messages?since=<最後に読んだ seq>"`。`since` を持っていなければ 0 から。**会話が卓の正本**なので、まずここで現在地（誰が何を claim し、どこまで done か）を作る
   2. **工程正本で照合する**——`lattice todo status --json`（Lattice 併用）。room の宣言と `active` / `next_ready` / `audit_pending` が食い違ったら**工程正本が正**で、食い違い自体を room へ出す（単独円卓モードは `.team/tasks.md` と room ログの突き合わせ）
-  3. **現在の会話でparent_joinを呼ぶ**。同じ実会話は同じendpoint/cursorを復旧する。別会話は新世代を登録し、旧本文・unknownを引き継がない。member台帳の表示だけで受信成立としない
-  4. **必要なnative背景toolを登録する**。Cursor/Grokはreceiptの完成済みinputを使う。Claude/Codexは公式受信口を使う。耳疎通verifiedと現在runtime armedを診断する。親登録だけを閉じる時はparent_leave、円卓の解散はteardown
+  3. **現在の会話でparent_joinを呼ぶ**。同じ名前の親は同じendpoint/cursorを引き継ぎ、今の会話へ受信を張り直す。前の会話でまだ受け取られていない本文は今の会話へ届く。`unknown`は再送しない
+  4. **Cursor/Grokは`wait_process`を背景で起動する**。Claude/Codexは何もしなくてよい。親登録だけを閉じる時はparent_leave、円卓の解散はteardown
   - **順序の要点は「room と工程正本を読み終えるまで発言しない」**。読む前に喋ると、自分が行き違いを作る側になる（実例あり）
   - **やらないこと**: 復帰の挨拶で席を起こさない。作業の再確認を席へ聞いて回らない——**現在地は上の1〜2で取れる**ので、聞くのは席の時間を奪うだけである
 - **宛先の規律**: `to: "all"`は5類型（claim宣言／完了・クローズ通知＋着手可の統合1通／共有リソース占有・解放／全席の前提を変える環境事実／親の進行権能）だけとし、判定は「知らない席は次の行動を間違えるか」の一問で行う（2026-08-25 オーナー裁定。正本はtemplates/member.md）。それ以外は宛先DM、進捗報告・了解は投稿不要。同時のto:allは1通へ統合（claimは独立のまま）。ターン終了時の次の行動は自分宛DM。別の通知機構は置かない

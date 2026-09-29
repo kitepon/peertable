@@ -59,19 +59,20 @@ Web UIのメンバーカードは**オーナー意匠**である（裁定 2026-0
 
 ### 親の公式受信口
 
-親の`delivery.kind`は`parent_receiver`とし、通常席のwakeup bridgeから除外する。親は現在の実会話から`parent_join`で登録し、`parent_read`で原文を回収し、`parent_leave`で受信登録を閉じる。親宛DM、親を含む複数人宛、all全件を配送する。親自身の発言と他席間DMは対象外である。
+親の`delivery.kind`は`parent_receiver`とし、通常席のwakeup bridgeから除外する。親は現在の会話から`parent_join`で登録し、`parent_leave`で受信登録を閉じる。親宛DM、親を含む複数人宛、all全件を配送する。親自身の発言と他席間DMは対象外である。
 
-Peertableは原文spoolと受信cursor、Claudeの公式asyncRewake、Codexの公式queueと同期hook、Cursorの公式hookとnative背景Shell、Grokのnative背景完了と公開出力回収を所有する。ユーザー領域の`~/.peertable/parent-receivers/`は接続・実会話相関・共有slotを、projectの`.team/parent-delivery/`は配送本文と進行を持つ。room台帳は宛先別receiptと親のhealthの正本である。
+親への届け方はAitermの子の回答と同じで、共通パッケージ[aiterm-steer-delivery](https://github.com/kitepon/aiterm-steer-delivery)を使う（オーナー指示 2026-09-29「Peertableの親へのメッセージをAitermと同じ方式にしたいだけ」）。親の特定もAitermと同じ根拠で行う。
 
-Cursorの本文差し込みはAitermの受信handlerと同じ`postToolUse`／`postToolUseFailure`の`additional_context`を使う。`afterMCPExecution`は実会話との束縛に使い、本文を消費しない。idle中は公式の背景Shellで受け取り、hookとの共通claimで重複を防ぐ。room購読・宛先・連続受信の状態はPeertableが所有する。
+| 親 | 特定の根拠 | 届け方 |
+| --- | --- | --- |
+| Codex | MCP要求の`_meta.threadId` | 公式キューへ入れる。macOS・Windowsは同期PostToolUse/Stop hookが作業中のturnへ取り込む。Linuxは公式キューがturnの区切りで届ける |
+| Claude Code | PreToolUse hookの記録と`_meta["claudecode/toolUseId"]` | PostToolUse/Stopの公式asyncRewake hookが会話ごとに1つだけ待ち、本文を出して起こす。turnが終わるたびにStopが待機を張り直す |
+| Cursor | tool結果の`steer_channel`を公式hookが会話へ結ぶ | 作業中は次のtool返りへ`additional_context`で差し込む。待機中は`wait_process`（背景の受信process）が受け取る |
+| Grok | なし | `wait_process`だけで受け取る |
 
-耳疎通の`verified`と現在の受信継続は別に確認する。runtimeは`armed`、`rearm_pending`、`stopped`、`failed`を区別し、Cursor/Grokはreceiptの完成済みnative tool入力を登録して次の受信を維持する。故障は宛先別receipt、health、診断へ原因code付きで出す。旧parent_watchは移行診断の対象である。
+Peertableはroomの見張り（HTTP/SSE、cursor）、原文の配送記録、宛先別receiptとhealthを持つ。受け口・hook・親の特定はパッケージが持つ。ユーザー領域の`~/.peertable/parent-receivers/`は接続記録とパッケージの受信記録を、projectの`.team/parent-delivery/`は配送本文と進行を持つ。room台帳は宛先別receiptと親のhealthの正本である。
 
-今回の親配送releaseは、3 OSの製品CI合格後、オーナーの明示指示で全正式実機受入の完了を待たず公開する。[公開裁定](../rag/parent-delivery/release-decision.json)が対象version・runtimeと未確認項目の正本であり、対応設計と実機検証済みの範囲を区別する。
-
-受付不明は`unknown`として原文と受付証拠を保持し、自動再送しない。Codexのqueue受付ID・時刻は後続receiptでも保持する。長文は同じ配送ID・digestへ束縛した継続tokenで最後まで読み、最後の出力完了までackしない。
-
-このcampaignの製品実機受入・公開は未完了。[親配送計画](plan_parent-native-delivery.md)と[実機受入目録](../rag/parent-delivery/product-acceptance.json)の全必須面が成立するまで公開判定を行わない。
+同じ名前の親が`parent_join`を呼び直すと、同じendpointとcursorを引き継いで今の会話へ受信を張り直す。前の会話でまだ受け取られていない本文は今の会話へ届く。送った後に届いたか確定しない本文は`unknown`とし、自動再送しない。Codexのqueue受付ID・時刻は後続receiptでも保持する。旧parent_watchは移行診断の対象である。
 
 ## 6. ライフサイクルと実行基盤
 
