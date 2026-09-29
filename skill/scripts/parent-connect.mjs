@@ -89,6 +89,46 @@ export function ownedTomlBlock(text, rootKeys = ['mcp_servers', parentServerName
   }
   return { lines, indexes, block: indexes.map(({ start, end }) => lines.slice(start, end).join('')).join('') }
 }
+// 自分のtableの値（commandとargsだけ）を読む。Grokは設定を書き直す時に引用符や配列の改行を変えるので、
+// 字面ではなく値で所有を照合する。他のキー・行内コメント・読めない書式はnull（照合に使わず、衝突として止まる）。
+export function ownedTomlValues(block) {
+  const body = block.split(/\r?\n/u).slice(1).map(line => line.trim()).filter(line => line && !line.startsWith('#')).join(' ')
+  let index = 0
+  const space = () => { while (/\s/u.test(body[index] ?? '')) index++ }
+  const string = () => {
+    const quote = body[index]
+    if (quote === "'") {
+      const end = body.indexOf("'", index + 1)
+      if (end < 0) return undefined
+      const value = body.slice(index + 1, end); index = end + 1; return value
+    }
+    if (quote !== '"') return undefined
+    let end = index + 1
+    while (end < body.length && body[end] !== '"') end += body[end] === '\\' ? 2 : 1
+    if (end >= body.length) return undefined
+    try { const value = JSON.parse(body.slice(index, end + 1)); index = end + 1; return value } catch { return undefined }
+  }
+  const values = {}
+  while (space(), index < body.length) {
+    const key = /^[A-Za-z0-9_-]+/u.exec(body.slice(index))?.[0]
+    if (!['command', 'args'].includes(key) || Object.hasOwn(values, key)) return null
+    index += key.length; space()
+    if (body[index++] !== '=') return null
+    space()
+    if (key === 'command') { values.command = string(); if (values.command === undefined) return null; continue }
+    if (body[index++] !== '[') return null
+    values.args = []
+    while (space(), body[index] !== ']') {
+      const item = string()
+      if (item === undefined) return null
+      values.args.push(item); space()
+      if (body[index] === ',') index++
+      else if (body[index] !== ']') return null
+    }
+    index++
+  }
+  return typeof values.command === 'string' && Array.isArray(values.args) ? values : null
+}
 export function replaceOwnedToml(text, replacement, expected, rootKeys) {
   const found = ownedTomlBlock(text, rootKeys)
   if (found.block && (expected === undefined || digest(found.block) !== expected)) throw failure('PARENT_CONFIG_OWNERSHIP_CONFLICT')
@@ -149,7 +189,10 @@ export async function connectParent(target, { remove = false } = {}) {
   } else if (target === 'grok') {
     // Grokは背景の受信processで受け取る（Aitermのwait_processと同じ）。hookは使わない。
     const text = existsSync(paths.mcp) ? readFileSync(paths.mcp, 'utf8') : ''
-    writeText(paths.mcp, replaceOwnedToml(text, remove ? '' : grokMcpBlock(registration), previous?.mcp_digest))
+    const owned = ownedTomlBlock(text).block, values = owned && ownedTomlValues(owned)
+    // 値が前回の登録か今回の登録と同じなら、Grokが書き直しただけとみて自分のtableとして扱う。
+    const same = values && [previous?.mcp_value_digest, digest(registration)].includes(digest(values))
+    writeText(paths.mcp, replaceOwnedToml(text, remove ? '' : grokMcpBlock(registration), same ? digest(owned) : previous?.mcp_digest))
     if (existsSync(paths.hooks) && legacyRemoved && !Object.keys(readJson(paths.hooks).hooks ?? {}).length) rmSync(paths.hooks)
   } else {
     mkdirSync(dirname(paths.mcp), { recursive: true })
@@ -174,7 +217,8 @@ export async function connectParent(target, { remove = false } = {}) {
   }
   const mcpDigest = target === 'grok' ? digest(ownedTomlBlock(readFileSync(paths.mcp, 'utf8')).block) : target === 'claude' ? digest({ type: 'stdio', ...registration }) : digest(registration)
   const result = { schema: 'peertable.parent-connect.v2', target, status: remove ? 'removed' : 'registered', runtime_status: remove ? 'stopped' : 'PARENT_RESTART_REQUIRED', paths,
-    delivery, legacy_hooks_removed: legacyRemoved, mcp_digest: mcpDigest, backup: archive, updated_at: new Date().toISOString() }
+    delivery, legacy_hooks_removed: legacyRemoved, mcp_digest: mcpDigest, ...(target === 'grok' ? { mcp_value_digest: digest(registration) } : {}),
+    backup: archive, updated_at: new Date().toISOString() }
   atomicJson(recordPath, result)
   return result
 }

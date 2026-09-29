@@ -13,7 +13,7 @@ test.after(() => rmSync(home, { recursive: true, force: true }))
 
 const { ParentSpool, renderDelivery, digest } = await import('./parent-delivery.mjs')
 const { processIdentity, processHarness, harnessProcess, readHookEvent } = await import('./parent-platform.mjs')
-const { tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, grokMcpBlock, removeLegacyHooks, codexOwnedEntry } = await import('./parent-connect.mjs')
+const { tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, grokMcpBlock, removeLegacyHooks, codexOwnedEntry, ownedTomlValues } = await import('./parent-connect.mjs')
 const { clientHarness } = await import('./parent-caller.mjs')
 const { PEERTABLE_PROFILE, steer } = await import('./parent-steer.mjs')
 
@@ -123,6 +123,18 @@ test('Codexが読み戻しで足す既定値は所有の照合に含めない', 
   assert.notEqual(digest(codexOwnedEntry({ ...readBack, enabled: false })), digest(registration))
   assert.notEqual(digest(codexOwnedEntry({ ...readBack, env: { A: '1' } })), digest(registration))
   assert.notEqual(digest(codexOwnedEntry({ ...readBack, environment_id: 'remote' })), digest(registration))
+})
+
+test('Grokが書き直した自分のtableは値で照合する', () => {
+  const registration = { command: 'C:\\Program Files\\nodejs\\node.exe', args: ['C:\\npm\\peertable\\room\\client.mjs', 'parent'] }
+  assert.deepEqual(ownedTomlValues(ownedTomlBlock(grokMcpBlock(registration)).block), registration)
+  // Grokの書き直し（macOS: 基本文字列の複数行配列、Windows: literal文字列）。
+  const rewritten = `[mcp_servers.peertable_parent]\ncommand = 'C:\\Program Files\\nodejs\\node.exe'\nargs = [\n    'C:\\npm\\peertable\\room\\client.mjs',\n    "parent",\n]\n\n[models]\n`
+  assert.deepEqual(ownedTomlValues(ownedTomlBlock(rewritten).block), registration)
+  // 利用者が足したキー・行内コメント・読めない書式は値として扱わない。
+  assert.equal(ownedTomlValues('[mcp_servers.peertable_parent]\ncommand = "node"\nargs = []\nenv = { A = "1" }\n'), null)
+  assert.equal(ownedTomlValues('[mcp_servers.peertable_parent]\ncommand = "node" # 利用者\nargs = []\n'), null)
+  assert.equal(ownedTomlValues('[mcp_servers.peertable_parent]\ncommand = "node\n'), null)
 })
 
 test('GrokのMCP登録解除はLF末尾の外部TOMLへ空行を追加しない', () => {
