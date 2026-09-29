@@ -242,25 +242,6 @@ case "$task_status" in
   *) echo "ERROR: 完了処理を続けられない: ToDoが完了可能状態でない: $task_status" >&2; exit 1 ;;
 esac
 
-# 工程記録の保存先は対象projectのGit除外規約に従う。Git保存の失敗をローカルへ迂回しない。
-store_policy_rc=0
-git check-ignore -q -- .lattice/todo/manifest.json || store_policy_rc=$?
-store_commit_args=()
-case "$store_policy_rc" in
-  0)
-    store_persistence=local
-    echo "工程記録はGit除外規約に従ってローカル保存する（.lattice/todo）" >&2
-    ;;
-  1)
-    store_persistence=git
-    store_commit_args=(--commit-store)
-    ;;
-  *)
-    echo "ERROR: STORE_POLICY_UNRESOLVED: Git除外規約を読めない（rc=${store_policy_rc}）。done は打たない" >&2
-    exit 1
-    ;;
-esac
-
 # feat SHA が origin/main の祖先になるまで todo done を打たない。
 # 未着地ならこの script が canonical main へ載せて push する。親は呼ばない。
 # --evidence-from があるときは隔離 worktree の HEAD を feat とする。
@@ -409,7 +390,7 @@ if [ "$already_done" = no ]; then
   # 無い時だけ PATH を使う（bridge の `--lattice` / teardown の `LATTICE_CLI` と同じ選択規律）。
   done_output=""
   done_rc=0
-  done_output=$("$done_gate_cli" todo done --plan "$plan" --task "$t" --evidence "$tmp" --test-result "$test_result_tmp" "${store_commit_args[@]}" 2>&1) || done_rc=$?
+  done_output=$("$done_gate_cli" todo done --plan "$plan" --task "$t" --evidence "$tmp" --test-result "$test_result_tmp" --commit-store 2>&1) || done_rc=$?
   printf '%s\n' "$done_output"
   [ "$done_rc" -eq 0 ] || exit "$done_rc"
   rm -f "$tmp" "$test_result_tmp"
@@ -444,19 +425,17 @@ if [ -f "$witness" ]; then
     exit 1
   fi
   independence_ref=".lattice/todo/plans/${plan}/v1/independence.json"
-  if [ "$store_persistence" = git ]; then
-    git add -- "$witness"
-    [ -f "$independence_ref" ] && git add -- "$independence_ref"
-    if ! git diff --cached --quiet -- "$witness" "$independence_ref" 2>/dev/null; then
-      compile_msg=$(mktemp "${TMPDIR:-/tmp}/peertable-independence.XXXXXX")
-      printf 'Lattice independence を再 compile する plan=%s\n' "$plan" > "$compile_msg"
-      if ! git commit -q -F "$compile_msg" -- "$witness" "$independence_ref"; then
-        rm -f "$compile_msg"
-        echo "ERROR: INDEPENDENCE_COMPILE_FAILED: 更新した並列記録を commit できない。次の工程を始めるな" >&2
-        exit 1
-      fi
+  git add -- "$witness"
+  [ -f "$independence_ref" ] && git add -- "$independence_ref"
+  if ! git diff --cached --quiet -- "$witness" "$independence_ref" 2>/dev/null; then
+    compile_msg=$(mktemp "${TMPDIR:-/tmp}/peertable-independence.XXXXXX")
+    printf 'Lattice independence を再 compile する plan=%s\n' "$plan" > "$compile_msg"
+    if ! git commit -q -F "$compile_msg" -- "$witness" "$independence_ref"; then
       rm -f "$compile_msg"
+      echo "ERROR: INDEPENDENCE_COMPILE_FAILED: 更新した並列記録を commit できない。次の工程を始めるな" >&2
+      exit 1
     fi
+    rm -f "$compile_msg"
   fi
 fi
 

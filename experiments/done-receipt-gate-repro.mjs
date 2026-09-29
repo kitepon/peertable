@@ -92,26 +92,15 @@ print(json.dumps({"schema":"lattice.pull_run_observation.v1","intakes":intakes})
     exit 0 ;;
   "todo done")
     test_result_ref=""
-    commit_store=no
     while [ "$#" -gt 0 ]; do
       if [ "$1" = "--test-result" ]; then
         test_result_ref="$2"
         shift 2
-      elif [ "$1" = "--commit-store" ]; then
-        commit_store=yes
-        shift
       else
         shift
       fi
     done
     [ -n "$test_result_ref" ] && [ -f "$test_result_ref" ] || { echo "test_result missing" >&2; exit 1; }
-    if [ "$mode" = store_policy ]; then
-      printf '{"status":"done"}\\n' > .lattice/todo/manifest.json
-      if [ "$commit_store" = yes ]; then
-        git add -- .lattice/todo/manifest.json || exit 1
-        git commit -q -m '工程記録の試験' -- .lattice/todo/manifest.json || exit 1
-      fi
-    fi
     python3 -c '
 import json,sys
 path=sys.argv[1]
@@ -125,24 +114,10 @@ json.dump(state, open(path, "w"))
 ' "$STUB_STATE" "$test_result_ref"
     printf '{"schema":"lattice.todo_mutation_result.v2","task_id":"x1","status":"done"}\\n'
     exit 0 ;;
-  "todo independence")
-    if [ "$mode" = store_policy ]; then
-      mkdir -p .lattice/todo/plans/${plan}/v1
-      printf '{"verified":true}\\n' > .lattice/todo/plans/${plan}/v1/independence.json
-      printf '\\n' >> .lattice/todo/witness/${plan}.json
-    fi
-    echo '{}'
-    exit 0 ;;
 esac
 exit 0
 `)
 await chmod(join(bin, 'lattice'), 0o755)
-// 完了通知の外部roomはstubに閉じ、実際の卓へ試験投稿しない。
-const globalRoot = join(root, 'global')
-await mkdir(join(globalRoot, 'peertable/skill/scripts'), { recursive: true })
-await writeFile(join(globalRoot, 'peertable/skill/scripts/post-message.mjs'), 'console.log(JSON.stringify({room_saved:true}))\n')
-await writeFile(join(bin, 'npm'), `#!/bin/bash\nprintf '%s\\n' '${globalRoot}'\n`)
-await chmod(join(bin, 'npm'), 0o755)
 
 const setMode = (mode, extra = {}) => writeFile(state, JSON.stringify({
   mode,
@@ -155,7 +130,6 @@ const env = {
   ...process.env,
   PATH: `${bin}${delimiter}${process.env.PATH}`,
   PEERTABLE_PLAN: plan,
-  PEERTABLE_MEMBER: 'fixture-auditor',
   LATTICE_CLI: join(bin, 'lattice'),
   LATTICE_LOG: latticeLog,
   STUB_STATE: state,
@@ -371,44 +345,6 @@ try {
     assert.equal(result.status, 0, result.stderr)
     assert.doesNotMatch(result.stderr, /未accept/)
   })
-
-  // Git除外のstoreはローカルだけに保存し、追跡するstoreは従来どおりcommit/pushする。
-  await mkdir(join(repo, '.lattice/todo/witness'), { recursive: true })
-  await writeFile(join(repo, '.lattice/todo/manifest.json'), '{}\n')
-  await writeFile(join(repo, `.lattice/todo/witness/${plan}.json`), '{}\n')
-  await writeFile(join(repo, '.gitignore'), '.lattice/\n')
-  assert.equal(git('add', '.gitignore', 'evidence/explicit-plan').status, 0)
-  assert.equal(git('commit', '-q', '-m', '工程記録をGitから除外する試験').status, 0)
-  assert.equal(git('push', '-q').status, 0)
-  const localHead = git('rev-parse', 'HEAD').stdout.trim()
-  await setMode('store_policy')
-  await resetLog()
-  result = run('x1')
-  check('Git除外のstoreでもdoneとcompileが成功し、除外を維持する', () => {
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
-    assert.match(result.stderr, /ローカル保存/)
-    assert.equal(git('ls-files', '.lattice').stdout, '')
-    assert.equal(git('rev-parse', 'HEAD').stdout.trim(), localHead)
-    assert.equal(JSON.parse(readFileSync(join(repo, '.lattice/todo/manifest.json'), 'utf8')).status, 'done')
-    assert.equal(JSON.parse(readFileSync(join(repo, `.lattice/todo/plans/${plan}/v1/independence.json`), 'utf8')).verified, true)
-  })
-  assert.ok(!(await doneCalls())[0].includes('--commit-store'))
-
-  await writeFile(join(repo, '.gitignore'), '')
-  await writeFile(join(repo, '.lattice/todo/manifest.json'), '{}\n')
-  assert.equal(git('add', '.gitignore', '.lattice').status, 0)
-  assert.equal(git('commit', '-q', '-m', '工程記録をGitで保存する試験').status, 0)
-  assert.equal(git('push', '-q').status, 0)
-  await setMode('store_policy')
-  await resetLog()
-  result = run('x1')
-  check('Git保存のstoreはcommit-storeを使い、compileもcommit/pushする', () => {
-    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
-    assert.equal(git('status', '--porcelain').stdout, '')
-    assert.equal(git('rev-parse', 'HEAD').stdout.trim(), git('rev-parse', 'origin/main').stdout.trim())
-    assert.match(git('log', '-1', '--format=%s').stdout, /independence/)
-  })
-  assert.ok((await doneCalls())[0].includes('--commit-store'))
 
   console.log(`done-receipt-gate repro: ${checks}/${checks} green`)
 } catch (error) {
