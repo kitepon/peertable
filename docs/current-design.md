@@ -26,6 +26,8 @@ dotagentsは任意の工場統合とhost配線を統括するが、Peertableの�
 | コード、文書、成果物 | git |
 | メンバー登録と実効状態 | roomサーバーの単一台帳 |
 
+Lattice工程記録のGit保存は対象projectの除外規約に従う。storeのmanifestがGit除外対象なら、完了と並列記録はローカルstoreだけへ保存し、成果物と証跡はGitへ着地する。Git保存を選んだ工程記録の保存失敗はエラーとして止める。
+
 同じ事実をPeertable独自の第二台帳へ複製しない。Lattice併用時も、Peertableが持つのは人同士の情報連携であり、taskの競合制御はLatticeが持つ。
 
 ## 3. 二つの運用モード

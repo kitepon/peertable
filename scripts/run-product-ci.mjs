@@ -28,6 +28,7 @@ for (const directory of ['room', 'skill/scripts', 'scripts']) {
   for (const file of scriptsWithExtension(path.join(root, directory), '.mjs')) run(process.execPath, ['--check', file])
 }
 run(process.execPath, ['--test', 'skill/scripts/runtime-contract.test.mjs'])
+run(process.execPath, ['experiments/done-receipt-gate-repro.mjs'])
 run(process.execPath, ['experiments/aiterm-unified-delivery-repro.mjs'])
 run(process.execPath, ['--test', 'scripts/ci-contract.test.mjs', 'scripts/docs-contract.test.mjs'])
 run(process.execPath, ['--test', 'skill/scripts/parent-delivery.test.mjs', 'skill/scripts/parent-windows-process.test.mjs', 'skill/scripts/parent-process.test.mjs', 'skill/scripts/parent-platform-atomic.test.mjs', 'skill/scripts/parent-platform-unlinked-executable.test.mjs', 'room/parent-client.test.mjs'])
