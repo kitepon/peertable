@@ -64,7 +64,7 @@ CodexとGrokの席設定・認証は`.team/seats/`へ分離する。Codexにはr
 
 ## 配達と観測
 
-3 bridgeの順序・更新・再起動はsetup/launch/resumeが所有する。個別bridgeの起動コマンドを先に並べない。任意の常駐監視を導入する場合は`skill/launchd/`の見本を使うが、スキルinstallが勝手に登録することはない。
+3 bridgeの順序・更新・再起動はsetup/launch/resumeが所有する。個別bridgeの起動コマンドを先に並べない。任意の常駐監視を導入する場合は`skill/launchd/`の見本を使うが、スキルinstallが勝手に登録することはない。見本はnpmで導入した版（Homebrewの`/opt/homebrew/lib/node_modules/peertable`）を起動する。開発用のcloneを起動先にしない。
 
 wakeup bridgeはroomの明示宛先付き新着をAitermの統合`pty_send`で届ける。Aitermが実行中の差し込みと待機中の新規ターンを選び、Claudeを含む席の配達成立は公開receiptで確認する。成否不明は自動再送せずfailed receiptと親通知を残し、通知失敗時は本文を送らず通知だけを再試行する。既知承認は公開approval APIのdigestに対して単発応答し、未知の承認をキーで押し通さない。SSEは75秒無受信で再接続し、最終seqから回収する。心拍の最新seqとの差も回収する。ログは`.team/wakeup-bridge.log`。
 

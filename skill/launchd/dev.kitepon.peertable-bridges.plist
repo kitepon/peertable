@@ -6,7 +6,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>/Users/kite/Developer/peertable/skill/scripts/ensure-all-bridges.sh</string>
+    <string>/opt/homebrew/lib/node_modules/peertable/skill/scripts/ensure-all-bridges.sh</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>

@@ -38,6 +38,7 @@ run(process.execPath, ['experiments/seat-placement-repro.mjs'])
 
 if (process.platform !== 'win32') {
   for (const file of scriptsWithExtension(path.join(root, 'skill/scripts'), '.sh')) run('bash', ['-n', file])
+  run(process.execPath, ['experiments/alarm-lattice-cli-fallback-repro.mjs'])
 }
 
 run(process.execPath, ['room/client.mjs', 'diagnostics'], {

@@ -55,7 +55,8 @@ if (flag === '--stop') process.exit(0)
 
 const setup = JSON.parse(readFileSync(join(team, 'setup-state.json'), 'utf8'))
 const { room, server_url: url } = setup
-const lattice = setup.lattice_cli ? resolveLatticeExecutable(setup.lattice_cli) : null
+// 他のbridgeやlaunchと同じく、setup記録が空ならLATTICE_CLI、無ければPATH上のlatticeを使う
+const lattice = resolveLatticeExecutable(setup.lattice_cli || process.env.LATTICE_CLI || 'lattice')
 const token = resolvePostToken(process.env)
 if (!token) { console.error('ALARM_BRIDGE_TOKEN_MISSING: 書込トークンが無い'); process.exit(1) }
 mkdirSync(alarmsDir, { recursive: true })
@@ -100,16 +101,12 @@ async function tick() {
     let met = false
     let firedOutput = ''
     if (typed) {
-      if (!lattice) {
-        log(`ALARM_CONDITION_EVALUATION_FAILED: ${entry} lattice_cli がsetup-stateに無い`)
-      } else {
-        try {
-          const { stdout } = await run(lattice.command, lattice.argv, { timeout: 30_000, maxBuffer: 1024 * 1024, cwd: proj })
-          const status = JSON.parse(stdout)
-          met = latticeTaskAvailable(status, reg.condition.task_id, reg.condition.plan_key ?? '')
-        } catch (e) {
-          log(`ALARM_CONDITION_EVALUATION_FAILED: ${entry} ${e.message.split('\n')[0]}`)
-        }
+      try {
+        const { stdout } = await run(lattice.command, lattice.argv, { timeout: 30_000, maxBuffer: 1024 * 1024, cwd: proj })
+        const status = JSON.parse(stdout)
+        met = latticeTaskAvailable(status, reg.condition.task_id, reg.condition.plan_key ?? '')
+      } catch (e) {
+        log(`ALARM_CONDITION_EVALUATION_FAILED: ${entry} ${e.message.split('\n')[0]}`)
       }
     } else {
       try {
