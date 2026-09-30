@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// 同梱snapshotの役割→1位〜3位から、着席可能な harness / model / effort を解決する。
+// 席の役割を同梱snapshotの正式名で確かめ、明示された model / effort から harness を決める。
+// 役割から model / effort を選ばない（2026-09-30 オーナー裁定: 役割だけでは席を起こせない）。
 // 外部文書を読むのは呼出側が明示した時だけ。隣接repoの有無で製品挙動を変えない。
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const EFFORT = /×\s*(none|low|medium|high|xhigh|max|ultra)/iu
 const harnessOf = (modelName) => {
   const name = String(modelName).trim()
   if (/^claude\b/iu.test(name)) return 'claude'
@@ -66,35 +66,6 @@ export function parseLedger(markdown) {
   })
 }
 
-const parseCell = (cell) => {
-  const raw = stripCell(cell)
-  if (!raw || raw === '—' || raw === '-') return null
-  if (raw.includes('オーナー指定')) return { skip: 'owner-pin', cell: raw }
-  if (/^ChatGPT/iu.test(raw) || raw.includes('gpt-connector')) return { skip: 'not-a-seat', cell: raw }
-  const effortMatch = raw.match(EFFORT)
-  const modelKey = raw.split('×')[0]
-    .replace(/（[^）]*）/gu, '')
-    .replace(/\([^)]*\)/gu, '')
-    .trim()
-  if (!modelKey) return { skip: 'unparseable', cell: raw }
-  return {
-    modelKey,
-    effort: effortMatch ? effortMatch[1].toLowerCase() : null,
-    cell: raw,
-  }
-}
-
-const matchLedger = (modelKey, ledger) => {
-  const key = modelKey.toLowerCase()
-  const exact = ledger.find((row) => row.name.toLowerCase() === key)
-  if (exact) return exact
-  const contained = ledger.filter((row) => row.name.toLowerCase().includes(key) || key.includes(row.name.toLowerCase()))
-  if (contained.length === 1) return contained[0]
-  const token = ledger.filter((row) => row.name.toLowerCase().split(/\s+/u).includes(key))
-  if (token.length === 1) return token[0]
-  return null
-}
-
 export function listOfficialRoles(markdown) {
   return parseMarkdownTable(section(markdown, '順位表（役割→1位〜3位）'))
     .map((row) => row['役割'])
@@ -121,60 +92,6 @@ const parseRoleList = (roles) => {
     list.push(role)
   }
   return list
-}
-
-export function resolveSeatPlacement(role, markdown, { source = '', harness = '' } = {}) {
-  const wantHarness = String(harness ?? '').trim()
-  const wanted = String(role ?? '').trim()
-  if (!wanted) {
-    return { error: 'SEAT_ROLE_REQUIRED', message: 'role が空（02_models の役割名が要る）' }
-  }
-  const ranks = parseMarkdownTable(section(markdown, '順位表（役割→1位〜3位）'))
-  const row = ranks.find((item) => item['役割'] === wanted)
-  if (!row) {
-    const known = ranks.map((item) => item['役割']).filter(Boolean)
-    return { error: 'SEAT_ROLE_UNKNOWN', message: `未知の役割: ${wanted}（${known.join(' / ')}）` }
-  }
-  const ledger = parseLedger(markdown)
-  const dropped = []
-  for (const rank of [1, 2, 3]) {
-    const parsed = parseCell(row[`${rank}位`])
-    if (!parsed) continue
-    if (parsed.skip) {
-      dropped.push({ rank, reason: parsed.skip, cell: parsed.cell })
-      continue
-    }
-    const hit = matchLedger(parsed.modelKey, ledger)
-    if (!hit) {
-      dropped.push({ rank, reason: 'not-in-ledger', cell: parsed.cell })
-      continue
-    }
-    if (wantHarness && hit.harness !== wantHarness) {
-      dropped.push({ rank, reason: `harness-mismatch(want ${wantHarness})`, cell: parsed.cell })
-      continue
-    }
-    if (hit.slug === 'haiku') {
-      return { role: wanted, rank, harness: hit.harness, model: hit.slug, effort: '', source, dropped }
-    }
-    if (!parsed.effort) {
-      dropped.push({ rank, reason: 'effort-missing', cell: parsed.cell })
-      continue
-    }
-    return {
-      role: wanted,
-      rank,
-      harness: hit.harness,
-      model: hit.slug,
-      effort: parsed.effort,
-      source,
-      dropped,
-    }
-  }
-  return {
-    error: 'SEAT_PLACEMENT_UNRESOLVABLE',
-    message: `${wanted}${wantHarness ? `（harness=${wantHarness}）` : ''} を着席可能な harness/model/effort へ解決できない`,
-    dropped,
-  }
 }
 
 export function resolveSeatIdentity({
@@ -213,33 +130,24 @@ export function resolveSeatIdentity({
   const requestedModel = String(model ?? '').trim()
   const requestedEffort = String(effort ?? '').trim()
   const requestedHarness = String(harness ?? '').trim()
-  if (requestedModel) {
-    const resolvedHarness = requestedHarness || harnessFromSlug(requestedModel)
-      || parseLedger(markdown).find((row) => row.slug === requestedModel)?.harness
-    if (!resolvedHarness) {
-      return {
-        error: 'SEAT_HARNESS_UNRESOLVED',
-        message: `model=${requestedModel} の harness を推定できない（--harness が要る）`,
-      }
-    }
+  if (!requestedModel || !requestedEffort) {
     return {
-      roles: roleList,
-      settings: { harness: resolvedHarness, model: requestedModel, effort: requestedEffort },
-      source,
+      error: 'SEAT_MODEL_REQUIRED',
+      message: '役割だけでは席を起こせない（--model と --effort を指定する）',
     }
   }
-
-  const first = resolveSeatPlacement(roleList[0], markdown, { source, harness: requestedHarness })
-  if (first.error) return first
+  const resolvedHarness = requestedHarness || harnessFromSlug(requestedModel)
+    || parseLedger(markdown).find((row) => row.slug === requestedModel)?.harness
+  if (!resolvedHarness) {
+    return {
+      error: 'SEAT_HARNESS_UNRESOLVED',
+      message: `model=${requestedModel} の harness を推定できない（--harness が要る）`,
+    }
+  }
   return {
     roles: roleList,
-    settings: {
-      harness: first.harness,
-      model: first.model,
-      effort: requestedEffort || first.effort || '',
-    },
+    settings: { harness: resolvedHarness, model: requestedModel, effort: requestedEffort },
     source,
-    dropped: first.dropped,
   }
 }
 

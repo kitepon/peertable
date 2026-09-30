@@ -68,6 +68,7 @@ export async function launchSeat(options, dependencies = {}) {
   const { name, brief = '' } = options
   if (!name || !/^[A-Za-z0-9._:-]+$/.test(name)) fail('SEAT_LAUNCH_ARGS_INVALID', '有効な席名を指定してください')
   if (!options.roles) fail('SEAT_LAUNCH_ARGS_INVALID', '役割を指定してください')
+  if (!options.model || !options.effort) fail('SEAT_MODEL_REQUIRED', '役割だけでは席を起こせません。--modelと--effortを指定してください')
   if (Buffer.byteLength(brief) > 65536) fail('LAUNCH_BRIEF_TOO_LONG', '着任指示の上限は65536 bytesです')
   const env = { ...process.env }
   const home = dependencies.home ?? homedir()

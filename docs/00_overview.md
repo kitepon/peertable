@@ -10,7 +10,7 @@ Peertableは単独cloneで動作し、自身のsource、state、schema、着席�
 - [docs/current-design.md](current-design.md) — 製品境界、正本、協働、配送、runtime、releaseの現行設計契約。
 - [rag/parent-delivery/receivers.md](../rag/parent-delivery/receivers.md) — 親の公式受信口の一次資料・実測・受入目録への入口。
 - [deploy/README.md](../deploy/README.md) — room本番のreleaseとrollback。
-- [skill/02_models.snapshot.md](../skill/02_models.snapshot.md) — provenance付き着席配置の製品内既定値。外部表は明示opt-in時だけ使う。
+- [skill/02_models.snapshot.md](../skill/02_models.snapshot.md) — provenance付きの役割の正式名とmodel台帳。席のmodelは選ばない。外部表は明示opt-in時だけ使う。
 
 ## Campaign・証拠・履歴
 

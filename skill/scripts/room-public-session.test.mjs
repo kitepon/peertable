@@ -39,7 +39,7 @@ test('実room clientが公開session IDと席資格で参加・投稿し、serve
     server.once('error', reject)
     server.once('exit', code => reject(new Error(`room起動失敗: ${code}: ${output}`)))
   })
-  const placement = JSON.parse(execFileSync(process.execPath, [join(root, 'skill/scripts/resolve-seat-placement.mjs'), '--roles', '実装'], { encoding: 'utf8' }))
+  const placement = JSON.parse(execFileSync(process.execPath, [join(root, 'skill/scripts/resolve-seat-placement.mjs'), '--roles', '実装', '--model', 'gpt-5.6-terra', '--effort', 'high'], { encoding: 'utf8' }))
   const { harness, model, effort } = placement.settings
   const env = { ...process.env, PEERTABLE_URL: `http://127.0.0.1:${port}`, PEERTABLE_ROOM: 'fixture',
     PEERTABLE_MEMBER: 'alice', PEERTABLE_HARNESS: harness, PEERTABLE_VENDOR: harness, PEERTABLE_MODEL: model,

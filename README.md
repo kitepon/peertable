@@ -116,10 +116,10 @@ peertable-room
 
 ```sh
 peertable setup <project> --room <room> --url http://localhost:8790 --tasks <tasks-file>
-peertable launch <project> <name> --roles <role> --brief <着任指示>
+peertable launch <project> <name> --roles <role> --model <model> --effort <effort> --brief <着任指示>
 ```
 
-tasks-fileは単独モードの議題本文。Lattice併用を明示した場合は`--tasks`の代わりに`--plan <plan-key>`を使う。役割の正式名と着席配置は同梱snapshotを参照する。スキルに「このprojectに円卓を立てて」と頼む場合も同じ入口を使う。
+tasks-fileは単独モードの議題本文。Lattice併用を明示した場合は`--tasks`の代わりに`--plan <plan-key>`を使う。役割の正式名は同梱snapshotを参照する。席のmodelとeffortは必須で、役割だけでは起こせない。スキルに「このprojectに円卓を立てて」と頼む場合も同じ入口を使う。
 
 setupは`.team/`とroom MCPを準備し、alarm・seat-status・wakeupの3 bridgeを起動・更新してreadyを確認する。既存の`.mcp.json`にある他製品の設定は保ち、Peertableが追加したroom blockだけを管理する。別のroom設定との衝突はエラーで知らせる。launchはモデル実測、Aitermによる起動準備、room登録、本人性、着任指示の実ターン開始までを確認する。
 

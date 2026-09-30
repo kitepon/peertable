@@ -69,7 +69,7 @@ try {
   peertable setup <project> --room <room> --url <URL> --tasks <file>
   peertable setup <project> --room <room> --url <URL> --plan <plan> [--phase <id>]
   peertable resume <project> [--plan <plan>] [--phase <id>] [--no-probe]
-  peertable launch <project> <name> --roles <roles> [--harness <harness>] [--model <model>] [--effort <effort>] [--brief <text>]
+  peertable launch <project> <name> --roles <roles> --model <model> --effort <effort> [--harness <harness>] [--brief <text>]
   peertable leave <project> <name>
   peertable change <project> <name> [--harness <harness>] [--model <model>] [--effort <effort>]
   peertable teardown <project> [--purge]

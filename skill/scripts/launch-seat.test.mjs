@@ -18,7 +18,7 @@ function fixture(t, harness = 'claude') {
   writeFileSync(join(project, '.team', 'setup-state.json'), JSON.stringify({ room: 'room', server_url: 'http://example', mode: 'standalone' }))
   const events = []
   const member = { name: 'alice', harness, model: 'fixture-model', roles: ['実装者'], aiterm_session_id: 'peer-alice', pid: 23 }
-  const options = { project, name: 'alice', roles: '実装者', brief: '着任してください' }
+  const options = { project, name: 'alice', roles: '実装者', model: 'fixture-model', effort: 'high', brief: '着任してください' }
   const dependencies = {
     resolveCommand: (command, argv) => { events.push({ resolve: { command, argv } }); return { command, argv } },
     runScript: (file, args) => {
@@ -90,6 +90,11 @@ test('モデル実測失敗とサイズ超過は既存席へ触らない', async
   assert.equal(f.events.some(event => event.leave), false)
   f.events.length = 0
   await assert.rejects(launchSeat({ ...f.options, brief: 'あ'.repeat(22000) }, f.dependencies), { code: 'LAUNCH_BRIEF_TOO_LONG' })
+  assert.equal(f.events.length, 0)
+  for (const omitted of ['model', 'effort']) {
+    const { [omitted]: _, ...roleOnly } = f.options
+    await assert.rejects(launchSeat(roleOnly, f.dependencies), { code: 'SEAT_MODEL_REQUIRED' })
+  }
   assert.equal(f.events.length, 0)
 })
 

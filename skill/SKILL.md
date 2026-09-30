@@ -36,7 +36,7 @@ PTY・harnessの起動準備・入力・承認・生存と活動の観測はAite
 
 ## setup
 
-1. 対象project、roomとサーバーURL、初期タスク、メンバー数と役割を依頼から確定する。役割名は同梱`02_models.snapshot.md`の正式名を使う。model/harness/effortの既定は同梱配置表で機械解決し、隣接dotagentsを暗黙に読まない。明示された設定だけを上書きする。
+1. 対象project、roomとサーバーURL、初期タスク、メンバー数と役割を依頼から確定する。役割名は同梱`02_models.snapshot.md`の正式名を使う。席ごとのmodelとeffortも依頼で決め、launchへ必ず渡す。役割だけでは席を起こせず、Peertableは配置表からmodelを選ばない。harnessはmodel名から決まり、決まらない時だけ`--harness`を足す。隣接dotagentsを暗黙に読まない。
 2. Lattice併用が承認済みならその正規手順で工程正本を確認する。初期化済みstoreへの追加は`todo migrate`を使う。新規storeでは`make-plan-input.mjs`で入力を作り`plan create`へ渡す。メンバー数の初期値はplanの`max_frontier_width`、運用中worker数の標準はready＋activeな実装ToDo数とし、監査専任席をworker数へ含めない。単独モードの人数は依頼から決める。
 3. 次のどちらかを1回実行する。setupは対象projectの生成物、room MCP、alarm・seat-status・wakeupの起動と更新、readyの読返しまで行う。同じprojectへ再実行すると既存のroom・議題を保ってresumeへ進む。
 
@@ -50,7 +50,7 @@ peertable setup <project> --room <room> --url <server-url> --plan <plan-key> --p
 4. メンバーに日本のアニメキャラ風の名前を都度決める。識別子はローマ字、自己紹介は日本語。席ごとに次を実行する。
 
 ```sh
-peertable launch <project> <name> --roles <role[,role...]> --mission <使命> --brief <着任指示>
+peertable launch <project> <name> --roles <role[,role...]> --model <model> --effort <effort> --mission <使命> --brief <着任指示>
 ```
 
 着任指示例: 「あなたは『<日本語名>』。.team/roles/member.mdを読んで着任し、作業ループを開始してください。全タスク完了の宣言まで自律的に続けてください。」

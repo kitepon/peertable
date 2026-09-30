@@ -8,7 +8,7 @@ source_commit: dcf4d9064b5c4f21a7643cbd169b7047cf3607bf
 captured_at: 2026-08-30
 ```
 
-これはPeertableがrelease単位で所有する着席配置の既定値である。役割、順位、model slug、effortだけを同梱し、dotagentsの説明文や内部リンクは複製しない。外部表を使う場合は`PEERTABLE_MODELS_DOC`または`DOTAGENTS_ROOT`を明示する。
+これはPeertableがrelease単位で所有する役割の正式名の表である。Peertableは役割名の照合と、model slugからのharness推定にだけ使う。順位表のmodelとeffortは席を選ぶ時の参考で、launchは役割からmodelを選ばない（`--model`と`--effort`が必須）。dotagentsの説明文や内部リンクは複製しない。外部表を使う場合は`PEERTABLE_MODELS_DOC`または`DOTAGENTS_ROOT`を明示する。
 
 ## 順位表（役割→1位〜3位）
 

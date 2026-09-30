@@ -98,7 +98,9 @@ root MCPはblock単位の所有を記録し、既存の他のblockを保つ。Cu
 
 ## 7. 着席配置
 
-役割からmodelとeffortを解決する既定値は、[製品同梱snapshot](../skill/02_models.snapshot.md)である。snapshotはsource commit、schema、取得日を持ち、releaseと一緒に再現できる。
+席はmodelとeffortを明示して起こす。役割だけの着席は`SEAT_MODEL_REQUIRED`で拒否し、Peertableは役割からmodelを選ばない。値の可否はharnessが決め、launchの非対話実測が確かめる。harnessはmodel名から推定し、推定できない時は`--harness`を求める。
+
+役割の正式名は[製品同梱snapshot](../skill/02_models.snapshot.md)が正本である。snapshotはsource commit、schema、取得日を持ち、releaseと一緒に再現できる。
 
 隣接するdotagents checkoutを暗黙検出しない。外部の配置表を使うのは`PEERTABLE_MODELS_DOC`または`DOTAGENTS_ROOT`を明示した時だけである。
 
