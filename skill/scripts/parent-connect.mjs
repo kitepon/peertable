@@ -27,7 +27,12 @@ export function ownsParentConnection(target, { home = parentHome() } = {}) {
   return record.status === 'registered' && record.schema === 'peertable.parent-connect.v2'
 }
 // 旧方式（parent-hook.mjs）の登録を、利用者や他製品のhookを残したまま取り除く。
-const legacyHook = hook => [hook?.command, ...(Array.isArray(hook?.args) ? hook.args : [])].some(value => typeof value === 'string' && /[/\\]parent-hook\.mjs\b/u.test(value))
+// Windowsの登録はPowerShellの-EncodedCommand（UTF-16LEのbase64）に包まれているので、開いてから見る。
+const decodedCommand = value => {
+  const encoded = /-EncodedCommand\s+([A-Za-z0-9+/=]+)/iu.exec(value)?.[1]
+  return encoded ? Buffer.from(encoded, 'base64').toString('utf16le') : value
+}
+const legacyHook = hook => [hook?.command, ...(Array.isArray(hook?.args) ? hook.args : [])].some(value => typeof value === 'string' && /[/\\]parent-hook\.mjs\b/u.test(decodedCommand(value)))
 export function removeLegacyHooks(file) {
   if (!existsSync(file)) return false
   const current = readJson(file)

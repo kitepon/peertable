@@ -12,7 +12,7 @@ process.env.HOME = home; process.env.USERPROFILE = home
 test.after(() => rmSync(home, { recursive: true, force: true }))
 
 const { ParentSpool, renderDelivery, digest } = await import('./parent-delivery.mjs')
-const { processIdentity, processHarness, harnessProcess, readHookEvent } = await import('./parent-platform.mjs')
+const { processIdentity, processHarness, harnessProcess, readHookEvent, hookCommand } = await import('./parent-platform.mjs')
 const { tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, grokMcpBlock, removeLegacyHooks, codexOwnedEntry, ownedTomlValues } = await import('./parent-connect.mjs')
 const { clientHarness } = await import('./parent-caller.mjs')
 const { PEERTABLE_PROFILE, steer } = await import('./parent-steer.mjs')
@@ -224,5 +224,20 @@ test('旧方式のhook（parent-hook.mjs）だけを取り除き、利用者と�
   assert.equal(removeLegacyHooks(file), true)
   const after = JSON.parse(readFileSync(file, 'utf8'))
   assert.deepEqual(after, { hooks: { PreToolUse: [{ matcher: 'x', hooks: [aiterm] }] }, keep: true })
+  assert.equal(removeLegacyHooks(file), false)
+})
+
+test('Windowsの-EncodedCommandに包まれた旧方式のhookも取り除く', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'peertable-legacy-hooks-win-'))
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  const file = join(dir, 'hooks.json')
+  const legacy = hookCommand('C:\\Program Files\\nodejs\\node.exe', ['C:\\Users\\u\\AppData\\Roaming\\npm\\node_modules\\peertable\\skill\\scripts\\parent-hook.mjs', 'codex'], 'win32')
+  const current = { type: 'command', command: hookCommand('C:\\Program Files\\nodejs\\node.exe', ['C:\\Users\\u\\AppData\\Roaming\\npm\\node_modules\\peertable\\skill\\scripts\\peertable-parent-codex-hook.mjs', 'C:\\Users\\u\\.peertable\\parent-receivers\\codex-parent-hooks'], 'win32'), timeout: 20 }
+  writeFileSync(file, JSON.stringify({ hooks: {
+    Stop: [{ hooks: [{ type: 'command', command: legacy, timeout: 20 }] }, { hooks: [current] }],
+    PostToolUse: [{ matcher: '.*', hooks: [{ type: 'command', command: legacy, timeout: 20 }] }],
+  } }))
+  assert.equal(removeLegacyHooks(file), true)
+  assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')), { hooks: { Stop: [{ hooks: [current] }] } })
   assert.equal(removeLegacyHooks(file), false)
 })
