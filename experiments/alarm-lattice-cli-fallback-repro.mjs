@@ -53,9 +53,12 @@ let log = ''
 bridge.stderr.on('data', chunk => { log += chunk })
 const deadline = Date.now() + 15_000
 while (!posted.length && Date.now() < deadline) await new Promise(done => setTimeout(done, 200))
+// bridgeが止まり切る前に消すと、書き込み中のファイルでENOTEMPTYになる（macOS）。
+const exited = new Promise(done => bridge.once('exit', done))
 bridge.kill('SIGTERM')
+await Promise.race([exited, new Promise(done => setTimeout(done, 5_000))])
 server.close()
-rmSync(dir, { recursive: true, force: true })
+rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 
 check('lattice_cli が空でも PATH の lattice で条件を評価して起こす',
   posted.length === 1 && posted[0].url === '/api/fixture/messages' && posted[0].body.to === 'rin'
