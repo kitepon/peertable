@@ -8,6 +8,7 @@ Peertableは単独cloneで動作し、自身のsource、state、schema、着席�
 - [AGENTS.md](../AGENTS.md) — 開発、文書寿命、releaseの製品規約。
 - [skill/SKILL.md](../skill/SKILL.md) — install、setup、resume、teardownと円卓運用の正規入口。
 - [docs/current-design.md](current-design.md) — 製品境界、正本、協働、配送、runtime、releaseの現行設計契約。
+- [docs/network-reporting.md](network-reporting.md) — 通信診断と修理依頼の区別、重大度の根拠、現行の報告経路。
 - [rag/parent-delivery/receivers.md](../rag/parent-delivery/receivers.md) — 親の公式受信口の一次資料・実測・受入目録への入口。
 - [deploy/README.md](../deploy/README.md) — room本番のreleaseとrollback。
 - [skill/02_models.snapshot.md](../skill/02_models.snapshot.md) — provenance付きの役割の正式名とmodel台帳。席のmodelは選ばない。外部表は明示opt-in時だけ使う。
