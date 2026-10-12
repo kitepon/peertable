@@ -10,7 +10,7 @@ import { PEERTABLE_PROFILE, entries, parentServerName, steer } from './parent-st
 
 export { parentServerName }
 const clientEntry = fileURLToPath(new URL('../../room/client.mjs', import.meta.url))
-export const parentRegistration = () => ({ command: process.execPath, args: [clientEntry, 'parent'] })
+export const parentRegistration = () => ({ command: steer.setupNodeExecutable(), args: [clientEntry, 'parent'] })
 export const grokMcpBlock = registration => `[mcp_servers.${parentServerName}]\ncommand = ${JSON.stringify(registration.command)}\nargs = ${JSON.stringify(registration.args)}\n`
 const pathFor = target => {
   const home = homedir()
@@ -19,7 +19,7 @@ const pathFor = target => {
   if (target === 'codex') return { mcp: join(process.env.CODEX_HOME ?? join(home, '.codex'), 'config.toml'), hooks: join(process.env.CODEX_HOME ?? join(home, '.codex'), 'hooks.json') }
   return { mcp: join(home, '.grok', 'config.toml'), hooks: join(home, '.grok', 'hooks', 'peertable-parent.json') }
 }
-const hookRuntime = target => ({ command: process.execPath, script: entries[target] })
+const hookRuntime = target => ({ command: steer.setupNodeExecutable(), script: entries[target] })
 export function ownsParentConnection(target, { home = parentHome() } = {}) {
   const file = join(home, 'connections', `${target}.json`)
   if (!existsSync(file)) return false

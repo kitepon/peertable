@@ -80,6 +80,7 @@ setup、resume、teardownはそれぞれ一回の製品入口で必要な順序�
 
 - global npm installは検出したAIのスキル配置を更新する。再実行入口は`peertable install`。所有するPeertableリンクだけを管理し、共有AI設定本文や他製品の設定を変更しない。installからprojectの再構築を行わない。
 - 親の接続は`peertable connect --target claude|codex|grok|cursor`が所有する。Peertable専用MCP・公式hookだけを管理し、他製品の設定・承認・順序を保持する。設定追加だけで実会話への受信成立としない。導入前のJSONの構造を所有記録へ残し、解除時は導入した空event・容器だけを撤去して利用者の現在値を保つ。CodexのTOML解除には公式config APIを使う。
+  MCPとhookへ保存するNodeの起動先は共通部品の`setupNodeExecutable()`で決める。Homebrewの版付きCellarパスは同じformulaのoptパスにし、Nodeの更新後も起動できる登録を残す。既存登録は`connect`の再実行で更新する。
 - setupは明示projectの生成物、接続、bridge起動、ready確認までを持つ。再実行時は既存roomと議題を保ってresumeへ進む。席の追加は`peertable launch`がroom登録と実ターン開始まで確認する。
 - 着任指示の成立まで、その席への通常通知はpendingに保持する。初回指示と参加通知の配達順序はPeertableが所有し、起動中断の記録は再着席前の退席処理で解除する。
 - resumeはPeertable所有の生成物とroom MCPを現行treeへ同期してから席を復帰する。

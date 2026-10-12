@@ -13,7 +13,7 @@ test.after(() => rmSync(home, { recursive: true, force: true }))
 
 const { ParentSpool, renderDelivery, digest } = await import('./parent-delivery.mjs')
 const { processIdentity, processHarness, harnessProcess, readHookEvent, hookCommand } = await import('./parent-platform.mjs')
-const { tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, grokMcpBlock, removeLegacyHooks, codexOwnedEntry, ownedTomlValues } = await import('./parent-connect.mjs')
+const { tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, grokMcpBlock, removeLegacyHooks, codexOwnedEntry, ownedTomlValues, connectParent, parentRegistration } = await import('./parent-connect.mjs')
 const { clientHarness } = await import('./parent-caller.mjs')
 const { PEERTABLE_PROFILE, steer } = await import('./parent-steer.mjs')
 
@@ -33,6 +33,53 @@ const claudeParent = session => {
   writeFileSync(join(hookRoot, request, 'request.json'), JSON.stringify({ request_id: request, session_id: session, agent_id: null, parent_pid: process.pid, parent_started_identity: self.started_identity }))
   return { kind: 'claude', request_id: request, session_id: session, hook_root: hookRoot }
 }
+
+test('Homebrew更新で消えたNodeのMCPとhookをoptへ再登録し、他製品を保つ', async t => {
+  const brew = mkdtempSync(join(tmpdir(), 'peertable brew 日本語 ')).replaceAll('\\', '/')
+  t.after(() => rmSync(brew, { recursive: true, force: true }))
+  const oldNode = `${brew}/Cellar/node/26.10.0_1/bin/node`
+  const stableNode = `${brew}/opt/node/bin/node`
+  mkdirSync(join(brew, 'opt', 'node', 'bin'), { recursive: true })
+  writeFileSync(stableNode, '', { mode: 0o755 })
+  const originalNode = process.execPath
+  process.execPath = oldNode
+  try {
+    const registration = parentRegistration()
+    assert.equal(registration.command, stableNode)
+    const oldRegistration = { ...registration, command: oldNode }
+    for (const target of ['claude', 'cursor']) {
+      const dir = join(home, `.${target}`), mcp = target === 'claude' ? join(home, '.claude.json') : join(dir, 'mcp.json')
+      const hooks = join(dir, target === 'claude' ? 'settings.json' : 'hooks.json')
+      const record = join(home, '.peertable', 'parent-receivers', 'connections', `${target}.json`)
+      const entry = target === 'claude' ? { type: 'stdio', ...oldRegistration } : oldRegistration
+      const other = { command: '/other/node', args: ['other.mjs'] }
+      const otherHook = { type: 'command', command: 'other-hook' }
+      mkdirSync(dir, { recursive: true }); mkdirSync(join(record, '..'), { recursive: true })
+      writeFileSync(mcp, JSON.stringify({ keep: true, mcpServers: { other, peertable_parent: entry } }))
+      writeFileSync(record, JSON.stringify({ mcp_digest: digest(entry) }))
+      writeFileSync(hooks, JSON.stringify(target === 'claude' ? { keep: true, hooks: {
+        Stop: [{ hooks: [otherHook, { type: 'command', command: oldNode, args: [steer.claudeHookRoot(PEERTABLE_PROFILE) + '/peertable-parent-claude-hook.mjs'], asyncRewake: true, timeout: 86400 }] }],
+      } } : { keep: true, hooks: { stop: [otherHook] } }))
+      assert.equal((await connectParent(target)).status, 'registered')
+      const saved = JSON.parse(readFileSync(mcp, 'utf8'))
+      assert.equal(saved.mcpServers.peertable_parent.command, stableNode)
+      assert.deepEqual(saved.mcpServers.other, other)
+      assert.equal(saved.keep, true)
+      const updatedHooks = readFileSync(hooks, 'utf8')
+      assert.ok(updatedHooks.includes(stableNode))
+      assert.ok(!updatedHooks.includes(oldNode))
+      assert.ok(updatedHooks.includes('other-hook'))
+      if (target === 'claude') {
+        const document = JSON.parse(updatedHooks)
+        assert.equal(steer.claudeParentHooksRegistered(PEERTABLE_PROFILE, document), true)
+        assert.equal(steer.claudeParentHookScripts(PEERTABLE_PROFILE, document).length, 5)
+        assert.equal(document.hooks.SessionStart[0].hooks[0].asyncRewake, true)
+      }
+      await connectParent(target)
+      assert.equal(readFileSync(hooks, 'utf8'), updatedHooks)
+    }
+  } finally { process.execPath = originalNode }
+})
 
 test('HTTP/SSE重複は同じ配送ID、原文保存後にcursorを進める', t => {
   const spool = fixture(t), original = event(1)
