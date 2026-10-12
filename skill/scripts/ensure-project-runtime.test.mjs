@@ -29,12 +29,17 @@ test('新規runtimeは指定した資格元からファイルを準備して公�
       assert.ok(args.text.includes(files[0]))
       assert.ok(args.text.includes('PEERTABLE_CREDENTIAL_FILE'))
       assert.ok(!args.text.includes('fixture-credential-123'))
+      assert.ok(!args.text.includes('removed-node'))
       const stamp = new Date().toISOString()
       writeFileSync(join(team, 'alarm-bridge.json'), JSON.stringify({ pid: process.pid, ready_at: stamp, last_progress_at: stamp }))
       sent = true
       return {}
     },
   }
-  assert.equal((await ensureBridge(project, 'alarm', { aiterm, env })).status, 'started')
+  const original = process.execPath
+  process.execPath = join(project, 'removed-node')
+  try {
+    assert.equal((await ensureBridge(project, 'alarm', { aiterm, env })).status, 'started')
+  } finally { process.execPath = original }
   assert.equal(sent, true)
 })

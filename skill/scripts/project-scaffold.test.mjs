@@ -19,6 +19,17 @@ function fixture(t) {
   return { dir, project, tasks, room: 'install-smoke', url: 'http://127.0.0.1:18860' }
 }
 
+test('Nodeの実体が消えた後もrunScriptはPATHのNodeで子を起動する', t => {
+  const { dir } = fixture(t)
+  mkdirSync(join(dir, 'skill', 'scripts'), { recursive: true })
+  writeFileSync(join(dir, 'skill', 'scripts', 'probe.mjs'), 'console.log(JSON.stringify(process.argv.slice(2)))')
+  const original = process.execPath
+  process.execPath = join(dir, 'removed-node')
+  try {
+    assert.deepEqual(JSON.parse(runScript('probe.mjs', ['日本語', 'a b'], { root: dir })), ['日本語', 'a b'])
+  } finally { process.execPath = original }
+})
+
 test('scaffoldは対象projectに生成し既存MCP設定と他projectを保持する', t => {
   const options = fixture(t)
   const mcp = { custom: true, mcpServers: { existing: { command: 'keep', args: ['a'] } } }

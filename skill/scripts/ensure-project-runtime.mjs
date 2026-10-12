@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from 'no
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { setTimeout as delay } from 'node:timers/promises'
+import { liveNodeExecutable } from 'aiterm-steer-delivery'
 import { AitermClient } from './aiterm-client.mjs'
 import { bridgeRecordLive } from './bridge-record-live.mjs'
 import { packageRoot } from './install-skill.mjs'
@@ -48,7 +49,7 @@ export async function ensureBridge(projectArg, kind, { root = packageRoot, env =
     const effectiveArgs = args.length ? args : previous?.args ?? []
     await aiterm.call('pty_open', { name: session })
     await aiterm.structured('pty_send', { session_id: session, text: runtimeLaunchCommand({
-      executable: process.execPath, script: join(root, 'skill', 'scripts', script), project,
+      executable: liveNodeExecutable(), script: join(root, 'skill', 'scripts', script), project,
       args: effectiveArgs, log, env: launchEnv,
     }) }, 'aiterm.pty-send-result.v1')
     const deadline = Date.now() + 15_000

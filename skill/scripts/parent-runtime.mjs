@@ -29,7 +29,7 @@ export function actorEnvironment(project, name) {
 }
 export function credentialFor(project, state, name) {
   if (process.env.PEERTABLE_CREDENTIAL_FILE) return process.env.PEERTABLE_CREDENTIAL_FILE
-  return execFileSync(process.execPath, [fileURLToPath(new URL('./seat-credential.mjs', import.meta.url)), 'prepare', project, state.room, name], { encoding: 'utf8' }).trim()
+  return execFileSync(steer.liveNodeExecutable(), [fileURLToPath(new URL('./seat-credential.mjs', import.meta.url)), 'prepare', project, state.room, name], { encoding: 'utf8' }).trim()
 }
 export function projectEndpoints(project) {
   const dir = join(project, '.team', 'parent-delivery')
@@ -94,7 +94,7 @@ export async function startEndpoint(spool) {
   spool.transact(saved => {
     if (saved.watcher && sameProcess(saved.watcher)) return
     const pid = launchDetached({
-      executable: process.execPath, args: [watcherEntry, spool.project, state.name, '--deliver', spool.id], cwd: spool.project,
+      executable: steer.liveNodeExecutable(), args: [watcherEntry, spool.project, state.name, '--deliver', spool.id], cwd: spool.project,
       env: { ...process.env, PEERTABLE_CREDENTIAL_FILE: state.credential, PEERTABLE_WATCH_NO_STDIN: '1' },
       logFile: join(spool.root, 'watch.log'),
       onError: error => { spool.update({ runtime: 'failed', error_code: 'PARENT_WATCH_START_FAILED', error_detail: error.message }) },

@@ -4,6 +4,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { openSync, closeSync, existsSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { liveNodeExecutable } from 'aiterm-steer-delivery'
 import { failure, readJson, atomicJson, windowsArgumentList } from './parent-platform.mjs'
 
 const self = fileURLToPath(import.meta.url)
@@ -54,7 +55,7 @@ export function launchDetached({ executable, args, cwd, env, logFile, onError })
   }
   const handshake = join(resolve(logFile, '..'), 'watch.launch.json')
   rmSync(handshake, { force: true })
-  const commandLine = windowsArgumentList([process.execPath, self, '--bootstrap', handshake, logFile, cwd, executable, ...args])
+  const commandLine = windowsArgumentList([liveNodeExecutable(), self, '--bootstrap', handshake, logFile, cwd, executable, ...args])
   const input = JSON.stringify({ commandLine, cwd, env: Object.entries(env).filter(([name, value]) => value !== undefined && !name.startsWith('=')).map(([name, value]) => `${name}=${value}`) })
   const run = spawnSync('pwsh.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(wmiCreate, 'utf16le').toString('base64')], { input, encoding: 'utf8', windowsHide: true })
   if (run.error?.code === 'ENOENT') throw failure('PARENT_PWSH7_MISSING')

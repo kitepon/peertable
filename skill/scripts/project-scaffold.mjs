@@ -2,6 +2,7 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { basename, dirname, join, resolve } from 'node:path'
+import { liveNodeExecutable } from 'aiterm-steer-delivery'
 import { packageRoot } from './install-skill.mjs'
 import { expectedRoomMcp, isExpectedRoomMcp } from './room-mcp-config.mjs'
 import { resolveLatticeInvocation } from './seat-usage.mjs'
@@ -27,7 +28,7 @@ export function readSetup(project) {
 }
 
 export function runScript(script, args = [], { root = packageRoot, env = process.env, cwd } = {}) {
-  return execFileSync(process.execPath, [join(root, 'skill', 'scripts', script), ...args], {
+  return execFileSync(liveNodeExecutable(), [join(root, 'skill', 'scripts', script), ...args], {
     encoding: 'utf8', cwd, env, stdio: ['ignore', 'pipe', 'pipe'],
   }).trim()
 }

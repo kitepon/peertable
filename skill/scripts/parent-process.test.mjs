@@ -23,7 +23,12 @@ setInterval(() => {}, 1000)
 `)
   const args = [probe, 'a b', 'q"uote', '日本語', 'tail\\', "it's"]
   const env = { ...process.env, PEERTABLE_CREDENTIAL_FILE: join(root, 'cred file'), PEERTABLE_WATCH_NO_STDIN: '1', PT_LAUNCH_VALUE: '日本語 "値" \'x\' %PATH%' }
-  const pid = launchDetached({ executable: process.execPath, args, cwd: work, env, logFile: log, onError: error => { throw error } })
+  const original = process.execPath
+  let pid
+  process.execPath = join(root, 'removed-node')
+  try {
+    pid = launchDetached({ executable: original, args, cwd: work, env, logFile: log, onError: error => { throw error } })
+  } finally { process.execPath = original }
   let identity
   t.after(() => { try { process.kill(pid) } catch {} rmSync(root, { recursive: true, force: true }) })
   const deadline = Date.now() + 20000
