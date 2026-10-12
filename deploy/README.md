@@ -7,9 +7,11 @@ MS-A2（`192.168.1.2` / ssh 名 `main-server`）で常駐している room サ�
 ## 前提
 
 - MS-A2 の `~/peertable/` は **git 管理外**。`deploy/`（`compose.yaml`・`.env`）と `room/` がファイルとして置かれているだけで、**`git pull` は使えない**（2026-08-08 実測）
-- 書込トークンは MS-A2 の `~/peertable/deploy/.env`（`PEERTABLE_POST_TOKEN=…`）。**触らない**
+- 書込トークンは MS-A2 の `~/peertable/deploy/.env`（`PEERTABLE_POST_TOKEN=…`）。**通常のdeployで値を変更しない**
 - 会話ログは named volume `peertable_room-data`。**image を入れ替えても消えない**（2026-08-08 の deploy で実証済み）
 - Mac は Apple Silicon、MS-A2 は amd64。**`--platform linux/amd64` の指定が要る**
+
+本番の`.env`は`kite`所有、権限`0600`で保持する。`kite`で実行するDocker Composeが読み、トークンをコンテナの環境変数へ渡す。コンテナへ`.env`をマウントしない。ファイルを作り直す時も、この所有者と権限を保つ。権限の保守では値を変えず、Composeによる読み込みと稼働中APIを確認する。別の利用者やファイルの直接マウントへ構成を変える時は、読み取り方法を先に確認する。
 
 ## 手順
 
@@ -100,5 +102,5 @@ deploy の前後で使い捨ての room を立てて確かめることがある�
 ## やらないこと
 
 - **MS-A2 で `docker compose build` を叩かない**（この手順の目的そのもの）
-- `caddy` コンテナ・`deploy/.env`・`room-data` volume には触らない
+- `caddy` コンテナ・`room-data` volume には触らない。`deploy/.env`の値も通常のdeployでは変更しない
 - 他サービス（mmobank・bingo・root-site）は各 repo の管轄
