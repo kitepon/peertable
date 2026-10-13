@@ -1,5 +1,5 @@
 # MS-A2 用の room サーバー常駐設定。
-# 書込トークンは compose と同じ場所の .env（PEERTABLE_POST_TOKEN=...）で渡す。
+# 書込トークンは op.env の1Password参照から up.sh で環境変数へ渡す。
 #
 # image は開発マシンで焼いて `docker save | ssh docker load` で運ぶ（deploy/README.md）。
 # 本番ホストでは build しない——`build:` を書くと `compose up` が本番で焼き始めるので、置かない。
@@ -11,7 +11,7 @@ services:
     container_name: peertable-room
     restart: unless-stopped
     environment:
-      PEERTABLE_POST_TOKEN: ${PEERTABLE_POST_TOKEN:?set in deploy/.env}
+      PEERTABLE_POST_TOKEN: ${PEERTABLE_POST_TOKEN:?load with op run via deploy/up.sh}
     volumes:
       - room-data:/data
     ports:

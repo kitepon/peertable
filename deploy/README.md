@@ -6,12 +6,14 @@ MS-A2（`192.168.1.2` / ssh 名 `main-server`）で常駐している room サ�
 
 ## 前提
 
-- MS-A2 の `~/peertable/` は **git 管理外**。`deploy/`（`compose.yaml`・`.env`）と `room/` がファイルとして置かれているだけで、**`git pull` は使えない**（2026-08-08 実測）
-- 書込トークンは MS-A2 の `~/peertable/deploy/.env`（`PEERTABLE_POST_TOKEN=…`）。**通常のdeployで値を変更しない**
+- MS-A2 の `~/peertable/` は **git 管理外**。`deploy/` と `room/` がファイルとして置かれているだけで、**`git pull` は使えない**（2026-08-08 実測）
+- 書込トークンの正本は1Passwordの保管庫「開発工場」。MS-A2 の `~/peertable/deploy/op.env` に `PEERTABLE_POST_TOKEN=op://保管庫ID/項目ID/credential` の参照だけを置く。**通常のdeployで値を変更しない**
 - 会話ログは named volume `peertable_room-data`。**image を入れ替えても消えない**（2026-08-08 の deploy で実証済み）
 - Mac は Apple Silicon、MS-A2 は amd64。**`--platform linux/amd64` の指定が要る**
 
-本番の`.env`は`kite`所有、権限`0600`で保持する。`kite`で実行するDocker Composeが読み、トークンをコンテナの環境変数へ渡す。コンテナへ`.env`をマウントしない。ファイルを作り直す時も、この所有者と権限を保つ。権限の保守では値を変えず、Composeによる読み込みと稼働中APIを確認する。別の利用者やファイルの直接マウントへ構成を変える時は、読み取り方法を先に確認する。
+`op.env`は`kite`所有、権限`0600`で保持する。値を含む平文`.env`は通常運用では置かない。`kite`のlogin shellで[up.sh](up.sh)を実行し、[op run](https://www.1password.dev/cli/reference/commands/run)が取得した値をDocker Composeへ渡す。Composeはシェルの環境変数を展開し、`--env-file /dev/null`で既存`.env`への依存を外す。必須変数の`${PEERTABLE_POST_TOKEN:?…}`により、未設定・空の値なら起動を拒否する。opの取得に失敗した時もComposeは実行されない。
+
+opを呼ぶのは手動の起動・入替の時だけ。1回のCLI呼び出しでもAPIの消費が複数回になる場合がある。作成後のDockerの`restart: unless-stopped`は保存済みの環境変数を使い、1Passwordを読み直さない。Service Accountをコンテナへ渡さず、コンテナへ設定ファイルもマウントしない。Dockerの保存済み環境にはトークンが残る。
 
 ## 手順
 
@@ -60,12 +62,12 @@ ssh main-server "grep image: ~/peertable/deploy/compose.yaml"
 `deploy/compose.yaml` の `image:` を新しいタグへ書き換え、MS-A2 の `~/peertable/deploy/compose.yaml` へ反映してから:
 
 ```bash
-ssh main-server "cd ~/peertable/deploy && docker compose up -d room"
+ssh main-server "bash -lc 'cd ~/peertable/deploy && sh ./up.sh'"
 ssh main-server "docker ps --filter name=peertable-room --format '{{.Names}}\t{{.Status}}\t{{.Image}}'"
 curl -sS -o /dev/null -w "%{http_code}\n" http://192.168.1.2:18860/api/<room>/members
 ```
 
-**この操作で room が数秒落ちる。** 卓が動いている時は、**実施時刻を事前に room へ宣言してから**叩く。オーナー在席時間帯に行う。
+imageや実効設定が変わる場合、この操作でroomが数秒停止する。同じimage・実効設定ならコンテナを維持できる。卓が動いている時は、**実施時刻を事前にroomへ宣言してから**実行する。オーナー在席時間帯に行う。
 
 ### 4. 公開面の確認
 
@@ -85,12 +87,31 @@ curl -sN --max-time 30 https://peertable.kitepon.dev/api/<room>/events | head -6
 ```bash
 ssh main-server "docker images peertable-room --format '{{.Tag}}'"   # 戻り先が在るか **先に** 確認する
 # compose.yaml の image: を旧タグへ戻して
-ssh main-server "cd ~/peertable/deploy && docker compose up -d room"
+ssh main-server "bash -lc 'cd ~/peertable/deploy && sh ./up.sh'"
 ```
 
 **戻り先が無い状態で切り替えない。** 入れ替え前に必ず `docker images` を見る。古いタグは容量を圧迫しない限り消さない。
 
 戻り先は日付や文書中の固定タグから選ばず、切替直前に実機で確認した稼働image tagを記録して使う。会話ログの`peertable_room-data` volumeはimage rollbackの対象にせず、そのまま保持する。旧imageが無い場合は切替を始めない。
+
+### 1Password移行を戻す時
+
+参照からの読込みと平文復旧を事前に試す。以下の`--check`は、値を表示せず、一時的な0600ファイルを生成・照合して削除する。既存`.env`があれば、その内容との一致も確認する。
+
+```bash
+ssh main-server "bash -lc 'cd ~/peertable/deploy && op run --env-file=op.env -- python3 restore-env.py --check'"
+```
+
+移行前の起動方法へ戻す必要がある場合は、同じ参照から`.env`を作り直し、従来どおりComposeを実行する。復旧スクリプトは既存`.env`を上書きせず、未設定・空・未展開の参照も拒否する。
+
+```bash
+ssh main-server "bash -lc 'cd ~/peertable/deploy && op run --env-file=op.env -- python3 restore-env.py'"
+ssh main-server "cd ~/peertable/deploy && docker compose up -d room"
+```
+
+復旧した`.env`はkite所有、0600。正常化後はop経由の起動と同一値を確認してから削除する。平文バックアップは作らない。この復旧には1Passwordへのアクセスが必要で、1Password自体が利用できない場合の復旧は保証しない。移行時には稼働コンテナ・image・ログvolumeを維持する。
+
+変更の検査は`python3 -m unittest discover -s deploy -p 'test_*.py'`と`npm run test:docs`で行う。deployの資材はnpm配布対象外なので、この変更だけではnpmの版を上げない。
 
 ## 検証用に room サーバーを立てる時の注意
 
@@ -102,5 +123,5 @@ deploy の前後で使い捨ての room を立てて確かめることがある�
 ## やらないこと
 
 - **MS-A2 で `docker compose build` を叩かない**（この手順の目的そのもの）
-- `caddy` コンテナ・`room-data` volume には触らない。`deploy/.env`の値も通常のdeployでは変更しない
+- `caddy` コンテナ・`room-data` volume には触らない。書込トークンの値も通常のdeployでは変更しない
 - 他サービス（mmobank・bingo・root-site）は各 repo の管轄
