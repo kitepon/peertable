@@ -2,9 +2,21 @@
 
 MS-A2（`192.168.1.2` / ssh 名 `main-server`）で常駐している room サーバーの入れ替え手順。
 
-**本番ホストでは build しない。** image は開発マシン（Mac）で焼き、`docker save | ssh docker load` で運んで、MS-A2 では `compose up` だけを叩く。2026-08-08 の ext4 障害で build 同居のコストが顕在化したことへの構造対処（因果は未確定だが、build と本番常駐を同じホストに置く理由は元から無い）。
+## 自分のサーバーで使う場合
 
-## 前提
+Peertableの利用・導入・テストに1PasswordのCLI・アプリ・アカウントは不要。この`deploy/`はMS-A2の運用資材で、npm配布物には含まれない。以下の1Password連携は、このホストの運営者が選んだ鍵の管理方法である。
+
+このCompose設定が必要とするのは、書込トークンの環境変数`PEERTABLE_POST_TOKEN`。自分のホストではimageと公開ポートのIPアドレスを自分の環境に合わせ、トークンを環境変数に設定したうえで、`deploy/`から直接起動できる。
+
+```bash
+docker compose --env-file /dev/null up -d room
+```
+
+`up.sh`はMS-A2の1Password連携用なので、この起動には使わない。トークンの保管方法は運営者が選べる。公開リポジトリの`deploy/test_deploy.py`も、一時的な代替コマンドで連携を検査するため、1Passwordへの接続は不要。
+
+## MS-A2の運用前提
+
+**本番ホストでは build しない。** image は開発マシン（Mac）で焼き、`docker save | ssh docker load` で運んで、MS-A2 では `compose up` だけを叩く。2026-08-08 の ext4 障害で build 同居のコストが顕在化したことへの構造対処（因果は未確定だが、build と本番常駐を同じホストに置く理由は元から無い）。
 
 - MS-A2 の `~/peertable/` は **git 管理外**。`deploy/` と `room/` がファイルとして置かれているだけで、**`git pull` は使えない**（2026-08-08 実測）
 - 書込トークンの正本は1Passwordの保管庫「開発工場」。MS-A2 の `~/peertable/deploy/op.env` に `PEERTABLE_POST_TOKEN=op://保管庫ID/項目ID/credential` の参照だけを置く。**通常のdeployで値を変更しない**
