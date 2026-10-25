@@ -88,6 +88,14 @@ curl -sS -D- -o /dev/null https://peertable.kitepon.dev/api/<room>/members | gre
 curl -sN --max-time 30 https://peertable.kitepon.dev/api/<room>/events | head -6   # event: ping が25秒以内に来るか
 ```
 
+## room imageの信頼ストア更新
+
+`room/Dockerfile`は公式Node 24.22.1 / Alpine 3.24のimage digestを固定し、公式のCA packageとbundleを20261020-r0以上へ更新する。build時にOSの束とNode同梱ストアの両方を照合し、emSign ECC Root CA G3とAAA Certificate Servicesの不在、emSign Root CA G1の保持を確認する。TLSの検証設定は変更しない。
+
+基底を更新する時は公式indexと対象platformのmanifestを保存し、実Node版・CA package版・両ストアを候補imageで確認する。通常API、認証、SQLiteの保存と再起動後の読戻し、SSE、証明書検証を有効にした通常TLSを隔離環境で確認する。本番データや書込トークンは隔離環境へ渡さない。
+
+候補のsource commit・image ID・archiveのhashと、直前の本番image・Compose・volumeを記録してから、既存の許可条件に従って反映する。反映後は稼働imageと起動時刻、両ストア、通常APIと履歴保持を確認する。戻す場合は直前imageとComposeを使い、最新データのvolumeを維持する。旧imageへ戻した場合は証明書の修正も戻るため、SEC-021の反映済みとは扱わない。
+
 ## 親配送の変更を反映する時
 
 親配送を含むreleaseでは、`npm run verify:parent-delivery`の合格と既定ブランチへの着地を先に確認する。オーナーが実機受入の完了前に公開を指示した対象だけは、[公開裁定](../rag/parent-delivery/release-decision.json)のversion・runtime一致を確認して進め、未確認を合格に変更しない。roomの親`parent_receiver`、宛先別`unknown` receiptとhealth、UTF-8本文保存はサーバー側の契約であり、clientの導入だけで本番反映済みとしない。roomの入替と公開API確認を済ませてから、利用端末へregistry版をglobal installし、同じ親会話へのDM・複数人宛・allの公開後smokeを行う。旧imageへ戻す時もログvolumeは保持する。
