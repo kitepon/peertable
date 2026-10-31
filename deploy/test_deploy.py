@@ -64,7 +64,7 @@ shift 3
 export PEERTABLE_POST_TOKEN=resolved-fixture
 exec "$@"
 ''')
-        fake_docker = bin_dir / "docker"
+        fake_docker = bin_dir / "python3"
         fake_docker.write_text('''#!/bin/sh
 [ "$PEERTABLE_POST_TOKEN" = resolved-fixture ] || exit 93
 printf '%s\\n' "$@" > "$EXPECTED_CWD/docker-called"
@@ -77,7 +77,7 @@ printf '%s\\n' "$@" > "$EXPECTED_CWD/docker-called"
         self.assertEqual(subprocess.run(command, env=self.env, capture_output=True).returncode, 0)
         marker = self.root / "docker-called"
         self.assertEqual(marker.read_text().splitlines(),
-                         ["compose", "--env-file", "/dev/null", "up", "-d", "room"])
+                         ["./deploy-room.py"])
         marker.unlink()
         self.env["OP_FAIL"] = "1"
         self.assertEqual(subprocess.run(command, env=self.env, capture_output=True).returncode, 17)

@@ -50,7 +50,16 @@ roomのimageには`server.mjs`と、親の配送種別・healthを定義する`p
 ### 2. 運搬（registry 無し・LAN 直送）
 
 ```bash
-docker save peertable-room:$TAG | ssh main-server docker load
+# image archiveは主機SSDを経由させず、QNAPの下記配置へ転送して検証後にloadする。
+# QNAP控えと自動整理の規則を先に確認する。
+docker save -o peertable-room.tar peertable-room:$TAG
+IMAGE_KEY=$(docker image inspect --format '{{.Id}}' peertable-room:$TAG | sed 's/^sha256://')
+shasum -a 256 peertable-room.tar | awk '{print $1}' > peertable-room.tar.sha256
+ssh main-server 'mountpoint -q /var/mnt/qnap-backups && umask 077 && mkdir -p /var/mnt/qnap-backups/main-server/products/peertable/images'
+scp peertable-room.tar main-server:/var/mnt/qnap-backups/main-server/products/peertable/images/$IMAGE_KEY.tar
+scp peertable-room.tar.sha256 main-server:/var/mnt/qnap-backups/main-server/products/peertable/images/$IMAGE_KEY.tar.sha256
+# 保存先のchecksumを元値と照合してから、QNAPにあるarchiveをloadする。
+ssh main-server "docker load -i /var/mnt/qnap-backups/main-server/products/peertable/images/$IMAGE_KEY.tar"
 ssh main-server "docker images peertable-room --format '{{.Repository}}:{{.Tag}}'"   # 載ったか確認
 ```
 
@@ -88,6 +97,8 @@ curl -sS -D- -o /dev/null https://peertable.kitepon.dev/api/<room>/members | gre
 curl -sN --max-time 30 https://peertable.kitepon.dev/api/<room>/events | head -6   # event: ping が25秒以内に来るか
 ```
 
+`up.sh` は下記の受入・整理を自動実行する。上の公開面確認は追加の観測にも使える。
+
 ## room imageの信頼ストア更新
 
 `room/Dockerfile`は公式Node 24.22.1 / Alpine 3.24のimage digestを固定し、公式のCA packageとbundleを20261020-r0以上へ更新する。build時にOSの束とNode同梱ストアの両方を照合し、emSign ECC Root CA G3とAAA Certificate Servicesの不在、emSign Root CA G1の保持を確認する。TLSの検証設定は変更しない。
@@ -110,7 +121,7 @@ ssh main-server "docker images peertable-room --format '{{.Tag}}'"   # 戻り先
 ssh main-server "bash -lc 'cd ~/peertable/deploy && sh ./up.sh'"
 ```
 
-**戻り先が無い状態で切り替えない。** 入れ替え前に必ず `docker images` を見る。古いタグは容量を圧迫しない限り消さない。
+**戻り先が無い状態で切り替えない。** 入れ替え前に必ず `docker images` を見る。MS-A2では稼働中と直前の戻し用の2世代を残し、それより古い成功済みimageは受入後の自動整理で処理する。
 
 戻り先は日付や文書中の固定タグから選ばず、切替直前に実機で確認した稼働image tagを記録して使う。会話ログの`peertable_room-data` volumeはimage rollbackの対象にせず、そのまま保持する。旧imageが無い場合は切替を始めない。
 
@@ -145,3 +156,15 @@ deploy の前後で使い捨ての room を立てて確かめることがある�
 - **MS-A2 で `docker compose build` を叩かない**（この手順の目的そのもの）
 - `caddy` コンテナ・`room-data` volume には触らない。書込トークンの値も通常のdeployでは変更しない
 - 他サービス（mmobank・bingo・root-site）は各 repo の管轄
+
+## QNAP控えと自動整理
+
+MS-A2の正規入口 `up.sh` は1Passwordで解決した環境から `deploy-room.py` を呼ぶ。同スクリプトはflockで多重配備を拒否し、直前のimageと履歴を採取、Compose起動、実image・LAN/公開API・既存履歴prefix・認証・公開SSEの受入後に必ずcleanupを実行する。初回の停止状態からの導入には使わず、既存roomの更新を対象とする。通常の在席・事前通知・許可条件は維持する。
+
+配備元のarchiveは、主機の `/var/mnt/qnap-backups` が実mountであることを確認して、`/var/mnt/qnap-backups/main-server/products/peertable/images/<image IDのsha256:以後>.tar` へ直接転送する。併せて `.tar.sha256` に元archiveのSHA-256を保存する。archiveはdocker save形式で、記録したタグとconfig IDを含める。現用、直前版、整理対象の全archiveが揃い、checksumとmanifest内のconfig ID・タグを読戻し検証できるまで削除しない。archiveがない旧世代は保留し、担当が必要な控えを準備する。QNAPが未mountならSSDへ代替せず保留する。整理実装はdocker saveを呼ばない。
+
+受入成功を記録した `image-retention.json` の現用と直前1世代を保持する。削除対象は履歴にある単独peertable-roomタグだけ。停止中を含む全container参照、他製品タグ/digest、未登録候補・別タグを持つimageは保護する。曖昧な候補は保持し、参照・mount・現用を削除直前にも確認する。force、全体prune、volume削除は行わない。履歴のIDが2世代を超えていても未知候補は消さない。
+
+受入失敗時はexit 1でpending履歴を保持し、cleanupへ進まない。復旧条件に沿って現用を確認し、受入できた版を確定してからpendingを解消する。成功後の整理失敗はexit 3、JSONのdeploymentはaccepted、cleanupはdeferredとなる。**このexit 3だけを理由にサービスを巻き戻さない。** 控え等の原因解消後は `python3 deploy-room.py --cleanup` でサービスを動かさず再試行できる。履歴を推測して編集しない。初回の同image起動など直前版が未記録の場合も削除を保留する。
+
+QNAPには検証済み配備履歴も保存する。復旧ではarchiveのchecksumを確認しQNAPからdocker loadし、記録した直前タグをComposeへ戻し、最新volumeを保持する。稼働中の秘密値はarchiveや履歴へ記録しない。自動整理のためにサービスを再配備・停止しない。KIOXIA大量read時は事前に時刻・量を通知し、ionice idleと元readの10 MiB/s以下制限が必要（rsyncの制限だけではdocker saveの元readを制限しない）。
