@@ -22,7 +22,7 @@ test('同じ設定の控えは再利用し、異なる復旧元と中断後の�
   assert.equal(readdirSync(directory).filter(name => name.endsWith('.tar')).length, 2)
   if (process.platform !== 'win32') {
     assert.equal(statSync(second).mode & 0o777, 0o600)
-    chmodSync(file, 0o600)
+    chmodSync(file, (statSync(file).mode & 0o777) === 0o600 ? 0o644 : 0o600)
     assert.notEqual(backup([file], directory), second)
   }
 })
