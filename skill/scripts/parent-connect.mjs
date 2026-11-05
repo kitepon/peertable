@@ -1,11 +1,11 @@
 // user領域のMCP/hookはPeertableのentryだけを所有する。hookの中身と登録はAitermと同じ（aiterm-steer-delivery）。
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, writeFileSync, renameSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { parentHome, atomicJson, readJson, failure } from './parent-platform.mjs'
-import { digest } from './parent-delivery.mjs'
+import { digest, withParentLock } from './parent-delivery.mjs'
 import { PEERTABLE_PROFILE, entries, parentServerName, steer } from './parent-steer.mjs'
 
 export { parentServerName }
@@ -146,14 +146,29 @@ export function replaceOwnedToml(text, replacement, expected, rootKeys) {
   }
   return inserted ? out : `${out}${out && !out.endsWith('\n') ? '\n' : ''}${replacement}`
 }
-function backup(files) {
+export function backup(files, dir) {
   const present = files.filter(existsSync)
   if (!present.length) return null
-  const dir = join(parentHome(), 'backups'); mkdirSync(dir, { recursive: true, mode: 0o700 })
-  const file = join(dir, `${Date.now()}-${process.pid}.tar`)
-  // tarは設定fileだけを控える。認証や会話のHOME全体はコピーしない。
-  execFileSync(process.platform === 'win32' ? 'tar.exe' : 'tar', ['-cf', file, ...present], { stdio: ['ignore', 'pipe', 'pipe'] })
-  return file
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  return withParentLock(join(dir, '.transactions'), () => {
+    const temporary = join(dir, '.pending.tar')
+    rmSync(temporary, { force: true })
+    const signature = () => digest(present.map(file => {
+      const stat = lstatSync(file)
+      if (!stat.isFile() && !stat.isSymbolicLink()) throw failure('PARENT_BACKUP_SOURCE_INVALID')
+      return [file, stat.mode, stat.uid, stat.gid, stat.isSymbolicLink() ? ['link', readlinkSync(file)] : ['file', readFileSync(file, 'base64')]]
+    }))
+    const before = signature(), file = join(dir, `${before}.tar`)
+    if (existsSync(file)) return file
+    try {
+      // tarは設定fileだけを控える。認証や会話のHOME全体はコピーしない。
+      execFileSync(process.platform === 'win32' ? 'tar.exe' : 'tar', ['-cf', temporary, ...present], { stdio: ['ignore', 'pipe', 'pipe'] })
+      if (signature() !== before) throw failure('PARENT_BACKUP_SOURCE_CHANGED')
+      chmodSync(temporary, 0o600)
+      renameSync(temporary, file)
+      return file
+    } finally { rmSync(temporary, { force: true }) }
+  })
 }
 function writeText(file, text) { mkdirSync(dirname(file), { recursive: true }); const temp = `${file}.${process.pid}.tmp`; writeFileSync(temp, text, { mode: 0o600 }); renameSync(temp, file); if (readFileSync(file, 'utf8') !== text) throw failure('PARENT_CONFIG_READBACK_FAILED') }
 
@@ -177,7 +192,7 @@ export async function connectParent(target, { remove = false } = {}) {
   const paths = pathFor(target), recordPath = join(parentHome(), 'connections', `${target}.json`)
   const previous = existsSync(recordPath) ? readJson(recordPath) : null
   const registration = parentRegistration()
-  const archive = backup([paths.mcp, paths.hooks])
+  const archive = backup([paths.mcp, paths.hooks], join(parentHome(), 'backups'))
   const legacyRemoved = removeLegacyHooks(paths.hooks)
   let delivery = null
   if (target === 'claude' || target === 'cursor') {

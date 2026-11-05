@@ -6,7 +6,7 @@
 | --- | --- |
 | room/server.mjs HTTP | 認証済POST→volumeのJSONL/SQLite→応答/SSE。archiveはmarker、明示DELETEだけが会話を削除 |
 | setup/resume/launch/leave | 設定→.team/席credential/bridge記録→Aiterm公開API。leaveで本人席資材を撤去、teardownは停止・成果/ログ控え→room解散→所有物撤去。失敗はincompleteで再開足場を保持 |
-| parent-connect/parent-delivery | 本人設定→設定tarと接続記録、room event→spool→channel→receipt。unknown/再送防止/設定復旧元は利用者データとして保持 |
+| parent-connect/parent-delivery | 本人設定→設定tarと接続記録、room event→spool→channel→receipt。設定tarは下記の内容単位で重複を防ぐ。unknown/再送防止/異なる設定の復旧元は利用者データとして保持 |
 | package/CI | files指定→npm pack/publish→利用者導入。ci.ymlのUbuntu deployment jobは標準Pythonで受信/保持/復旧のtest_*.pyを実行。試験tempdirはfinally回収、共有runner内部は製品の削除範囲外 |
 | image build | room/Dockerfile限定COPY→開発機Docker image。現用/直前/他者参照を保護、共有build cacheは製品がpruneしない |
 | 運搬（今回修理） | 開発機docker save→SSH stdin→receive-image.py→QNAP専有stage→hash/identity検証→content-addressed tar/hash。ローカルtarを生成しない |
@@ -28,3 +28,11 @@ QNAPもcurrent/previousと参照中・未知の保護対象を保持。回収す
 受入失敗はexit1/pending保持で削除0。受入後の整理失敗はexit3/accepted-deferredでサービスを戻さず、同じ`--cleanup`で再開する。配備/受信のlockは製品の全writerが守る。第三者の直接Docker操作と同時に整理しない。履歴seedは実切替原本と現物照合を担当が行い、日時やタグだけから作らない。
 
 会話/台帳・spool/receipt/unknown・必要な復旧設定をcacheとして期限削除しない。自席の描画依存/取得cache/証拠はBotの環境手順が所有し、製品CLIから他者の作業領域を回収しない。
+
+## 親接続の設定控え（追加調査後・実装前）
+
+`parent-connect.mjs:connectParent`→`backup(files, directory)`→既存 `withParentLock`→設定pathとbytesのdigest→同内容tarがあれば再利用、無ければ固定専有 `.pending.tar` にtar作成→作成前後の入力digest照合→0600/atomic rename→控えpathを接続記録へ返す。競合・tar失敗時は設定更新へ進まず、finallyで未確定tarを回収する。SIGKILLの残りは次の同lock取得後に回収する。lockのownerは既存PID/開始identityで判断し、稼働中の他writerは保護する。
+
+古いtimestamp名の控えは、一律期限削除しない。現行接続記録が参照するtarと内容の異なる復旧元を保持する。既重複の実整理は担当が端末内でtar内の全entry名/種別/モード/内容digestを比較し、完全一致の組だけ、参照tarまたは一つを保持して残りを回収する。内容や資格値は端末外へ出さない。通常connectは同じ設定に対して新しい控えを増やさず、旧timestamp控えの自動削除は行わない。
+
+公開はpackage/lockと`room/client.mjs`のMCP_VERSIONを同じ0.9.12に揃え、既定branchへ着地後のtagで行う。roomサーバー実装は変更せず、image更新/再配備は不要。4台のglobal package更新と導入診断を確認し、実接続や稼働席再起動は行わない。
