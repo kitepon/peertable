@@ -7,7 +7,7 @@
 | room/server.mjs HTTP | 認証済POST→volumeのJSONL/SQLite→応答/SSE。archiveはmarker、明示DELETEだけが会話を削除 |
 | setup/resume/launch/leave | 設定→.team/席credential/bridge記録→Aiterm公開API。leaveで本人席資材を撤去、teardownは停止・成果/ログ控え→room解散→所有物撤去。失敗はincompleteで再開足場を保持 |
 | parent-connect/parent-delivery | 本人設定→設定tarと接続記録、room event→spool→channel→receipt。unknown/再送防止/設定復旧元は利用者データとして保持 |
-| package/CI | files指定→npm pack/publish→利用者導入。試験tempdirはfinally回収、共有runner内部は製品の削除範囲外 |
+| package/CI | files指定→npm pack/publish→利用者導入。ci.ymlのUbuntu deployment jobは標準Pythonで受信/保持/復旧のtest_*.pyを実行。試験tempdirはfinally回収、共有runner内部は製品の削除範囲外 |
 | image build | room/Dockerfile限定COPY→開発機Docker image。現用/直前/他者参照を保護、共有build cacheは製品がpruneしない |
 | 運搬（今回修理） | 開発機docker save→SSH stdin→receive-image.py→QNAP専有stage→hash/identity検証→content-addressed tar/hash。ローカルtarを生成しない |
 | 配備 | up.sh→op run→deploy-room.py:deploy→flock/pending→Compose→accept→current/previous/accepted→cleanup |
