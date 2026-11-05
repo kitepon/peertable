@@ -25,6 +25,8 @@
 
 `verify_archive`はtar全体SHAに加え、従来のdocker save manifest/config方式、またはOCI indexのtag→descriptor digest→index/manifest/config/layer全blobのsize/SHAを照合する。Dockerが返すIDをconfig digestへ決め打ちしない。旧配備の証明済aliasだけはstateの`archive_refs[id]`で元archive tagを指定し、未知aliasは推測しない。
 
+復旧のload後は、記録したimage IDへ記録した配備tagを明示して付ける。元archiveがSEC021 build tagを持つ場合も、別imageを同じものと推測せず、照合済の同IDだけをretagする。
+
 QNAPもcurrent/previousと参照中・未知の保護対象を保持。回収するのは、受入履歴にあり、全image/containerから消えた旧IDの正確なtar/hash/旧receiptだけ。回収後はacceptedとarchive_refsを圧縮する。途中終了で片方だけ残っても、同入口がmissing_okで残りを回収する。保持2世代のarchiveを検証する前に旧控えを消さない。固定`retention-receipt.json`で世代ごとの重複receiptを増やさない。
 
 受入失敗はexit1/pending保持で削除0。受入後の整理失敗はexit3/accepted-deferredでサービスを戻さず、同じ`--cleanup`で再開する。配備/受信のlockは製品の全writerが守る。第三者の直接Docker操作と同時に整理しない。履歴seedは実切替原本と現物照合を担当が行い、日時やタグだけから作らない。

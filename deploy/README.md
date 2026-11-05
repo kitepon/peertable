@@ -60,6 +60,8 @@ bash deploy/export-image.sh peertable-room:$TAG
 # 受信成功後だけloadする。受信側はtar全体SHAとimage本人/全blobを照合済み。
 IMAGE_KEY=${IMAGE_ID#sha256:}
 ssh main-server "docker load -i /var/mnt/qnap-backups/main-server/products/peertable/images/$IMAGE_KEY.tar"
+# 同IDの控えに元の別tagがある復旧でも、記録した配備tagを明示して作る。
+ssh main-server "docker tag '$IMAGE_ID' 'peertable-room:$TAG'"
 ssh main-server "docker images peertable-room --format '{{.Repository}}:{{.Tag}}'"   # 載ったか確認
 ```
 
