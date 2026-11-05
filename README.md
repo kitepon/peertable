@@ -6,6 +6,8 @@
 
 # Peertable
 
+Storage and artifact lifecycle: [ownership, data flow, retention and recovery](https://github.com/kitepon/peertable/blob/main/docs/storage-lifecycle.md).
+
 **A round table of peer agents. No orchestrator at the head.**
 
 Peertable turns Claude Code, Codex, Grok, and Cursor sessions into a team of *equal, long-lived peers* that discuss, claim, and ship work together — in a chat room you can watch live from anywhere.

@@ -91,9 +91,10 @@ def accept(before, expected):
     return image_ref(live)
 
 
-def verify_archive(image):
+def verify_archive(image, archive=None, archive_ref=None):
     # The incoming archive is staged on QNAP before load; never docker-save to SSD.
-    archive = BACKUPS / (image['id'].removeprefix('sha256:') + '.tar')
+    archive = archive or BACKUPS / (image['id'].removeprefix('sha256:') + '.tar')
+    archive_ref = archive_ref or image['ref']
     checksum = archive.with_suffix('.tar.sha256').read_text().split()[0]
     digest = hashlib.sha256()
     with archive.open('rb') as stream:
@@ -111,11 +112,44 @@ def verify_archive(image):
         for entry in manifest:
             config = bundle.extractfile(entry['Config']).read()
             if 'sha256:' + hashlib.sha256(config).hexdigest() == image['id']:
-                matched = image['ref'] in entry.get('RepoTags', [])
+                matched = archive_ref in entry.get('RepoTags', [])
                 if matched:
                     break
-        if not matched:
+        if matched:
+            return
+        if 'index.json' not in bundle.getnames():
             raise ValueError('archive does not contain recorded image/tag')
+        # Docker's containerd store reports the OCI manifest/index ID, not the config ID.
+        def check_blob(descriptor, document=False):
+            blob_id = descriptor['digest']
+            if not re.fullmatch(r'sha256:[0-9a-f]{64}', blob_id):
+                raise ValueError('invalid OCI blob digest')
+            member = bundle.getmember('blobs/sha256/' + blob_id[7:])
+            if not member.isfile() or member.size != descriptor['size']:
+                raise ValueError('invalid OCI blob size')
+            digest = hashlib.sha256()
+            with bundle.extractfile(member) as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                    digest.update(chunk)
+            if digest.hexdigest() != blob_id[7:]:
+                raise ValueError('OCI blob checksum mismatch')
+            if document:
+                value = json.load(bundle.extractfile(member))
+                if 'manifests' in value:
+                    for child in value['manifests']:
+                        check_blob(child, True)
+                else:
+                    check_blob(value['config'])
+                    for layer in value['layers']:
+                        check_blob(layer)
+        index = json.load(bundle.extractfile('index.json'))
+        for descriptor in index['manifests']:
+            if (descriptor['digest'] == image['id'] and
+                    descriptor.get('annotations', {}).get('io.containerd.image.name') in
+                    (archive_ref, 'docker.io/library/' + archive_ref)):
+                check_blob(descriptor, True)
+                return
+        raise ValueError('archive does not contain recorded image/tag')
 
 
 def removable(images, containers, accepted, keep):
@@ -128,7 +162,8 @@ def removable(images, containers, accepted, keep):
         if image_id in keep or image_id in used or ref is None:
             continue
         # Any other tag or digest may belong to another product or unfinished candidate.
-        if image.get('RepoTags') != [ref] or image.get('RepoDigests'):
+        if (image.get('RepoTags') != [ref] or
+                any(value != 'peertable-room@' + image_id for value in image.get('RepoDigests', []))):
             continue
         result.append({'id': image_id, 'ref': ref})
     return result
@@ -148,6 +183,9 @@ def cleanup(state):
     for image in [current, previous, *state['accepted']]:
         if not re.fullmatch(r'sha256:[0-9a-f]{64}', image['id']) or not re.fullmatch(r'peertable-room:[A-Za-z0-9_][A-Za-z0-9_.-]*', image['ref']):
             raise ValueError('invalid deployment record')
+    for image_id, ref in state.get('archive_refs', {}).items():
+        if not re.fullmatch(r'sha256:[0-9a-f]{64}', image_id) or not re.fullmatch(r'peertable-(room|sec021):[A-Za-z0-9_][A-Za-z0-9_.-]*', ref):
+            raise ValueError('invalid archive alias')
     live = inspect('container', 'peertable-room')
     if image_ref(live) != current or not live['State']['Running']:
         raise ValueError('live deployment changed')
@@ -158,13 +196,7 @@ def cleanup(state):
     candidates = removable(images, containers, state['accepted'], {current['id'], previous['id']})
     # Validate every required archive before the first deletion.
     for image in [current, previous, *candidates]:
-        verify_archive(image)
-    receipt = BACKUPS.parent / ('accepted-' + current['id'][7:] + '.json')
-    payload = json.dumps(state, sort_keys=True) + '\n'
-    receipt.write_text(payload)
-    receipt.chmod(0o600)
-    if receipt.read_text() != payload:
-        raise ValueError('QNAP deployment receipt verification failed')
+        verify_archive(image, archive_ref=state.get('archive_refs', {}).get(image['id']))
     for image in candidates:
         if not os.path.ismount(QNAP) or inspect('container', 'peertable-room')['Image'] != current['id']:
             raise ValueError('deployment or mount changed')
@@ -173,6 +205,32 @@ def cleanup(state):
         if image not in fresh:
             raise ValueError('image references changed; cleanup stopped')
         docker('image', 'rm', image['ref'])
+    # Also finish archive reclamation after a prior interruption following image removal.
+    present = {image['Id'] for image in inventory('image')} | {container['Image'] for container in inventory('container')}
+    keep = present | {current['id'], previous['id']}
+    retired = {image['id'] for image in state['accepted']} - keep
+    for image_id in retired:
+        if not os.path.ismount(QNAP) or inspect('container', 'peertable-room')['Image'] != current['id']:
+            raise ValueError('deployment or mount changed')
+        if any(image['Id'] == image_id for image in inventory('image')) or any(container['Image'] == image_id for container in inventory('container')):
+            raise ValueError('retired image became referenced')
+        archive = BACKUPS / (image_id[7:] + '.tar')
+        archive.unlink(missing_ok=True)
+        archive.with_suffix('.tar.sha256').unlink(missing_ok=True)
+        (BACKUPS.parent / ('accepted-' + image_id[7:] + '.json')).unlink(missing_ok=True)
+    state['accepted'] = [image for image in state['accepted'] if image['id'] not in retired]
+    state['archive_refs'] = {key: value for key, value in state.get('archive_refs', {}).items() if key not in retired}
+    save_state(state)
+    if not os.path.ismount(QNAP):
+        raise ValueError('QNAP mount changed')
+    receipt = BACKUPS.parent / 'retention-receipt.json'
+    payload = json.dumps(state, sort_keys=True) + '\n'
+    temporary = receipt.with_suffix('.tmp')
+    temporary.write_text(payload)
+    temporary.chmod(0o600)
+    temporary.replace(receipt)
+    if receipt.read_text() != payload:
+        raise ValueError('QNAP deployment receipt verification failed')
     return candidates
 
 

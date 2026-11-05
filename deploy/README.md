@@ -1,5 +1,7 @@
 # peertable room の deploy 手順（image-pull 型）
 
+[保存・回収の機能図とデータフロー](../docs/storage-lifecycle.md)は生成/受信/配備/回収と失敗後の再開を結ぶ正本。
+
 MS-A2（`192.168.1.2` / ssh 名 `main-server`）で常駐している room サーバーの入れ替え手順。
 
 ## 自分のサーバーで使う場合
@@ -50,15 +52,13 @@ roomのimageには`server.mjs`と、親の配送種別・healthを定義する`p
 ### 2. 運搬（registry 無し・LAN 直送）
 
 ```bash
-# image archiveは主機SSDを経由させず、QNAPの下記配置へ転送して検証後にloadする。
-# QNAP控えと自動整理の規則を先に確認する。
-docker save -o peertable-room.tar peertable-room:$TAG
-IMAGE_KEY=$(docker image inspect --format '{{.Id}}' peertable-room:$TAG | sed 's/^sha256://')
-shasum -a 256 peertable-room.tar | awk '{print $1}' > peertable-room.tar.sha256
-ssh main-server 'mountpoint -q /var/mnt/qnap-backups && umask 077 && mkdir -p /var/mnt/qnap-backups/main-server/products/peertable/images'
-scp peertable-room.tar main-server:/var/mnt/qnap-backups/main-server/products/peertable/images/$IMAGE_KEY.tar
-scp peertable-room.tar.sha256 main-server:/var/mnt/qnap-backups/main-server/products/peertable/images/$IMAGE_KEY.tar.sha256
-# 保存先のchecksumを元値と照合してから、QNAPにあるarchiveをloadする。
+# 開発機のbashで実行。両Python scriptを先にdeploy/へ反映する。
+set -o pipefail
+IMAGE_ID=$(docker image inspect --format '{{.Id}}' peertable-room:$TAG)
+# ローカルtar/SSD上の控えは作らず、検証付きQNAP受信へstreamを渡す。
+docker save peertable-room:$TAG | ssh main-server "python3 /home/kite/peertable/deploy/receive-image.py '$IMAGE_ID' 'peertable-room:$TAG'"
+# 受信成功後だけloadする。受信側はtar全体SHAとimage本人/全blobを照合済み。
+IMAGE_KEY=${IMAGE_ID#sha256:}
 ssh main-server "docker load -i /var/mnt/qnap-backups/main-server/products/peertable/images/$IMAGE_KEY.tar"
 ssh main-server "docker images peertable-room --format '{{.Repository}}:{{.Tag}}'"   # 載ったか確認
 ```
@@ -161,9 +161,11 @@ deploy の前後で使い捨ての room を立てて確かめることがある�
 
 MS-A2の正規入口 `up.sh` は1Passwordで解決した環境から `deploy-room.py` を呼ぶ。同スクリプトはflockで多重配備を拒否し、直前のimageと履歴を採取、Compose起動、実image・LAN/公開API・既存履歴prefix・認証・公開SSEの受入後に必ずcleanupを実行する。初回の停止状態からの導入には使わず、既存roomの更新を対象とする。通常の在席・事前通知・許可条件は維持する。
 
-配備元のarchiveは、主機の `/var/mnt/qnap-backups` が実mountであることを確認して、`/var/mnt/qnap-backups/main-server/products/peertable/images/<image IDのsha256:以後>.tar` へ直接転送する。併せて `.tar.sha256` に元archiveのSHA-256を保存する。archiveはdocker save形式で、記録したタグとconfig IDを含める。現用、直前版、整理対象の全archiveが揃い、checksumとmanifest内のconfig ID・タグを読戻し検証できるまで削除しない。archiveがない旧世代は保留し、担当が必要な控えを準備する。QNAPが未mountならSSDへ代替せず保留する。整理実装はdocker saveを呼ばない。
+配備元のarchiveは `receive-image.py` でQNAPの `main-server/products/peertable/images/<image IDのsha256:以後>.tar` へ受信する。受信は配備と同じlockを取り、実mountを確認してstdinを専有stageへ保存し、SHAとimage本人/タグを検証してtar/hashを確定する。成功・失敗時はstageを回収し、強制終了の残りも次の受信で回収する。既存の検証済archiveは再利用し上書きしない。旧SEC021控えの移設に限り元のpeertable-sec021タグも受け付け、配備tagとの対応は証明済の `archive_refs` に記録する。QNAPが未mountならSSDへ代替しない。整理はdocker saveを呼ばない。
 
-受入成功を記録した `image-retention.json` の現用と直前1世代を保持する。削除対象は履歴にある単独peertable-roomタグだけ。停止中を含む全container参照、他製品タグ/digest、未登録候補・別タグを持つimageは保護する。曖昧な候補は保持し、参照・mount・現用を削除直前にも確認する。force、全体prune、volume削除は行わない。履歴のIDが2世代を超えていても未知候補は消さない。
+検証はtar全体SHAと、従来のmanifest/config方式またはOCI index→manifest/config/layerの全descriptorのsize/SHAとタグを照合する。現用・直前・整理対象の控えが検証できるまでimageを削除しない。2世代と全参照を保持し、受入済で全image/containerから消えた旧IDのtar/hash/旧receiptを同じcleanupで回収する。accepted履歴を圧縮し固定名retention-receipt.jsonへ保存するため、世代ごとの控え/receiptも無制限には増えない。
+
+受入成功を記録した `image-retention.json` の現用と直前1世代を保持する。削除対象は履歴にある単独peertable-roomタグだけ。同repo@同image IDのdigestは本人参照として認識するが、他者alias/digest・停止中を含む全container参照・未登録候補は保護する。曖昧な候補は保持し、参照・mount・現用を削除直前にも確認する。force、全体prune、volume削除は行わない。履歴のIDが2世代を超えていても未知候補は消さない。
 
 受入失敗時はexit 1でpending履歴を保持し、cleanupへ進まない。復旧条件に沿って現用を確認し、受入できた版を確定してからpendingを解消する。成功後の整理失敗はexit 3、JSONのdeploymentはaccepted、cleanupはdeferredとなる。**このexit 3だけを理由にサービスを巻き戻さない。** 控え等の原因解消後は `python3 deploy-room.py --cleanup` でサービスを動かさず再試行できる。履歴を推測して編集しない。初回の同image起動など直前版が未記録の場合も削除を保留する。
 

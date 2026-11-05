@@ -31,6 +31,13 @@ class Retention(unittest.TestCase):
         self.assertEqual(d.removable(images, containers, accepted, {image(1)['id'], image(2)['id']}), [])
         self.assertEqual(d.removable(images, [], accepted, {image(1)['id'], image(2)['id']}), [image(3)])
 
+    def test_own_oci_digest_does_not_block_retirement_but_other_aliases_do(self):
+        own = metadata(3, digests=['peertable-room@' + image(3)['id']])
+        self.assertEqual(d.removable([own], [], [image(3)], set()), [image(3)])
+        for extra in ('other@' + image(3)['id'], 'peertable-room@sha256:' + '4'*64):
+            self.assertEqual(d.removable([{**own, 'RepoDigests': own['RepoDigests'] + [extra]}], [], [image(3)], set()), [])
+        self.assertEqual(d.removable([{**own, 'RepoTags': own['RepoTags'] + ['peertable-sec021:unknown']}], [], [image(3)], set()), [])
+
     def test_missing_mount_and_pending_history_stop_before_docker(self):
         with patch.object(d, 'docker') as docker, patch.object(d.os.path, 'ismount', return_value=False):
             for state in ({'pending': True}, {'current': image(1), 'previous': image(2)}):
@@ -51,10 +58,30 @@ class Retention(unittest.TestCase):
         live = {'Image': image(1)['id'], 'Config': {'Image': image(1)['ref']}, 'State': {'Running': True}}
         def inspect(kind, ref):
             return live if kind == 'container' else {'Id': next(x['id'] for x in state['accepted'] if x['ref'] == ref)}
-        with tempfile.TemporaryDirectory() as td, patch.object(d, 'BACKUPS', Path(td)/'images'), patch.object(d.os.path, 'ismount', return_value=True), patch.object(d, 'inspect', side_effect=inspect), patch.object(d, 'inventory', side_effect=lambda kind: [metadata(n) for n in (1,2,3)] if kind == 'image' else []), patch.object(d, 'verify_archive') as verify, patch.object(d, 'docker') as docker:
+        with tempfile.TemporaryDirectory() as td, patch.object(d, 'STATE', Path(td)/'state.json'), patch.object(d, 'BACKUPS', Path(td)/'images'), patch.object(d.os.path, 'ismount', return_value=True), patch.object(d, 'inspect', side_effect=inspect), patch.object(d, 'inventory', side_effect=lambda kind: [metadata(n) for n in (1,2,3)] if kind == 'image' else []), patch.object(d, 'verify_archive') as verify, patch.object(d, 'docker') as docker:
             self.assertEqual(d.cleanup(state), [image(3)])
             self.assertEqual(verify.call_count, 3)
             docker.assert_called_once_with('image', 'rm', 'peertable-room:v3')
+
+    def test_next_cleanup_finishes_archive_reclamation_and_keeps_unknowns(self):
+        state = {'current': image(1), 'previous': image(2), 'accepted': [image(n) for n in (1,2,3)], 'archive_refs': {image(3)['id']: image(3)['ref']}}
+        live = {'Image': image(1)['id'], 'Config': {'Image': image(1)['ref']}, 'State': {'Running': True}}
+        def inspect(kind, ref):
+            return live if kind == 'container' else {'Id': next(x['id'] for x in state['accepted'] if x['ref'] == ref)}
+        with tempfile.TemporaryDirectory() as td, patch.object(d, 'STATE', Path(td)/'state.json'), patch.object(d, 'BACKUPS', Path(td)/'images'), patch.object(d.os.path, 'ismount', return_value=True), patch.object(d, 'inspect', side_effect=inspect), patch.object(d, 'inventory', side_effect=lambda kind: [metadata(n) for n in (1,2)] if kind == 'image' else []), patch.object(d, 'verify_archive'), patch.object(d, 'docker') as docker:
+            d.BACKUPS.mkdir()
+            old_hash = d.BACKUPS/(image(3)['id'][7:]+'.tar.sha256')
+            old_hash.write_text('interrupted after tar deletion')
+            unknown = d.BACKUPS/(image(4)['id'][7:]+'.tar')
+            unknown.write_text('unknown data')
+            self.assertEqual(d.cleanup(state), [])
+            self.assertFalse(old_hash.exists())
+            self.assertEqual(unknown.read_text(), 'unknown data')
+            self.assertEqual(state['accepted'], [image(1),image(2)])
+            self.assertEqual(state['archive_refs'], {})
+            self.assertEqual(d.cleanup(state), [])
+            self.assertEqual(len(list(Path(td).glob('*receipt*.json'))), 1)
+            docker.assert_not_called()
 
     def test_archive_checksum_and_config_binding(self):
         import hashlib, io, tarfile
