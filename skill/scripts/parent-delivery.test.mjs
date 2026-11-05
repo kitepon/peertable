@@ -13,7 +13,7 @@ test.after(() => rmSync(home, { recursive: true, force: true }))
 
 const { ParentSpool, renderDelivery, digest } = await import('./parent-delivery.mjs')
 const { processIdentity, processHarness, harnessProcess, readHookEvent, hookCommand } = await import('./parent-platform.mjs')
-const { tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, grokMcpBlock, removeLegacyHooks, codexOwnedEntry, ownedTomlValues, connectParent, parentRegistration } = await import('./parent-connect.mjs')
+const { tomlHeaderKeys, replaceOwnedToml, ownedTomlBlock, grokMcpBlock, removeLegacyHooks, codexOwnedEntry, ownedTomlValues, connectParent, parentRegistration, backup } = await import('./parent-connect.mjs')
 const { clientHarness } = await import('./parent-caller.mjs')
 const { PEERTABLE_PROFILE, steer } = await import('./parent-steer.mjs')
 
@@ -26,6 +26,23 @@ const fixture = (t, harness = 'grok') => {
   return spool
 }
 const event = (seq, body = '日本語\n"引用"😀') => ({ type: 'parent_dm', seq, from: 'mio', to_names: ['bell', 'rui'], room: '試験', body, message: { seq, from: 'mio', to_names: ['bell', 'rui'], body } })
+
+test('再connectは破損/同名directoryの控えを検出し、MCPとhookと接続記録を維持する', async t => {
+  const directory = join(home, '.peertable', 'parent-receivers', 'backups')
+  const initial = await connectParent('claude')
+  const files = [initial.paths.mcp, initial.paths.hooks]
+  const record = join(home, '.peertable', 'parent-receivers', 'connections', 'claude.json')
+  const before = [...files, record].map(file => [file, readFileSync(file)])
+  const archive = backup(files, directory)
+  writeFileSync(archive, 'corrupt archive')
+  for (const kind of ['corrupt', 'directory']) {
+    if (kind === 'directory') { rmSync(archive); mkdirSync(archive) }
+    await assert.rejects(connectParent('claude'), { code: 'PARENT_BACKUP_UNVERIFIED' })
+    for (const [file, bytes] of before) assert.deepEqual(readFileSync(file), bytes)
+  }
+  // Other tests in this fixture home may configure Claude again.
+  rmSync(archive, { recursive: true }); rmSync(`${archive}.sha256`)
+})
 const claudeParent = session => {
   const hookRoot = steer.claudeHookRoot(PEERTABLE_PROFILE), request = `toolu_${randomUUID().replace(/-/gu, '')}`
   const self = steer.readRuntimeProcesses().find(row => row.pid === process.pid)

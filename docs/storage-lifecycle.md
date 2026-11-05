@@ -37,8 +37,10 @@ QNAPもcurrent/previousと参照中・未知の保護対象を保持。回収す
 
 `parent-connect.mjs:connectParent`→`backup(files, directory)`→既存 `withParentLock`→設定pathとbytesのdigest→同内容tarがあれば再利用、無ければ固定専有 `.pending.tar` にtar作成→作成前後の入力digest照合→0600/atomic rename→控えpathを接続記録へ返す。競合・tar失敗時は設定更新へ進まず、finallyで未確定tarを回収する。SIGKILLの残りは次の同lock取得後に回収する。lockのownerは既存PID/開始identityで判断し、稼働中の他writerは保護する。
 
+再利用前にtarと同名`.sha256`がともにsymlinkでない通常fileか確認し、checksumのSHA-256と対象名`<入力digest>.tar`を実tar bytes/今回の入力名へ照合する。作成時は入力前後一致と標準tarの一覧読戻し成功後にtar SHA/対象名を0600の一時checksumへ記録し、tar→checksumの順に確定、再利用と同じ検証を通してから設定更新へ返す。破損・別内容・directory・証明なし（旧0.9.12のchecksumなしを含む）は既物を保持し`PARENT_BACKUP_UNVERIFIED`で設定更新を止める。checksumを既tarへ後付けして正常化しない。中断で片方だけ確定した場合も未知として保持し、connectが控え保全の成功を返さない。未確定tar/checksumは同lock下のfinally/次回入口で回収する。
+
 古いtimestamp名の控えは、一律期限削除しない。現行接続記録が参照するtarと内容の異なる復旧元を保持する。既重複の実整理は担当が端末内でtar内の全entry名/種別/モード/所有者/リンク/内容digest/時刻以外のPAX属性を比較し、同じ復旧内容の組だけ、参照tar・新内容名tarまたは一つを保持して残りを回収する。時刻以外の復旧内容は省略しない。内容や資格値は端末外へ出さない。通常connectは同じ設定に対して新しい控えを増やさず、旧timestamp控えの自動削除は行わない。
 
-公開はpackage/lockと`room/client.mjs`のMCP_VERSIONを同じ0.9.12に揃え、既定branchへ着地後のtagで行う。roomサーバー実装は変更せず、image更新/再配備は不要。4台のglobal package更新と導入診断を確認し、実接続や稼働席再起動は行わない。
+公開はpackage/lockと`room/client.mjs`のMCP_VERSIONを同じ0.9.13に揃え、既定branchへ着地後のtagで行う。roomサーバー実装は変更せず、image更新/再配備は不要。4台のglobal package更新と導入診断を確認し、実接続や稼働席再起動は行わない。0.9.12までの証明のない内容名tarも保持して再利用を拒否し、既存tarへchecksumを後付けして成功扱いしない。
 
 権限変更の試験は実際の作成modeから異なるmodeへ変える。ホストのumaskによって最初から0600でも、同じmodeへの再設定を変更試験へ数えない。製品のmode別控え契約は同じ。

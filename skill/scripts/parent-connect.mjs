@@ -3,6 +3,7 @@ import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { parentHome, atomicJson, readJson, failure } from './parent-platform.mjs'
 import { digest, withParentLock } from './parent-delivery.mjs'
@@ -152,22 +153,42 @@ export function backup(files, dir) {
   mkdirSync(dir, { recursive: true, mode: 0o700 })
   return withParentLock(join(dir, '.transactions'), () => {
     const temporary = join(dir, '.pending.tar')
+    const temporaryChecksum = `${temporary}.sha256`
     rmSync(temporary, { force: true })
+    rmSync(temporaryChecksum, { force: true })
     const signature = () => digest(present.map(file => {
       const stat = lstatSync(file)
       if (!stat.isFile() && !stat.isSymbolicLink()) throw failure('PARENT_BACKUP_SOURCE_INVALID')
       return [file, stat.mode, stat.uid, stat.gid, stat.isSymbolicLink() ? ['link', readlinkSync(file)] : ['file', readFileSync(file, 'base64')]]
     }))
     const before = signature(), file = join(dir, `${before}.tar`)
-    if (existsSync(file)) return file
+    const checksum = `${file}.sha256`
+    const entry = path => {
+      try { return lstatSync(path) }
+      catch (error) { if (error.code === 'ENOENT') return null; throw error }
+    }
+    const checksumText = path => `${createHash('sha256').update(readFileSync(path)).digest('hex')}  ${before}.tar\n`
+    const verify = () => {
+      if (!entry(file)?.isFile() || !entry(checksum)?.isFile() || readFileSync(checksum, 'utf8') !== checksumText(file))
+        throw failure('PARENT_BACKUP_UNVERIFIED')
+      return file
+    }
+    // lstat also detects a dangling symlink, which existsSync would treat as absent.
+    if (entry(file) || entry(checksum)) return verify()
     try {
       // tarは設定fileだけを控える。認証や会話のHOME全体はコピーしない。
       execFileSync(process.platform === 'win32' ? 'tar.exe' : 'tar', ['-cf', temporary, ...present], { stdio: ['ignore', 'pipe', 'pipe'] })
       if (signature() !== before) throw failure('PARENT_BACKUP_SOURCE_CHANGED')
+      execFileSync(process.platform === 'win32' ? 'tar.exe' : 'tar', ['-tf', temporary], { stdio: ['ignore', 'pipe', 'pipe'] })
+      writeFileSync(temporaryChecksum, checksumText(temporary), { mode: 0o600 })
       chmodSync(temporary, 0o600)
       renameSync(temporary, file)
-      return file
-    } finally { rmSync(temporary, { force: true }) }
+      renameSync(temporaryChecksum, checksum)
+      return verify()
+    } finally {
+      rmSync(temporary, { force: true })
+      rmSync(temporaryChecksum, { force: true })
+    }
   })
 }
 function writeText(file, text) { mkdirSync(dirname(file), { recursive: true }); const temp = `${file}.${process.pid}.tmp`; writeFileSync(temp, text, { mode: 0o600 }); renameSync(temp, file); if (readFileSync(file, 'utf8') !== text) throw failure('PARENT_CONFIG_READBACK_FAILED') }
