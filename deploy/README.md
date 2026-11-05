@@ -55,8 +55,8 @@ roomのimageには`server.mjs`と、親の配送種別・healthを定義する`p
 # 開発機のbashで実行。両Python scriptを先にdeploy/へ反映する。
 set -o pipefail
 IMAGE_ID=$(docker image inspect --format '{{.Id}}' peertable-room:$TAG)
-# ローカルtar/SSD上の控えは作らず、検証付きQNAP受信へstreamを渡す。
-docker save peertable-room:$TAG | ssh main-server "python3 /home/kite/peertable/deploy/receive-image.py '$IMAGE_ID' 'peertable-room:$TAG'"
+# ローカルtarを作らずQNAPへ受信。成功後は送信元の未参照build tagを回収する。
+bash deploy/export-image.sh peertable-room:$TAG
 # 受信成功後だけloadする。受信側はtar全体SHAとimage本人/全blobを照合済み。
 IMAGE_KEY=${IMAGE_ID#sha256:}
 ssh main-server "docker load -i /var/mnt/qnap-backups/main-server/products/peertable/images/$IMAGE_KEY.tar"
@@ -161,7 +161,7 @@ deploy の前後で使い捨ての room を立てて確かめることがある�
 
 MS-A2の正規入口 `up.sh` は1Passwordで解決した環境から `deploy-room.py` を呼ぶ。同スクリプトはflockで多重配備を拒否し、直前のimageと履歴を採取、Compose起動、実image・LAN/公開API・既存履歴prefix・認証・公開SSEの受入後に必ずcleanupを実行する。初回の停止状態からの導入には使わず、既存roomの更新を対象とする。通常の在席・事前通知・許可条件は維持する。
 
-配備元のarchiveは `receive-image.py` でQNAPの `main-server/products/peertable/images/<image IDのsha256:以後>.tar` へ受信する。受信は配備と同じlockを取り、実mountを確認してstdinを専有stageへ保存し、SHAとimage本人/タグを検証してtar/hashを確定する。成功・失敗時はstageを回収し、強制終了の残りも次の受信で回収する。既存の検証済archiveは再利用し上書きしない。旧SEC021控えの移設に限り元のpeertable-sec021タグも受け付け、配備tagとの対応は証明済の `archive_refs` に記録する。QNAPが未mountならSSDへ代替しない。整理はdocker saveを呼ばない。
+配備元のarchiveは `export-image.sh`→`receive-image.py` でQNAPの `main-server/products/peertable/images/<image IDのsha256:以後>.tar` へ受信する。送信元の本人build tagは、受信検証成功後、同IDかつ全container無参照なら通常image rmで回収する。受信失敗・参照あり・ID変化時は元imageを保持する。KIOXIA上でのdocker saveには使わず、既存archiveから元readを10MiB/s以下にした転送を使う。受信は配備と同じlockを取り、実mountを確認してstdinを専有stageへ保存し、SHAとimage本人/タグを検証してtar/hashを確定する。成功・失敗時はstageを回収し、強制終了の残りも次の受信で回収する。既存の検証済archiveは再利用し上書きしない。旧SEC021控えの移設に限り元のpeertable-sec021タグも受け付け、配備tagとの対応は証明済の `archive_refs` に記録する。QNAPが未mountならSSDへ代替しない。整理はdocker saveを呼ばない。
 
 検証はtar全体SHAと、従来のmanifest/config方式またはOCI index→manifest/config/layerの全descriptorのsize/SHAとタグを照合する。現用・直前・整理対象の控えが検証できるまでimageを削除しない。2世代と全参照を保持し、受入済で全image/containerから消えた旧IDのtar/hash/旧receiptを同じcleanupで回収する。accepted履歴を圧縮し固定名retention-receipt.jsonへ保存するため、世代ごとの控え/receiptも無制限には増えない。
 

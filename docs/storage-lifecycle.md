@@ -9,13 +9,15 @@
 | parent-connect/parent-delivery | 本人設定→設定tarと接続記録、room event→spool→channel→receipt。設定tarは下記の内容単位で重複を防ぐ。unknown/再送防止/異なる設定の復旧元は利用者データとして保持 |
 | package/CI | files指定→npm pack/publish→利用者導入。ci.ymlのUbuntu deployment jobは標準Pythonで受信/保持/復旧のtest_*.pyを実行。試験tempdirはfinally回収、共有runner内部は製品の削除範囲外 |
 | image build | room/Dockerfile限定COPY→開発機Docker image。現用/直前/他者参照を保護、共有build cacheは製品がpruneしない |
-| 運搬（今回修理） | 開発機docker save→SSH stdin→receive-image.py→QNAP専有stage→hash/identity検証→content-addressed tar/hash。ローカルtarを生成しない |
+| 運搬（今回修理） | export-image.sh→開発機docker save→SSH stdin→receive-image.py→QNAP専有stage→hash/identity検証→content-addressed tar/hash→送信元の同ID/全container無参照を確認→その自製品tagだけ撤去。ローカルtarを生成しない |
 | 配備 | up.sh→op run→deploy-room.py:deploy→flock/pending→Compose→accept→current/previous/accepted→cleanup |
 | 回収（今回修理） | cleanup→全image/container inventory→現用/直前archive検証→受入済で未参照の旧roomタグ削除→再inventory→不存在の旧受入archive/hash/旧receipt回収→履歴圧縮/固定receipt |
 
 ## 運搬の正常・異常経路
 
 `receive-image.py`は配備と同じ`.deploy.lock`を非待機で取得し、QNAP実mountを必須とする。固定専有stage `images/.receive-image` はこの入口だけが所有する。前回SIGKILLの残りは次の同入口がlock取得後に回収する。stdin→一時tarとSHA→`verify_archive`でimage ID/tagを照合→checksumを先に、tarを後にrenameして確定する。既存の検証済tarは再利用し、上書きしない。正常・読取失敗・検証失敗はfinallyでstageを回収する。通信切断でも検証前tarを正式控えにしない。mount不足時はSSDへ代替しない。受信はload/Compose/サービス停止を行わない。
+
+送信元の `export-image.sh` はtag/ID検証→pipefail付きsave/受信→受信成功後だけ同tagのIDと全container参照を再確認する。変化・参照ありは保持、参照なしの本人tagだけ通常docker image rm（forceなし）で撤去する。他者tag/共有layerはDockerが保護する。受信失敗/中断時は唯一の未確定build imageを保持し、同tagの正規再送成功後に回収する。通常の新releaseごとに送信元tagを溜めない。KIOXIA上でのdocker saveには使わず、既存archiveの元read制限付き転送を使う。
 
 ## imageと控えの保持契約
 
